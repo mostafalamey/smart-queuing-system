@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { Database } from './database.types';
+import { SessionRecovery } from './sessionRecovery';
+import { CacheDetection } from './cacheDetection';
 
 type UserProfile = Database['public']['Tables']['members']['Row'] & {
   organization: Database['public']['Tables']['organizations']['Row'] | null;
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionRecovery] = useState(() => SessionRecovery.getInstance());
 
   // Function to fetch user profile
   const fetchUserProfile = async (userId: string) => {
@@ -58,27 +61,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
     let retryCount = 0;
+    let initializationAttempted = false;
     const maxRetries = 3;
 
     const initializeAuth = async () => {
+      // Prevent multiple simultaneous initialization attempts
+      if (initializationAttempted && retryCount === 0) {
+        return;
+      }
+      
+      initializationAttempted = true;
+
       try {
-        // Get initial session with retry logic
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log(`Auth initialization attempt ${retryCount + 1}/${maxRetries + 1}`);
+        
+        // Check cache status first
+        const cacheStatus = CacheDetection.getCacheStatus();
+        console.log('Cache status:', cacheStatus);
+        
+        // If cache was cleared, handle it gracefully
+        if (cacheStatus.isCacheCleared) {
+          console.log('Browser cache was cleared - starting fresh auth flow');
+          setUser(null);
+          setUserProfile(null);
+          setLoading(false);
+          CacheDetection.setCacheMarker(); // Set marker for future detection
+          return;
+        }
+        
+        // Check if we have stored session data first
+        const hasStoredSession = cacheStatus.hasAuthTokens;
+        console.log('Stored session exists:', hasStoredSession);
+        
+        // Get initial session with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 8000)
+        );
+        
+        const { data: { session }, error } = await Promise.race([
+          sessionPromise, 
+          timeoutPromise
+        ]) as any;
         
         if (!mounted) return;
         
         if (error) {
           console.error('Session error:', error);
-          // Retry logic for session errors
+          
+          // If no stored session and we get an error, don't retry indefinitely
+          if (!hasStoredSession) {
+            console.log('No stored session found, setting auth state to unauthenticated');
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            CacheDetection.setCacheMarker(); // Ensure marker is set
+            return;
+          }
+          
+          // Retry logic for session errors only if we have stored data
           if (retryCount < maxRetries) {
             retryCount++;
+            console.log(`Retrying auth initialization in ${retryCount}s...`);
             setTimeout(initializeAuth, 1000 * retryCount);
             return;
           }
+          
+          // Max retries reached - clear everything
+          console.log('Max retries reached, clearing auth state');
+          setUser(null);
+          setUserProfile(null);
           setLoading(false);
           return;
         }
         
+        console.log('Session retrieved:', session ? 'Found' : 'None');
         setUser(session?.user || null);
         
         if (session?.user) {
@@ -86,17 +143,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         setLoading(false);
+        retryCount = 0; // Reset retry count on success
+        
       } catch (error) {
         console.error('Auth initialization error:', error);
+        
         if (mounted) {
-          // Retry logic for network errors
-          if (retryCount < maxRetries) {
+          // Check if this is a timeout or network error
+          const isTimeoutError = error instanceof Error && error.message === 'Session timeout';
+          const hasStoredSession = checkForStoredSession();
+          
+          if (isTimeoutError && !hasStoredSession) {
+            // Timeout with no stored session - likely cache was cleared
+            console.log('Session timeout with no stored data - cache may have been cleared');
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            return;
+          }
+          
+          // Retry logic for network errors only if we have stored session
+          if (retryCount < maxRetries && hasStoredSession) {
             retryCount++;
+            console.log(`Retrying after error in ${retryCount}s...`);
             setTimeout(initializeAuth, 1000 * retryCount);
             return;
           }
+          
+          // Give up and clear state
+          console.log('Auth initialization failed, clearing state');
+          setUser(null);
+          setUserProfile(null);
           setLoading(false);
         }
+      }
+    };
+
+    // Helper function to check for stored session
+    const checkForStoredSession = (): boolean => {
+      try {
+        if (typeof window === 'undefined') return false;
+        
+        const keys = Object.keys(localStorage).filter(key => 
+          key.startsWith('sb-') && (key.includes('auth-token') || key.includes('session'))
+        );
+        
+        return keys.length > 0 && keys.some(key => {
+          const value = localStorage.getItem(key);
+          return value && value !== 'null' && value !== '{}';
+        });
+      } catch (error) {
+        console.error('Error checking stored session:', error);
+        return false;
       }
     };
 
@@ -110,6 +208,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state changed:', event, session?.user?.id);
         
         try {
+          // Handle specific auth events
+          if (event === 'SIGNED_OUT') {
+            console.log('User signed out');
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            return;
+          }
+          
+          if (event === 'TOKEN_REFRESHED') {
+            console.log('Token refreshed successfully');
+          }
+          
+          if (event === 'SIGNED_IN') {
+            console.log('User signed in');
+          }
+          
           setUser(session?.user || null);
           
           if (session?.user) {
@@ -124,50 +239,134 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error('Auth state change error:', error);
-          setLoading(false);
+          // Don't set loading to false here - let the error handling in visibility change handle it
+          if (event === 'SIGNED_OUT') {
+            setLoading(false);
+          }
         }
       }
     );
 
-    // Handle page visibility changes with improved session refresh
+    // Enhanced tab visibility and focus handling
     const handleVisibilityChange = async () => {
-      if (!document.hidden && !loading) {
-        try {
-          // Page became visible, refresh session
-          const { data: { session }, error } = await supabase.auth.getSession();
+      // Only handle when page becomes visible (user switches back to tab)
+      if (!document.hidden && mounted) {
+        console.log('Tab became visible, checking session...');
+        
+        // Small delay to ensure tab is fully focused
+        setTimeout(async () => {
+          if (!mounted || document.hidden) return;
           
-          if (error) {
-            console.error('Session refresh error:', error);
-            return;
+          try {
+            // Use session recovery to handle the switch
+            const { session, recovered, error } = await sessionRecovery.checkAndRecoverSession();
+            
+            if (error) {
+              console.error('Session recovery failed:', error);
+              if (!loading) {
+                setLoading(true);
+                await initializeAuth();
+              }
+              return;
+            }
+            
+            const currentUser = user;
+            const newUser = session?.user;
+            
+            if (recovered) {
+              console.log('Session recovered successfully');
+            }
+            
+            // Check for auth state mismatch
+            if (newUser && !currentUser) {
+              console.log('Auth state mismatch: user exists but not in context');
+              setUser(newUser);
+              await fetchUserProfile(newUser.id);
+            } else if (!newUser && currentUser) {
+              console.log('Auth state mismatch: no user but exists in context');
+              setUser(null);
+              setUserProfile(null);
+            } else if (newUser && currentUser && newUser.id !== currentUser.id) {
+              console.log('Auth state mismatch: different user');
+              setUser(newUser);
+              await fetchUserProfile(newUser.id);
+            }
+            
+            // Ensure loading is false
+            if (loading) {
+              setLoading(false);
+            }
+            
+          } catch (error) {
+            console.error('Visibility change error:', error);
+            if (!loading) {
+              setLoading(true);
+              await initializeAuth();
+            }
           }
+        }, 100); // Small delay to ensure tab is fully active
+      }
+    };
+
+    // Handle window focus events (additional layer)
+    const handleWindowFocus = async () => {
+      if (mounted && !document.hidden) {
+        console.log('Window focused, performing quick session check...');
+        
+        try {
+          // Quick session check without full recovery
+          const { data: { session } } = await supabase.auth.getSession();
           
-          if (session?.user && !user) {
+          // Quick check - if we have a session but no user in context, refresh
+          if (session?.user && !user && !loading) {
+            console.log('Window focus: Found session but no user in context');
+            setLoading(true);
             setUser(session.user);
             await fetchUserProfile(session.user.id);
+            setLoading(false);
           } else if (!session?.user && user) {
-            setUser(null);
-            setUserProfile(null);
+            console.log('Window focus: No session but user in context, attempting recovery...');
+            const { session: recoveredSession } = await sessionRecovery.forceSessionRefresh();
+            if (!recoveredSession) {
+              setUser(null);
+              setUserProfile(null);
+            }
           }
         } catch (error) {
-          console.error('Visibility change error:', error);
+          console.error('Window focus error:', error);
         }
       }
     };
 
     // Handle network reconnection
-    const handleOnline = () => {
-      if (!user && !loading) {
-        initializeAuth();
+    const handleOnline = async () => {
+      if (mounted) {
+        console.log('Network reconnected, refreshing auth...');
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.user && !user && !loading) {
+            // No session and no user - this is expected
+            return;
+          }
+          if (!user && !loading) {
+            setLoading(true);
+            await initializeAuth();
+          }
+        } catch (error) {
+          console.error('Online handler error:', error);
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('online', handleOnline);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('online', handleOnline);
     };
   }, []);

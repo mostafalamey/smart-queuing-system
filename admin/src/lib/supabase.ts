@@ -9,24 +9,40 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
+    // Enhanced storage with error handling
     storage: {
       getItem: (key: string) => {
         if (typeof window !== 'undefined') {
-          return window.localStorage.getItem(key)
+          try {
+            return window.localStorage.getItem(key)
+          } catch (error) {
+            console.error('localStorage getItem error:', error);
+            return null;
+          }
         }
         return null
       },
       setItem: (key: string, value: string) => {
         if (typeof window !== 'undefined') {
-          window.localStorage.setItem(key, value)
+          try {
+            window.localStorage.setItem(key, value)
+          } catch (error) {
+            console.error('localStorage setItem error:', error);
+          }
         }
       },
       removeItem: (key: string) => {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem(key)
+          try {
+            window.localStorage.removeItem(key)
+          } catch (error) {
+            console.error('localStorage removeItem error:', error);
+          }
         }
       }
-    }
+    },
+    // Add debug and retry settings
+    debug: process.env.NEXT_PUBLIC_DEBUG_MODE === 'true',
   },
   global: {
     headers: {
