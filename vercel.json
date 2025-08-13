@@ -1,0 +1,67 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "admin/package.json",
+            "use": "@vercel/next",
+            "config": {
+                "distDir": ".next"
+            }
+        },
+        {
+            "src": "customer/package.json",
+            "use": "@vercel/next",
+            "config": {
+                "distDir": ".next"
+            }
+        }
+    ],
+    "routes": [
+        {
+            "src": "/admin/(.*)",
+            "dest": "/admin/$1"
+        },
+        {
+            "src": "/customer/(.*)",
+            "dest": "/customer/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/admin/$1"
+        }
+    ],
+    "functions": {
+        "admin/src/app/api/**/*.ts": {
+            "maxDuration": 30
+        },
+        "customer/src/app/api/**/*.ts": {
+            "maxDuration": 30
+        }
+    },
+    "env": {
+        "NEXT_PUBLIC_VERCEL_ENV": "@vercel_env"
+    },
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-XSS-Protection",
+                    "value": "1; mode=block"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "origin-when-cross-origin"
+                }
+            ]
+        }
+    ]
+}

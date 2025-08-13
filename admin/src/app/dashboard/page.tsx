@@ -1,0 +1,682 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { DashboardLayout } from '@/components/DashboardLayout'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/AuthContext'
+import { RefreshCw, Phone, Users } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useAppToast } from '@/hooks/useAppToast'
+
+interface Department {
+  id: string
+  name: string
+  description: string | null
+  branches: {
+    id: string
+    name: string
+  }
+}
+
+interface QueueData {
+  department: Department
+  currentServing: string | null
+  waitingCount: number
+  lastTicketNumber: string | null
+}
+
+export default function DashboardPage() {
+  const { userProfile, user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const { showSuccess, showError, showWarning, showInfo } = useAppToast()
+  const [selectedBranch, setSelectedBranch] = useState<string>('')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [branches, setBranches] = useState<any[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [queueData, setQueueData] = useState<QueueData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [connectionError, setConnectionError] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Ensure component is mounted on client side
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user && mounted) {
+      router.replace('/login')
+    }
+  }, [user, authLoading, router, mounted])
+
+  useEffect(() => {
+    if (userProfile?.organization_id) {
+      fetchBranches()
+    }
+  }, [userProfile])
+
+  useEffect(() => {
+    if (selectedBranch) {
+      fetchDepartments()
+    }
+  }, [selectedBranch])
+
+  useEffect(() => {
+    if (selectedDepartment) {
+      fetchQueueData()
+    }
+  }, [selectedDepartment])
+
+  // Real-time subscriptions for live updates
+  useEffect(() => {
+    if (!selectedDepartment) return
+
+    let ticketsSubscription: any = null
+    let queueSettingsSubscription: any = null
+
+    const setupSubscriptions = () => {
+      try {
+        // Subscribe to tickets changes
+        ticketsSubscription = supabase
+          .channel(`tickets-changes-${selectedDepartment}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'tickets',
+              filter: `department_id=eq.${selectedDepartment}`
+            },
+            (payload) => {
+              console.log('Tickets real-time update:', payload)
+              fetchQueueData()
+            }
+          )
+          .subscribe((status: string) => {
+            if (status === 'SUBSCRIBED') {
+              console.log('Tickets subscription active')
+              setConnectionError(false)
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('Tickets subscription error, retrying...')
+              setConnectionError(true)
+              setTimeout(setupSubscriptions, 5000)
+            }
+          })
+
+        // Subscribe to queue_settings changes
+        queueSettingsSubscription = supabase
+          .channel(`queue-settings-changes-${selectedDepartment}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'queue_settings',
+              filter: `department_id=eq.${selectedDepartment}`
+            },
+            (payload) => {
+              console.log('Queue settings real-time update:', payload)
+              fetchQueueData()
+            }
+          )
+          .subscribe((status: string) => {
+            if (status === 'SUBSCRIBED') {
+              console.log('Queue settings subscription active')
+              setConnectionError(false)
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('Queue settings subscription error, retrying...')
+              setConnectionError(true)
+              setTimeout(setupSubscriptions, 5000)
+            }
+          })
+      } catch (error) {
+        console.error('Error setting up subscriptions:', error)
+        setConnectionError(true)
+      }
+    }
+
+    setupSubscriptions()
+
+    // Handle page visibility changes
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchQueueData()
+        if (connectionError) {
+          setupSubscriptions()
+        }
+      }
+    }
+
+    // Handle online/offline events
+    const handleOnline = () => {
+      console.log('Connection restored')
+      setConnectionError(false)
+      fetchQueueData()
+      setupSubscriptions()
+    }
+
+    const handleOffline = () => {
+      console.log('Connection lost')
+      setConnectionError(true)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Cleanup subscriptions
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      if (ticketsSubscription) {
+        supabase.removeChannel(ticketsSubscription)
+      }
+      if (queueSettingsSubscription) {
+        supabase.removeChannel(queueSettingsSubscription)
+      }
+    }
+  }, [selectedDepartment])
+
+  const fetchBranches = async () => {
+    if (!userProfile?.organization_id) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('organization_id', userProfile.organization_id)
+      
+      if (error) throw error
+      setBranches(data || [])
+      if (data && data.length > 0) {
+        setSelectedBranch(data[0].id)
+      }
+      setConnectionError(false)
+    } catch (error) {
+      console.error('Error fetching branches:', error)
+      setConnectionError(true)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    if (!selectedBranch) return
+    
+    try {
+      const { data } = await supabase
+        .from('departments')
+        .select(`
+          *,
+          branches:branch_id (
+            id,
+            name
+          )
+        `)
+        .eq('branch_id', selectedBranch)
+      
+      setDepartments(data || [])
+      if (data && data.length > 0) {
+        setSelectedDepartment(data[0].id)
+      }
+      setConnectionError(false)
+    } catch (error) {
+      console.error('Error fetching departments:', error)
+      setDepartments([])
+      setConnectionError(true)
+    }
+  }
+
+  const fetchQueueData = async () => {
+    if (!selectedDepartment) return
+
+    setLoading(true)
+    try {
+      // Get department info
+      const { data: department } = await supabase
+        .from('departments')
+        .select(`
+          *,
+          branches:branch_id (
+            id,
+            name
+          )
+        `)
+        .eq('id', selectedDepartment)
+        .single()
+
+      // Get waiting count
+      const { count } = await supabase
+        .from('tickets')
+        .select('*', { count: 'exact' })
+        .eq('department_id', selectedDepartment)
+        .eq('status', 'waiting')
+
+      // Get currently serving ticket
+      const { data: servingTickets } = await supabase
+        .from('tickets')
+        .select('ticket_number')
+        .eq('department_id', selectedDepartment)
+        .eq('status', 'serving')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+
+      // Get last ticket number
+      const { data: lastTickets } = await supabase
+        .from('tickets')
+        .select('ticket_number')
+        .eq('department_id', selectedDepartment)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      setQueueData({
+        department,
+        currentServing: servingTickets?.[0]?.ticket_number || null,
+        waitingCount: count || 0,
+        lastTicketNumber: lastTickets?.[0]?.ticket_number || null,
+      })
+
+      setConnectionError(false)
+    } catch (error) {
+      console.error('Error fetching queue data:', error)
+      setQueueData(null)
+      setConnectionError(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const callNext = async () => {
+    if (!selectedDepartment || !queueData) return
+
+    setLoading(true)
+    try {
+      // Get next waiting ticket
+      const { data: nextTickets } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('department_id', selectedDepartment)
+        .eq('status', 'waiting')
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+      const nextTicket = nextTickets?.[0]
+
+      if (nextTicket) {
+        // Mark any currently serving ticket as completed
+        await supabase
+          .from('tickets')
+          .update({ 
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('department_id', selectedDepartment)
+          .eq('status', 'serving')
+
+        // Update next ticket status to serving
+        await supabase
+          .from('tickets')
+          .update({ 
+            status: 'serving',
+            called_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', nextTicket.id)
+
+        // Update queue settings
+        await supabase
+          .from('queue_settings')
+          .upsert({
+            department_id: selectedDepartment,
+            current_serving: nextTicket.ticket_number
+          })
+
+        fetchQueueData()
+        setConnectionError(false)
+        
+        // Show success toast
+        showSuccess(
+          'Customer Called Successfully!',
+          `Now serving ticket ${nextTicket.ticket_number}`,
+          {
+            label: 'View Details',
+            onClick: () => console.log('View ticket details', nextTicket.id)
+          }
+        )
+      } else {
+        // No waiting customers
+        showInfo(
+          'No Customers Waiting',
+          'The queue is currently empty. No customers to call.'
+        )
+      }
+    } catch (error) {
+      console.error('Error calling next ticket:', error)
+      setConnectionError(true)
+      
+      // Show error toast
+      showError(
+        'Failed to Call Next Customer',
+        'There was an error processing your request. Please try again.',
+        {
+          label: 'Retry',
+          onClick: () => callNext()
+        }
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetQueue = async () => {
+    if (!selectedDepartment) return
+
+    try {
+      // Reset all tickets to cancelled
+      await supabase
+        .from('tickets')
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('department_id', selectedDepartment)
+        .in('status', ['waiting', 'serving'])
+
+      // Clear current serving
+      await supabase
+        .from('queue_settings')
+        .update({ current_serving: null })
+        .eq('department_id', selectedDepartment)
+
+      fetchQueueData()
+      setConnectionError(false)
+      
+      // Show success toast for reset
+      showWarning(
+        'Queue Reset Successfully',
+        'All pending tickets have been cancelled and the queue has been cleared.',
+        {
+          label: 'Refresh Data',
+          onClick: () => fetchQueueData()
+        }
+      )
+    } catch (error) {
+      console.error('Error resetting queue:', error)
+      setConnectionError(true)
+      
+      // Show error toast for reset failure
+      showError(
+        'Failed to Reset Queue',
+        'Unable to reset the queue. Please check your connection and try again.',
+        {
+          label: 'Try Again',
+          onClick: () => resetQueue()
+        }
+      )
+    }
+  }
+
+  const handleRefresh = () => {
+    fetchQueueData()
+    if (connectionError) {
+      fetchBranches()
+    }
+    
+    // Show refresh toast
+    showInfo(
+      'Data Refreshed',
+      'Queue information has been updated with the latest data.'
+    )
+  }
+
+  // Show loading if auth is still loading or component not mounted
+  if (authLoading || !mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <div className="w-6 h-6 bg-white rounded animate-pulse"></div>
+          </div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render if user is not authenticated
+  if (!user) {
+    return null
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="p-6 space-y-6" suppressHydrationWarning={true}>
+        {/* Enhanced Header with Gradient */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-celestial-500 via-french-blue-500 to-celestial-600 rounded-2xl p-8 text-white shadow-xl">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-16 -translate-x-16"></div>
+          
+          <div className="relative flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">Queue Dashboard</h1>
+              <p className="text-white/80 text-lg">Monitor and manage active queues across all departments</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="group relative overflow-hidden bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 disabled:opacity-50 border border-white/30"
+              >
+                <div className="absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                <div className="relative flex items-center space-x-2">
+                  <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-300`} />
+                  <span>Refresh</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Connection Error Warning */}
+        {connectionError && (
+          <div className="relative overflow-hidden bg-gradient-to-r from-citrine-50 to-yellow-50 border border-citrine-200 rounded-xl p-6 shadow-sm">
+            <div className="absolute inset-0 bg-citrine-100/20"></div>
+            <div className="relative flex items-center space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-citrine-400 rounded-full flex items-center justify-center">
+                  <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-citrine-800 font-semibold">Connection Issues Detected</h3>
+                <p className="text-citrine-700 text-sm mt-1">
+                  Data may not be real-time. 
+                  <button 
+                    onClick={handleRefresh}
+                    className="ml-2 text-citrine-800 underline hover:no-underline font-medium transition-colors duration-200"
+                  >
+                    Try refreshing
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Enhanced Queue Manager */}
+          <div className="xl:col-span-4">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Main Queue Manager Card */}
+              <div className="lg:col-span-2">
+                <div className="relative overflow-hidden bg-gradient-to-br from-white to-celestial-50 rounded-2xl shadow-xl border-0 hover:shadow-2xl transition-all duration-300 group">
+                  {/* Animated Background Elements */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-celestial-200/30 to-french-200/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform duration-500"></div>
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-yellowgreen-200/20 to-citrine-200/10 rounded-full translate-y-12 -translate-x-12 group-hover:scale-110 transition-transform duration-500"></div>
+                  
+                  <div className="relative p-8">
+                    <div className="flex items-center space-x-4 mb-8">
+                      <div className="relative group/icon">
+                        <div className="absolute inset-0 bg-gradient-to-br from-celestial-400 to-french-500 rounded-2xl blur-sm opacity-70 group-hover/icon:opacity-100 transition-opacity duration-300"></div>
+                        <div className="relative w-14 h-14 bg-gradient-to-br from-celestial-500 to-french-600 rounded-2xl flex items-center justify-center shadow-lg group-hover/icon:shadow-xl group-hover/icon:scale-105 transition-all duration-300">
+                          <Users className="w-7 h-7 text-white" />
+                        </div>
+                      </div>
+                      <div>
+                        <h2 className="text-3xl font-bold text-gray-900 mb-1">Queue Manager</h2>
+                        <p className="text-gray-600 text-lg">Control and monitor queue operations</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-8">
+                      {/* Branch Status Badge */}
+                      {selectedBranch && (
+                        <div className="flex items-center space-x-4 mb-6">
+                          <div className="flex items-center space-x-3 px-5 py-3 bg-gradient-to-r from-yellowgreen-100 to-citrine-100 text-yellowgreen-800 rounded-2xl text-sm border border-yellowgreen-200 shadow-md hover:shadow-lg transition-all duration-200">
+                            <div className="w-3 h-3 bg-gradient-to-r from-yellowgreen-500 to-citrine-500 rounded-full animate-pulse shadow-sm"></div>
+                            <span className="font-bold">
+                              {branches.find(b => b.id === selectedBranch)?.name || 'MAIN BRANCH'} 
+                            </span>
+                            <span className="text-yellowgreen-600 font-semibold">• ACTIVE</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Enhanced Branch Selection */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          Select Branch
+                        </label>
+                        <div className="relative group">
+                          <select
+                            value={selectedBranch}
+                            onChange={(e) => setSelectedBranch(e.target.value)}
+                            className="w-full px-5 py-4 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-3 focus:ring-celestial-200 focus:border-celestial-500 transition-all duration-200 appearance-none cursor-pointer hover:border-celestial-300 hover:shadow-md text-gray-900 font-medium"
+                            aria-label="Select Branch"
+                          >
+                            <option value="">Choose a branch...</option>
+                            {branches.map((branch) => (
+                              <option key={branch.id} value={branch.id}>
+                                {branch.name} - {branch.address}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                            <svg className="w-5 h-5 text-celestial-500 group-hover:text-celestial-600 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Enhanced Department Selection */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          Select Department
+                        </label>
+                        <div className="relative group">
+                          <select
+                            value={selectedDepartment}
+                            onChange={(e) => setSelectedDepartment(e.target.value)}
+                            className="w-full px-5 py-4 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-3 focus:ring-celestial-200 focus:border-celestial-500 transition-all duration-200 appearance-none cursor-pointer hover:border-celestial-300 hover:shadow-md text-gray-900 font-medium"
+                            aria-label="Select Department"
+                          >
+                            <option value="">Choose a department...</option>
+                          {departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </option>
+                          ))}
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                            <svg className="w-5 h-5 text-celestial-500 group-hover:text-celestial-600 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Currently Serving Banner */}
+                      {queueData && (
+                        <div className="relative overflow-hidden bg-gradient-to-r from-caramel-100 to-citrine-100 rounded-2xl p-6 border border-caramel-200 shadow-lg hover:shadow-xl transition-all duration-300">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-caramel-200/30 to-citrine-200/20 rounded-full -translate-y-8 translate-x-8"></div>
+                          <div className="relative">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-caramel-500 to-citrine-500 rounded-xl flex items-center justify-center shadow-md">
+                                <span className="text-white text-sm font-bold">📢</span>
+                              </div>
+                              <span className="text-caramel-800 font-bold text-lg">Currently Serving</span>
+                            </div>
+                            <p className="text-caramel-700 font-semibold text-xl">
+                              {queueData.currentServing ? `Ticket ${queueData.currentServing}` : 'No ticket currently being served'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Queue Status and Actions - Side Panel */}
+              <div className="lg:col-span-3">
+                {queueData && (
+                  <div className="relative overflow-hidden bg-gradient-to-br from-celestial-500 to-french-600 rounded-2xl p-8 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 group h-full">
+                    {/* Animated Background Elements */}
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform duration-500"></div>
+                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8 group-hover:scale-110 transition-transform duration-500"></div>
+                    
+                    <div className="relative h-full flex flex-col">
+                      <div className="flex items-center space-x-3 mb-6">
+                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                          <Users className="w-6 h-6 text-white" />
+                        </div>
+                        <span className="font-bold text-xl">Queue Status</span>
+                      </div>
+                      <div className="flex-1 flex flex-col justify-center">
+                        <div className="text-center mb-8">
+                          <div className="text-6xl font-black mb-3 text-white drop-shadow-lg">{queueData.waitingCount || 0}</div>
+                          <div className="text-celestial-100 text-xl font-semibold">Customers Waiting</div>
+                        </div>
+                        <div className="space-y-4">
+                          {/* Enhanced Call Next Button - Main Action */}
+                          <button
+                            onClick={callNext}
+                            disabled={!queueData.waitingCount || loading}
+                            className="w-full relative overflow-hidden bg-gradient-to-r from-yellowgreen-500 to-citrine-500 hover:from-yellowgreen-600 hover:to-citrine-600 disabled:from-gray-400 disabled:to-gray-500 text-white py-6 rounded-2xl font-black text-xl transition-all duration-200 shadow-2xl hover:shadow-3xl disabled:shadow-none group/btn transform hover:scale-105 disabled:transform-none"
+                          >
+                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
+                            <div className="relative flex items-center justify-center">
+                              <Phone className="w-7 h-7 mr-3 group-hover/btn:rotate-12 transition-transform duration-200" />
+                              <span className="text-2xl">{loading ? 'Calling...' : 'Call Next Customer'}</span>
+                            </div>
+                          </button>
+                          {/* Secondary Reset Button */}
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to reset the queue? This will cancel all waiting tickets.')) {
+                                resetQueue()
+                              }
+                            }}
+                            className="w-full relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group/btn"
+                          >
+                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
+                            <span className="relative">Reset Queue</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  )
+}
+
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic'

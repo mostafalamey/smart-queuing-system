@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply bg-primary-500 text-white font-sans;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-primary-600 font-medium py-3 px-6 rounded-xl border border-white transition-colors duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-2xl shadow-lg;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+  }
+  
+  .step-indicator {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium;
+  }
+  
+  .step-active {
+    @apply bg-primary-600 text-white;
+  }
+  
+  .step-inactive {
+    @apply bg-gray-300 text-gray-500;
+  }
+
+  .dynamic-bg {
+    background-color: var(--brand-color, #3b82f6);
+  }
+
+  .dynamic-button {
+    background-color: var(--brand-color, #3b82f6);
+  }
+
+  .dynamic-button:hover {
+    background-color: var(--brand-color-dark, #2563eb);
+  }
+
+  .dynamic-icon-bg {
+    background-color: var(--brand-color, #3b82f6);
+  }
+}

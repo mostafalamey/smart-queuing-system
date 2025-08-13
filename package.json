@@ -1,0 +1,39 @@
+{
+    "name": "smart-queuing-system",
+    "version": "1.0.0",
+    "description": "Smart Queue Management System - Complete SaaS Solution",
+    "main": "start-dev.js",
+    "scripts": {
+        "dev": "node start-dev.js",
+        "dev:clean": "npm run clean:cache && node start-dev.js",
+        "dev:admin": "cd admin && npm run dev",
+        "dev:customer": "cd customer && npm run dev",
+        "build": "npm run build:admin && npm run build:customer",
+        "build:admin": "cd admin && npm run build",
+        "build:customer": "cd customer && npm run build",
+        "install:all": "npm install && cd admin && npm install && cd ../customer && npm install",
+        "clean": "rimraf admin/.next admin/node_modules customer/.next customer/node_modules",
+        "clean:cache": "rimraf admin/.next customer/.next"
+    },
+    "keywords": [
+        "queue-management",
+        "saas",
+        "nextjs",
+        "supabase",
+        "react",
+        "typescript"
+    ],
+    "author": "Smart Queue Team",
+    "license": "MIT",
+    "devDependencies": {
+        "rimraf": "^5.0.5"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+    },
+    "workspaces": [
+        "admin",
+        "customer"
+    ]
+}
