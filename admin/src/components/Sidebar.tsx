@@ -56,7 +56,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-br from-celestial-600 via-french-600 to-celestial-700 transform transition-all duration-300 ease-out shadow-2xl",
+        "fixed inset-y-0 left-0 z-50 w-84 bg-gradient-to-br from-celestial-600 via-french-600 to-celestial-700 transform transition-all duration-300 ease-out shadow-2xl",
         isOpen ? "translate-x-0" : "-translate-x-full",
         "lg:translate-x-0"
       )}>

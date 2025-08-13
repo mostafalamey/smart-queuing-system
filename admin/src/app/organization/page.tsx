@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
-import { Building2, QrCode, Users, Download, Share, Copy, Upload, X } from 'lucide-react'
+import { Building2, QrCode, Users, Download, Share, Copy, Upload, X, RefreshCw } from 'lucide-react'
 import QRCode from 'qrcode'
 import { ColorPreview } from '@/components/ColorPreview'
 import { useAppToast } from '@/hooks/useAppToast'
@@ -29,6 +29,7 @@ export default function OrganizationPage() {
   const [inviteRole, setInviteRole] = useState('employee')
   const [inviting, setInviting] = useState(false)
   const [testMode, setTestMode] = useState(false)
+  const [qrGenerating, setQrGenerating] = useState(false)
 
   const [orgForm, setOrgForm] = useState({
     name: '',
@@ -46,9 +47,15 @@ export default function OrganizationPage() {
       fetchOrganization()
       fetchMembers()
       fetchBranches()
-      generateQRCode()
     }
   }, [userProfile])
+
+  // Generate QR code after organization data is loaded
+  useEffect(() => {
+    if (userProfile?.organization_id && organization?.name) {
+      generateQRCode()
+    }
+  }, [userProfile?.organization_id, organization?.name])
 
   const fetchOrganization = async () => {
     if (!userProfile?.organization_id) return;
@@ -129,7 +136,15 @@ export default function OrganizationPage() {
   }
 
   const generateQRCode = async () => {
-    if (!userProfile?.organization_id || !organization?.name) return;
+    if (!userProfile?.organization_id || !organization?.name) {
+      return;
+    }
+    
+    if (qrGenerating) {
+      return;
+    }
+    
+    setQrGenerating(true);
     
     try {
       const response = await fetch('/api/generate-qr', {
@@ -149,6 +164,8 @@ export default function OrganizationPage() {
       }
     } catch (error) {
       console.error('Error generating QR code:', error)
+    } finally {
+      setQrGenerating(false);
     }
   }
 
@@ -420,6 +437,145 @@ export default function OrganizationPage() {
       )
     } catch (error) {
       showError('Copy Failed', 'Unable to copy URL to clipboard.')
+    }
+  }
+
+  const printBranchQR = (branchId: string, branchName: string) => {
+    const qrCode = branchQrCodes[branchId]
+    if (!qrCode) {
+      showError('Print Failed', 'QR code not available. Please generate it first.')
+      return
+    }
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      showError('Print Failed', 'Unable to open print window. Please check your browser settings.')
+      return
+    }
+
+    const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
+    const url = `${customerUrl}?org=${userProfile?.organization_id}&branch=${branchId}`
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>QR Code - ${branchName}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              text-align: center;
+              padding: 20px;
+              margin: 0;
+            }
+            .qr-container {
+              max-width: 400px;
+              margin: 0 auto;
+              padding: 20px;
+              border: 2px solid #e5e7eb;
+              border-radius: 8px;
+            }
+            .org-name {
+              font-size: 24px;
+              font-weight: bold;
+              color: #1f2937;
+              margin-bottom: 10px;
+            }
+            .branch-name {
+              font-size: 20px;
+              color: #374151;
+              margin-bottom: 20px;
+            }
+            .qr-code {
+              margin: 20px 0;
+              border: 1px solid #d1d5db;
+              border-radius: 4px;
+            }
+            .instructions {
+              font-size: 16px;
+              color: #6b7280;
+              margin-top: 20px;
+              line-height: 1.5;
+            }
+            .url {
+              font-size: 12px;
+              color: #9ca3af;
+              word-break: break-all;
+              margin-top: 15px;
+              padding: 10px;
+              background: #f9fafb;
+              border-radius: 4px;
+            }
+            @media print {
+              body { margin: 0; }
+              .qr-container { border: 2px solid #000; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="qr-container">
+            <div class="org-name">${organization?.name || 'Organization'}</div>
+            <div class="branch-name">${branchName} Branch</div>
+            <img src="${qrCode}" alt="QR Code for ${branchName}" class="qr-code" />
+            <div class="instructions">
+              Scan this QR code with your phone to join the queue at ${branchName}
+            </div>
+            <div class="url">${url}</div>
+          </div>
+        </body>
+      </html>
+    `)
+    
+    printWindow.document.close()
+    printWindow.focus()
+    
+    // Wait for image to load before printing
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 1000)
+
+    showSuccess(
+      'Print Dialog Opened!',
+      `${branchName} QR code is ready for printing.`
+    )
+  }
+
+  const refreshBranchQR = async (branchId: string, branchName: string) => {
+    if (!userProfile?.organization_id || !organization?.name) {
+      showError('Refresh Failed', 'Missing organization data. Please try again.')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/generate-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          organizationId: userProfile.organization_id,
+          branchId: branchId,
+          organizationName: organization.name
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setBranchQrCodes(prev => ({
+          ...prev,
+          [branchId]: data.qrCodeDataURL
+        }))
+        showSuccess(
+          'QR Code Refreshed!',
+          `${branchName} QR code has been regenerated successfully.`
+        )
+      } else {
+        showError('Refresh Failed', 'Unable to generate QR code. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error refreshing branch QR code:', error)
+      showError('Refresh Failed', 'An error occurred while refreshing the QR code.')
     }
   }
 
@@ -926,32 +1082,67 @@ export default function OrganizationPage() {
                 </p>
 
                 <div className="text-center">
-                  {qrCodeUrl && (
+                  {qrCodeUrl ? (
                     <img
                       src={qrCodeUrl}
                       alt="General Access QR Code"
                       className="mx-auto mb-4 border border-gray-200 rounded"
                     />
+                  ) : qrGenerating ? (
+                    <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-blue-50 flex items-center justify-center">
+                      <div className="text-center">
+                        <QrCode className="w-12 h-12 text-blue-400 mx-auto mb-2 animate-pulse" />
+                        <p className="text-blue-600">Generating QR Code...</p>
+                      </div>
+                    </div>
+                  ) : organization?.name ? (
+                    <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                      <div className="text-center">
+                        <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-500">QR Code not available</p>
+                        <p className="text-xs text-gray-400 mt-1">Click refresh to generate</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-yellow-50 flex items-center justify-center">
+                      <div className="text-center">
+                        <QrCode className="w-12 h-12 text-yellow-400 mx-auto mb-2" />
+                        <p className="text-yellow-700">Waiting for organization data...</p>
+                      </div>
+                    </div>
                   )}
                   
-                  <div className="flex justify-center space-x-2">
+                  <div className="flex flex-wrap gap-2 justify-center">
                     <button
                       onClick={downloadQR}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={!qrCodeUrl}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       <Download className="w-4 h-4" />
                       <span>Download</span>
                     </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                    <button 
+                      disabled={!qrCodeUrl}
+                      className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
                       <Share className="w-4 h-4" />
                       <span>Print</span>
                     </button>
                     <button
                       onClick={copyQRUrl}
-                      className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      disabled={!qrCodeUrl}
+                      className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       <Copy className="w-4 h-4" />
                       <span>Copy URL</span>
+                    </button>
+                    <button
+                      onClick={generateQRCode}
+                      disabled={qrGenerating || !organization?.name}
+                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${qrGenerating ? 'animate-spin' : ''}`} />
+                      <span>{qrGenerating ? 'Generating...' : 'Refresh'}</span>
                     </button>
                   </div>
 
@@ -995,29 +1186,54 @@ export default function OrganizationPage() {
                         )}
 
                         <div className="text-center">
-                          {branchQrCodes[branch.id] && (
+                          {branchQrCodes[branch.id] ? (
                             <img
                               src={branchQrCodes[branch.id]}
                               alt={`QR Code for ${branch.name}`}
-                              className="mx-auto mb-4 border border-gray-200 rounded w-[150px] h-[150px]"
+                              className="mx-auto mb-4 border border-gray-200 rounded w-[250px] h-[250px]"
                             />
+                          ) : (
+                            <div className="mx-auto mb-4 w-[200px] h-[200px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                              <div className="text-center">
+                                <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">QR Code not available</p>
+                                <p className="text-xs text-gray-400 mt-1">Click refresh to generate</p>
+                              </div>
+                            </div>
                           )}
                           
                           <div className="flex flex-col space-y-2">
-                            <div className="flex space-x-2 justify-center">
+                            <div className="flex flex-wrap gap-2 justify-center">
                               <button
                                 onClick={() => downloadBranchQR(branch.id, branch.name)}
-                                className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                                disabled={!branchQrCodes[branch.id]}
+                                className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                               >
                                 <Download className="w-3 h-3" />
                                 <span>Download</span>
                               </button>
                               <button
-                                onClick={() => copyBranchQRUrl(branch.id)}
-                                className="flex items-center space-x-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors"
+                                onClick={() => printBranchQR(branch.id, branch.name)}
+                                disabled={!branchQrCodes[branch.id]}
+                                className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                              >
+                                <Share className="w-3 h-3" />
+                                <span>Print</span>
+                              </button>
+                              <button
+                                onClick={() => copyBranchQRUrl(branch.id, branch.name)}
+                                disabled={!branchQrCodes[branch.id]}
+                                className="flex items-center space-x-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                               >
                                 <Copy className="w-3 h-3" />
                                 <span>Copy URL</span>
+                              </button>
+                              <button
+                                onClick={() => refreshBranchQR(branch.id, branch.name)}
+                                className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Refresh</span>
                               </button>
                             </div>
                             

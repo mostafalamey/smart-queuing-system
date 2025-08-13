@@ -1,12 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AuthLoadingOverlayProps {
   isVisible: boolean;
 }
 
 export const AuthLoadingOverlay: React.FC<AuthLoadingOverlayProps> = ({ isVisible }) => {
+  const [message, setMessage] = useState('Authenticating...');
+  const [showProgress, setShowProgress] = useState(false);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setMessage('Authenticating...');
+      setShowProgress(false);
+      return;
+    }
+
+    const timer1 = setTimeout(() => {
+      setMessage('Verifying your session...');
+      setShowProgress(true);
+    }, 3000);
+
+    const timer2 = setTimeout(() => {
+      setMessage('Almost ready...');
+    }, 8000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [isVisible]);
+
   if (!isVisible) return null;
 
   return (
@@ -22,11 +47,16 @@ export const AuthLoadingOverlay: React.FC<AuthLoadingOverlayProps> = ({ isVisibl
           {/* Loading text */}
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Authenticating...
+              {message}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Please wait while we verify your session
             </p>
+            {showProgress && (
+              <div className="mt-3 w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                <div className="bg-blue-500 h-1.5 rounded-full animate-pulse w-3/5"></div>
+              </div>
+            )}
           </div>
           
           {/* Progress dots */}

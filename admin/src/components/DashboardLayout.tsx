@@ -44,7 +44,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     alt="Smart Queue Logo"
                     width={20}
                     height={20}
-                    className="w-5 h-5 object-contain filter brightness-0 invert"
+                    className="w-5 h-5 object-contain drop-shadow-sm"
                   />
                 </div>
               </div>

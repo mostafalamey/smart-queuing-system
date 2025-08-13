@@ -29,14 +29,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authOverlayVisible, setAuthOverlayVisible] = useState(true);
+  const [overlayStartTime] = useState(() => Date.now()); // Track when overlay started
   const [sessionRecovery] = useState(() => SessionRecovery.getInstance());
+
+  // Helper function to hide overlay with minimum display time
+  const hideAuthOverlay = (immediate = false) => {
+    if (immediate) {
+      setAuthOverlayVisible(false);
+      return;
+    }
+
+    const minDisplayTime = 1500; // Minimum 1.5 seconds display
+    const elapsed = Date.now() - overlayStartTime;
+    const remainingTime = Math.max(0, minDisplayTime - elapsed);
+
+    setTimeout(() => {
+      setAuthOverlayVisible(false);
+    }, remainingTime);
+  };
 
   // Function to fetch user profile
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('Fetching user profile for:', userId);
       
-      // Reduced timeout to 5s for faster feedback
+      // Increased timeout to 10s for production reliability
       const profilePromise = supabase
         .from('members')
         .select(`
@@ -47,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
       
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
       );
       
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
@@ -85,6 +102,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let initializationAttempted = false;
     const maxRetries = 3;
 
+    // Safety timeout to prevent overlay from staying visible forever
+    const safetyTimeout = setTimeout(() => {
+      if (authOverlayVisible && mounted) {
+        console.warn('Safety timeout reached - hiding auth overlay');
+        hideAuthOverlay(true);
+        setLoading(false);
+      }
+    }, 15000); // 15 second safety net
+
     const initializeAuth = async () => {
       // Prevent multiple simultaneous initialization attempts
       if (initializationAttempted && retryCount === 0) {
@@ -106,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setUserProfile(null);
           setLoading(false);
-          setAuthOverlayVisible(false); // Hide overlay when cache cleared
+          setAuthOverlayVisible(false); // Hide overlay when cache cleared (immediate)
           CacheDetection.setCacheMarker(); // Set marker for future detection
           return;
         }
@@ -157,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         setLoading(false);
-        setAuthOverlayVisible(false); // Hide auth overlay on completion
+        hideAuthOverlay(); // Hide auth overlay with minimum display time
         retryCount = 0; // Reset retry count on success
         
       } catch (error) {
@@ -258,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Always set loading to false after processing auth state change
           console.log('Setting loading to false');
           setLoading(false);
-          setAuthOverlayVisible(false); // Hide auth overlay when auth state is processed
+          hideAuthOverlay(); // Hide auth overlay when auth state is processed
         } catch (error) {
           console.error('Auth state change error:', error);
           // Don't set loading to false here - let the error handling in visibility change handle it
@@ -321,11 +347,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             // Hide overlay after visibility change handling
-            setAuthOverlayVisible(false);
+            hideAuthOverlay();
             
           } catch (error) {
             console.error('Visibility change error:', error);
-            setAuthOverlayVisible(false); // Hide overlay even on error
+            hideAuthOverlay(true); // Hide overlay immediately on error
             if (!loading) {
               setLoading(true);
               await initializeAuth();
@@ -391,6 +417,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
