@@ -18,6 +18,7 @@
 ## 📋 **Features**
 
 ### 🔐 **Admin Dashboard**
+
 - **Authentication System** - Secure login with Supabase Auth
 - **Organization Management** - Multi-tenant architecture
 - **Branch & Department Management** - Hierarchical structure
@@ -28,6 +29,7 @@
 - **Professional UI** - Dark theme with responsive design
 
 ### 📱 **Customer Application**
+
 - **Mobile-First Design** - Optimized for smartphones
 - **Dynamic Theming** - Organization-branded experience
 - **Real-time Updates** - Live queue status and notifications
@@ -36,6 +38,7 @@
 - **Offline Capabilities** - Progressive Web App features
 
 ### 🛠️ **Technical Features**
+
 - **TypeScript** - Full type safety
 - **Server-Side Rendering** - Next.js 14 App Router
 - **Real-time Subscriptions** - Supabase WebSocket integration
@@ -60,23 +63,27 @@
 ## 🚀 **Quick Start**
 
 ### Prerequisites
+
 - Node.js 18+ and npm 8+
 - Supabase account and project
 
 ### Development Setup
 
 1. **Clone the repository**
+
 ```bash
 git clone https://github.com/mostafalamey/smart-queuing-system.git
 cd smart-queuing-system
 ```
 
 2. **Install dependencies**
+
 ```bash
 npm run install:all
 ```
 
 3. **Configure environment variables**
+
 ```bash
 # Copy and configure admin environment
 cp admin/.env.production.template admin/.env.local
@@ -86,16 +93,19 @@ cp customer/.env.production.template customer/.env.local
 ```
 
 4. **Set up database**
+
 - Import `DATABASE_SETUP.md` schema into your Supabase project
 
 5. **Start development servers**
+
 ```bash
 npm run dev
 ```
 
 **Applications will be available at:**
-- 📊 **Admin Dashboard**: http://localhost:3001
-- 📱 **Customer App**: http://localhost:3002
+
+- 📊 **Admin Dashboard**: <http://localhost:3001>
+- 📱 **Customer App**: <http://localhost:3002>
 
 ---
 
@@ -158,6 +168,7 @@ npm run install:all      # Install all dependencies
 ```
 
 ### Development Tools
+
 - **Hot Reload** - Instant development feedback
 - **TypeScript** - Full type checking
 - **ESLint** - Code quality enforcement
@@ -180,6 +191,7 @@ npm run install:all      # Install all dependencies
 ## 🎯 **MVP Status**
 
 ✅ **COMPLETED FEATURES**
+
 - [x] Authentication system with Supabase
 - [x] Organization and branch management
 - [x] Real-time queue updates
@@ -190,6 +202,7 @@ npm run install:all      # Install all dependencies
 - [x] Production deployment configuration
 
 🚧 **UPCOMING FEATURES**
+
 - [ ] WhatsApp notifications
 - [ ] Advanced analytics dashboard
 - [ ] Multi-language support

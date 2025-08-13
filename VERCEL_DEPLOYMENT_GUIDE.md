@@ -21,7 +21,7 @@ This project uses a **monorepo approach** with two separate Next.js applications
 ```bash
 # Commit all changes
 git add .
-git commit -m "Fix build issues and add Vercel configuration"
+git commit -m "Fix Vercel configuration for separate app deployments"
 git push origin main
 ```
 

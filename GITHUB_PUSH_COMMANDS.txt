@@ -1,0 +1,18 @@
+# 🚀 GitHub Push Commands
+# Run these commands after creating your GitHub repository
+
+# STEP 1: Add remote origin (REPLACE WITH YOUR ACTUAL GITHUB URL)
+git remote add origin https://github.com/mostafalamey/smart-queuing-system.git
+
+# STEP 2: Rename branch to main
+git branch -M main
+
+# STEP 3: Push to GitHub
+git push -u origin main
+
+# 🎉 After successful push, your repository will be live on GitHub!
+
+# VERIFICATION: Check repository status
+git remote -v
+git status
+git log --oneline

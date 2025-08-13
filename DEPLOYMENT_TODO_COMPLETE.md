@@ -73,7 +73,7 @@ After deployment, update these environment variables:
 
 ### Admin Application
 
-```
+```text
 ✓ Compiled successfully
 ✓ 13 static pages generated
 ✓ 2 API routes configured
@@ -82,7 +82,7 @@ After deployment, update these environment variables:
 
 ### Customer Application  
 
-```
+```text
 ✓ Compiled successfully
 ✓ 4 static pages generated
 ✓ 87.1 kB shared JS bundle
