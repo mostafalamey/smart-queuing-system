@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Function to fetch user profile
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching user profile for:', userId);
       const { data, error } = await supabase
         .from('members')
         .select(`
@@ -42,11 +43,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
+        console.error('Profile fetch error:', error);
         throw error;
       }
       
+      console.log('Profile fetched successfully:', data?.email);
       setUserProfile(data);
     } catch (error) {
+      console.error('Failed to fetch user profile:', error);
       setUserProfile(null);
     }
   };
@@ -216,18 +220,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('User signed in');
           }
           
+          console.log('Setting user in context:', session?.user?.id);
           setUser(session?.user || null);
           
           if (session?.user) {
+            console.log('Fetching profile for signed in user...');
             await fetchUserProfile(session.user.id);
+            console.log('Profile fetch completed');
           } else {
+            console.log('No session user, clearing profile');
             setUserProfile(null);
           }
           
-          // Only set loading to false if we're not in the middle of a sign in
-          if (event !== 'SIGNED_IN' || session) {
-            setLoading(false);
-          }
+          // Always set loading to false after processing auth state change
+          console.log('Setting loading to false');
+          setLoading(false);
         } catch (error) {
           console.error('Auth state change error:', error);
           // Don't set loading to false here - let the error handling in visibility change handle it
