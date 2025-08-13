@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
 import { RefreshCw, Phone, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useAppToast } from '@/hooks/useAppToast'
+import { ToastConfirmation } from '../../lib/ticketCleanup'
+import { useAppToast } from '../../hooks/useAppToast'
 
 interface Department {
   id: string
@@ -368,7 +369,7 @@ export default function DashboardPage() {
     }
   }
 
-  const resetQueue = async () => {
+  const resetQueue = async (includeCleanup: boolean = false) => {
     if (!selectedDepartment) return
 
     try {
@@ -382,10 +383,60 @@ export default function DashboardPage() {
         .eq('department_id', selectedDepartment)
         .in('status', ['waiting', 'serving'])
 
-      // Clear current serving
+      // Optional: Clean up old completed/cancelled tickets
+      if (includeCleanup) {
+        // Archive and delete completed/cancelled tickets older than 24 hours
+        const cutoffTime = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString()
+        
+        // First archive them (optional - you can skip this if you don't want archiving)
+        const { data: oldTickets } = await supabase
+          .from('tickets')
+          .select('*')
+          .eq('department_id', selectedDepartment)
+          .in('status', ['completed', 'cancelled'])
+          .lt('updated_at', cutoffTime)
+
+        if (oldTickets && oldTickets.length > 0) {
+          // Archive to tickets_archive table (if it exists)
+          try {
+            await supabase
+              .from('tickets_archive')
+              .insert(
+                oldTickets.map(ticket => ({
+                  original_ticket_id: ticket.id,
+                  department_id: ticket.department_id,
+                  ticket_number: ticket.ticket_number,
+                  customer_phone: ticket.customer_phone,
+                  status: ticket.status,
+                  priority: ticket.priority,
+                  estimated_service_time: ticket.estimated_service_time,
+                  created_at: ticket.created_at,
+                  updated_at: ticket.updated_at,
+                  called_at: ticket.called_at,
+                  completed_at: ticket.completed_at
+                }))
+              )
+          } catch (archiveError) {
+            console.log('Archive table not available, skipping archival')
+          }
+
+          // Delete old tickets
+          await supabase
+            .from('tickets')
+            .delete()
+            .eq('department_id', selectedDepartment)
+            .in('status', ['completed', 'cancelled'])
+            .lt('updated_at', cutoffTime)
+        }
+      }
+
+      // Clear current serving and reset ticket numbering
       await supabase
         .from('queue_settings')
-        .update({ current_serving: null })
+        .update({ 
+          current_serving: null,
+          last_ticket_number: 0
+        })
         .eq('department_id', selectedDepartment)
 
       fetchQueueData()
@@ -394,7 +445,9 @@ export default function DashboardPage() {
       // Show success toast for reset
       showWarning(
         'Queue Reset Successfully',
-        'All pending tickets have been cancelled and the queue has been cleared.',
+        includeCleanup 
+          ? 'Queue cleared and old tickets cleaned up!' 
+          : 'All pending tickets have been cancelled and the queue has been cleared.',
         {
           label: 'Refresh Data',
           onClick: () => fetchQueueData()
@@ -410,9 +463,207 @@ export default function DashboardPage() {
         'Unable to reset the queue. Please check your connection and try again.',
         {
           label: 'Try Again',
-          onClick: () => resetQueue()
+          onClick: () => resetQueue(includeCleanup)
         }
       )
+    }
+  }
+
+  const resetQueueWithCleanup = () => resetQueue(true)
+
+  const skipCurrentTicket = async () => {
+    if (!selectedDepartment || !queueData?.currentServing) return
+
+    try {
+      setLoading(true)
+
+      // Get the currently serving ticket
+      const { data: servingTickets } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('department_id', selectedDepartment)
+        .eq('status', 'serving')
+        .limit(1)
+
+      const servingTicket = servingTickets?.[0]
+
+      if (servingTicket) {
+        // Mark the current ticket as cancelled (skipped)
+        await supabase
+          .from('tickets')
+          .update({ 
+            status: 'cancelled',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', servingTicket.id)
+
+        // Clear current serving in queue settings
+        await supabase
+          .from('queue_settings')
+          .update({ current_serving: null })
+          .eq('department_id', selectedDepartment)
+
+        fetchQueueData()
+        setConnectionError(false)
+        
+        showWarning(
+          'Ticket Skipped',
+          `Ticket ${servingTicket.ticket_number} has been skipped and marked as cancelled.`,
+          {
+            label: 'Call Next',
+            onClick: () => callNext()
+          }
+        )
+      }
+    } catch (error) {
+      console.error('Error skipping ticket:', error)
+      setConnectionError(true)
+      
+      showError(
+        'Failed to Skip Ticket',
+        'There was an error skipping the current ticket. Please try again.',
+        {
+          label: 'Retry',
+          onClick: () => skipCurrentTicket()
+        }
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const completeCurrentTicket = async () => {
+    if (!selectedDepartment || !queueData?.currentServing) return
+
+    try {
+      setLoading(true)
+
+      // Get the currently serving ticket
+      const { data: servingTickets } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('department_id', selectedDepartment)
+        .eq('status', 'serving')
+        .limit(1)
+
+      const servingTicket = servingTickets?.[0]
+
+      if (servingTicket) {
+        // Mark the current ticket as completed
+        await supabase
+          .from('tickets')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', servingTicket.id)
+
+        // Clear current serving in queue settings
+        await supabase
+          .from('queue_settings')
+          .update({ current_serving: null })
+          .eq('department_id', selectedDepartment)
+
+        fetchQueueData()
+        setConnectionError(false)
+        
+        showSuccess(
+          'Ticket Completed!',
+          `Ticket ${servingTicket.ticket_number} has been marked as completed.`,
+          {
+            label: 'Call Next',
+            onClick: () => callNext()
+          }
+        )
+      }
+    } catch (error) {
+      console.error('Error completing ticket:', error)
+      setConnectionError(true)
+      
+      showError(
+        'Failed to Complete Ticket',
+        'There was an error completing the current ticket. Please try again.',
+        {
+          label: 'Retry',
+          onClick: () => completeCurrentTicket()
+        }
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const performCleanup = async () => {
+    if (!selectedDepartment) return
+
+    try {
+      setLoading(true)
+      
+      // Clean up old completed/cancelled tickets (older than 24 hours)
+      const cutoffTime = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString()
+      
+      // Get tickets to be cleaned
+      const { data: oldTickets } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('department_id', selectedDepartment)
+        .in('status', ['completed', 'cancelled'])
+        .lt('updated_at', cutoffTime)
+
+      if (!oldTickets || oldTickets.length === 0) {
+        showInfo(
+          'No Cleanup Needed',
+          'No old tickets found to clean up. Database is already optimized!'
+        )
+        return
+      }
+
+      // Archive tickets before deletion
+      try {
+        await supabase
+          .from('tickets_archive')
+          .insert(
+            oldTickets.map(ticket => ({
+              original_ticket_id: ticket.id,
+              department_id: ticket.department_id,
+              ticket_number: ticket.ticket_number,
+              customer_phone: ticket.customer_phone,
+              status: ticket.status,
+              priority: ticket.priority,
+              estimated_service_time: ticket.estimated_service_time,
+              created_at: ticket.created_at,
+              updated_at: ticket.updated_at,
+              called_at: ticket.called_at,
+              completed_at: ticket.completed_at
+            }))
+          )
+      } catch (archiveError) {
+        console.warn('Archive table not available, proceeding with cleanup only')
+      }
+
+      // Delete old tickets
+      await supabase
+        .from('tickets')
+        .delete()
+        .eq('department_id', selectedDepartment)
+        .in('status', ['completed', 'cancelled'])
+        .lt('updated_at', cutoffTime)
+
+      fetchQueueData()
+      
+      showSuccess(
+        'Cleanup Completed!',
+        `Successfully cleaned up ${oldTickets.length} old tickets. Database optimized!`
+      )
+    } catch (error) {
+      console.error('Error during cleanup:', error)
+      showError(
+        'Cleanup Failed',
+        'There was an error cleaning up old tickets. Please try again.'
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -472,6 +723,25 @@ export default function DashboardPage() {
                 <div className="relative flex items-center space-x-2">
                   <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-300`} />
                   <span>Refresh</span>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => {
+                  ToastConfirmation.confirmCleanup(
+                    () => performCleanup(),
+                    showWarning
+                  )
+                }}
+                disabled={loading || !selectedDepartment}
+                className="group relative overflow-hidden bg-purple-500/80 hover:bg-purple-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 disabled:opacity-50 border border-purple-400/30"
+              >
+                <div className="absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                <div className="relative flex items-center space-x-2">
+                  <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span>Cleanup</span>
                 </div>
               </button>
             </div>
@@ -602,11 +872,64 @@ export default function DashboardPage() {
                         <div className="relative overflow-hidden bg-gradient-to-r from-caramel-100 to-citrine-100 rounded-2xl p-6 border border-caramel-200 shadow-lg hover:shadow-xl transition-all duration-300">
                           <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-caramel-200/30 to-citrine-200/20 rounded-full -translate-y-8 translate-x-8"></div>
                           <div className="relative">
-                            <div className="flex items-center space-x-3 mb-3">
-                              <div className="w-8 h-8 bg-gradient-to-br from-caramel-500 to-citrine-500 rounded-xl flex items-center justify-center shadow-md">
-                                <span className="text-white text-sm font-bold">📢</span>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-caramel-500 to-citrine-500 rounded-xl flex items-center justify-center shadow-md">
+                                  <span className="text-white text-sm font-bold">📢</span>
+                                </div>
+                                <span className="text-caramel-800 font-bold text-lg">Currently Serving</span>
                               </div>
-                              <span className="text-caramel-800 font-bold text-lg">Currently Serving</span>
+                              
+                              {/* Action buttons - only show if there's a ticket being served */}
+                              {queueData.currentServing && (
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() => {
+                                      showWarning(
+                                        'Skip Current Ticket?',
+                                        `This will mark ticket ${queueData.currentServing} as cancelled and clear the current serving status.`,
+                                        {
+                                          label: 'Skip Ticket',
+                                          onClick: () => skipCurrentTicket()
+                                        }
+                                      )
+                                    }}
+                                    disabled={loading}
+                                    className="group relative overflow-hidden bg-orange-500/80 hover:bg-orange-600/90 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 shadow-md hover:shadow-lg"
+                                  >
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                                    <div className="relative flex items-center space-x-1">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                      <span>Skip</span>
+                                    </div>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={() => {
+                                      showInfo(
+                                        'Complete Current Ticket?',
+                                        `This will mark ticket ${queueData.currentServing} as completed and clear the current serving status.`,
+                                        {
+                                          label: 'Complete',
+                                          onClick: () => completeCurrentTicket()
+                                        }
+                                      )
+                                    }}
+                                    disabled={loading}
+                                    className="group relative overflow-hidden bg-green-500/80 hover:bg-green-600/90 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 shadow-md hover:shadow-lg"
+                                  >
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                                    <div className="relative flex items-center space-x-1">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      <span>Complete</span>
+                                    </div>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             <p className="text-caramel-700 font-semibold text-xl">
                               {queueData.currentServing ? `Ticket ${queueData.currentServing}` : 'No ticket currently being served'}
@@ -652,18 +975,23 @@ export default function DashboardPage() {
                               <span className="text-2xl">{loading ? 'Calling...' : 'Call Next Customer'}</span>
                             </div>
                           </button>
-                          {/* Secondary Reset Button */}
-                          <button
-                            onClick={() => {
-                              if (confirm('Are you sure you want to reset the queue? This will cancel all waiting tickets.')) {
-                                resetQueue()
-                              }
-                            }}
-                            className="w-full relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group/btn"
-                          >
-                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
-                            <span className="relative">Reset Queue</span>
-                          </button>
+                          {/* Secondary Action Buttons */}
+                          <div className="grid grid-cols-1 gap-3">
+                            <button
+                              onClick={() => {
+                                ToastConfirmation.confirmSmartReset(
+                                  () => resetQueue(),
+                                  () => resetQueueWithCleanup(),
+                                  showWarning,
+                                  showInfo
+                                )
+                              }}
+                              className="w-full relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group/btn"
+                            >
+                              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
+                              <span className="relative">Reset Queue</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

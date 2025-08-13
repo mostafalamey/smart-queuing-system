@@ -92,6 +92,28 @@ Route (app)                              Size     First Load JS
 - **Enhanced AuthContext** - Added `refreshUser()` function for real-time profile data updates
 - **Database Schema** - Added `avatar_url` field to members table with proper migration
 
+#### Enhanced Queue Management System 🎯
+
+- **Single Reset Button** - Streamlined UI with progressive disclosure via toast notifications
+  - Smart reset offering both simple reset and database cleanup options
+  - Toast confirmation sequence for better user guidance
+  - Reduced interface clutter while maintaining full functionality
+- **Skip & Complete Functionality** - Complete workflow coverage for all customer service scenarios
+  - **Skip Button** - Mark serving tickets as cancelled with proper database state tracking
+  - **Complete Button** - Mark serving tickets as completed with timestamp recording
+  - **Smart Display Logic** - Buttons only appear when actively serving a customer
+  - **Toast Confirmations** - Professional feedback for all queue management actions
+- **Enhanced Database State Management** - Proper ticket status tracking throughout lifecycle
+  - `waiting` - Customer in queue awaiting service
+  - `serving` - Currently being helped by staff
+  - `completed` - Service finished successfully with completion timestamp
+  - `cancelled` - Service skipped or customer no-show
+- **Complete Staff Workflows** - Support for all real-world queue management scenarios
+  - Normal service flow: Call → Serve → Complete → Next
+  - No-show handling: Call → No-show → Skip → Next  
+  - Emergency queue clearing: Reset (simple) or Reset + Cleanup (optimization)
+  - Manual ticket completion for various service scenarios
+
 #### Advanced UI/UX Design System Overhaul 🎨
 
 - **Celestial Color Palette** - Professional dark theme with cosmic accent colors throughout
