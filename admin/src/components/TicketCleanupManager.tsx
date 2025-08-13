@@ -212,22 +212,22 @@ export default function TicketCleanupManager({ className = '' }: TicketCleanupMa
         <div>
           <h4 className="text-md font-medium text-gray-900 mb-3">Cleanup Actions</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Quick Cleanup Options */}
+            {/* Manual Cleanup Options */}
             <div className="space-y-3">
-              <h5 className="text-sm font-medium text-gray-700">Quick Cleanup</h5>
+              <h5 className="text-sm font-medium text-gray-700">Manual Cleanup</h5>
               <button
-                onClick={() => handleCleanup(24, true)}
+                onClick={() => handleCleanup(0, true)}
                 disabled={isLoading}
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                Daily Cleanup (24h old)
+                Clean All Completed (with Archive)
               </button>
               <button
-                onClick={() => handleCleanup(168, true)}
+                onClick={() => handleCleanup(0, false)}
                 disabled={isLoading}
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                Weekly Cleanup (7 days old)
+                Clean All Completed (no Archive)
               </button>
             </div>
 
@@ -239,14 +239,14 @@ export default function TicketCleanupManager({ className = '' }: TicketCleanupMa
                 disabled={isLoading}
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                Automated Cleanup
+                Run Standard Cleanup (24h old)
               </button>
               <button
                 onClick={handleEmergencyCleanup}
                 disabled={isLoading}
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
               >
-                Emergency Cleanup
+                Emergency Cleanup (All Tickets)
               </button>
             </div>
           </div>

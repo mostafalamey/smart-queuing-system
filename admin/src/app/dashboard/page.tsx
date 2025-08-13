@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
 import { RefreshCw, Phone, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { ToastConfirmation } from '../../lib/ticketCleanup'
+import { ToastConfirmation, TicketCleanupService } from '../../lib/ticketCleanup'
 import { useAppToast } from '../../hooks/useAppToast'
 import ConfirmationModal from '@/components/ConfirmationModal'
 import ResetQueueModal from '@/components/ResetQueueModal'
@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const [connectionError, setConnectionError] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [showResetQueueModal, setShowResetQueueModal] = useState(false)
+  const [lastCleanupTime, setLastCleanupTime] = useState<Date | null>(null)
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -182,6 +183,61 @@ export default function DashboardPage() {
       }
     }
   }, [selectedDepartment])
+
+  // Automated ticket cleanup - runs every 24 hours
+  useEffect(() => {
+    if (!user || !userProfile) return // Only run for authenticated users
+
+    let cleanupInterval: NodeJS.Timeout | null = null
+    const hoursToMs = (hours: number) => hours * 60 * 60 * 1000
+
+    // Initialize last cleanup time from localStorage
+    const storedLastCleanup = localStorage.getItem('lastCleanupTime')
+    const lastStoredTime = storedLastCleanup ? parseInt(storedLastCleanup) : 0
+    if (lastStoredTime > 0) {
+      setLastCleanupTime(new Date(lastStoredTime))
+    }
+
+    const runAutomatedCleanup = async () => {
+      try {
+        console.log('Running automated ticket cleanup...')
+        await TicketCleanupService.runAutomatedCleanup()
+        const now = new Date()
+        const nowTimestamp = now.getTime()
+        setLastCleanupTime(now)
+        localStorage.setItem('lastCleanupTime', nowTimestamp.toString())
+        console.log('Automated ticket cleanup completed successfully')
+        
+        // Show a subtle notification that cleanup happened
+        showInfo('Database Maintenance', 'Automated ticket cleanup completed in the background.')
+      } catch (error) {
+        console.error('Automated cleanup failed:', error)
+        // Don't show error to user as this is background process
+      }
+    }
+
+    // Check if we need to run initial cleanup
+    const timeSinceLastCleanup = Date.now() - lastStoredTime
+
+    // If more than 23 hours since last cleanup, run it now
+    if (timeSinceLastCleanup > hoursToMs(23)) {
+      setTimeout(() => {
+        runAutomatedCleanup()
+      }, 5000) // Wait 5 seconds after page load to avoid interfering with initial load
+    }
+
+    // Set up interval for every 24 hours
+    cleanupInterval = setInterval(() => {
+      runAutomatedCleanup()
+    }, hoursToMs(24))
+
+    // Cleanup interval on unmount
+    return () => {
+      if (cleanupInterval) {
+        clearInterval(cleanupInterval)
+      }
+    }
+  }, [user, userProfile, showInfo])
 
   const fetchBranches = async () => {
     if (!userProfile?.organization_id) return
@@ -388,16 +444,14 @@ export default function DashboardPage() {
 
       // Optional: Clean up old completed/cancelled tickets
       if (includeCleanup) {
-        // Archive and delete completed/cancelled tickets older than 24 hours
-        const cutoffTime = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString()
+        // Archive and delete ALL completed/cancelled tickets (no age limit for manual cleanup)
         
-        // First archive them (optional - you can skip this if you don't want archiving)
+        // First get all completed/cancelled tickets
         const { data: oldTickets } = await supabase
           .from('tickets')
           .select('*')
           .eq('department_id', selectedDepartment)
           .in('status', ['completed', 'cancelled'])
-          .lt('updated_at', cutoffTime)
 
         if (oldTickets && oldTickets.length > 0) {
           // Archive to tickets_archive table (if it exists)
@@ -423,13 +477,12 @@ export default function DashboardPage() {
             console.log('Archive table not available, skipping archival')
           }
 
-          // Delete old tickets
+          // Delete ALL completed/cancelled tickets
           await supabase
             .from('tickets')
             .delete()
             .eq('department_id', selectedDepartment)
             .in('status', ['completed', 'cancelled'])
-            .lt('updated_at', cutoffTime)
         }
       }
 
@@ -449,7 +502,7 @@ export default function DashboardPage() {
       showWarning(
         'Queue Reset Successfully',
         includeCleanup 
-          ? 'Queue cleared and old tickets cleaned up!' 
+          ? 'Queue cleared and all completed/cancelled tickets cleaned up!' 
           : 'All pending tickets have been cancelled and the queue has been cleared.',
         {
           label: 'Refresh Data',
@@ -713,6 +766,11 @@ export default function DashboardPage() {
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight">Queue Dashboard</h1>
               <p className="text-white/80 text-lg">Monitor and manage active queues across all departments</p>
+              {lastCleanupTime && (
+                <p className="text-white/60 text-sm">
+                  🧹 Last auto-cleanup: {lastCleanupTime.toLocaleString()}
+                </p>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <button

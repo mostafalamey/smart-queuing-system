@@ -108,10 +108,10 @@ export default function ResetQueueModal({
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 mb-1">Reset + Cleanup Database</h4>
                       <p className="text-sm text-gray-600">
-                        Reset queue AND delete old completed/cancelled tickets for better performance.
+                        Reset queue AND delete all completed/cancelled tickets for optimal performance.
                       </p>
                       <p className="text-xs text-red-500 mt-1 font-medium">
-                        Recommended for better system performance
+                        Recommended for maximum system performance
                       </p>
                     </div>
                   </div>

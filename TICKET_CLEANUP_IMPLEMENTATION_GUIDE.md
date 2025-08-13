@@ -93,30 +93,24 @@ export default function DashboardPage() {
 
 ### Step 3: Set Up Automated Cleanup
 
-**Option A: Browser-based Timer (Simple)***
+#### ✅ IMPLEMENTED: Browser-based Timer (Active)
 
-```tsx
-// Add to your dashboard component
-useEffect(() => {
-  const interval = setInterval(async () => {
-    try {
-      await TicketCleanupService.runAutomatedCleanup()
-      console.log('Automated cleanup completed')
-    } catch (error) {
-      console.error('Automated cleanup failed:', error)
-    }
-  }, 24 * 60 * 60 * 1000) // Every 24 hours
+The automated cleanup is now implemented and running in the main dashboard component:
 
-  return () => clearInterval(interval)
-}, [])
-```
+- **Frequency**: Every 24 hours
+- **Scope**: Tickets older than 24 hours (completed/cancelled only)
+- **Archiving**: Yes, all tickets are archived before deletion
+- **Status**: Displays last cleanup time in dashboard header
+- **Storage**: Cleanup history stored in localStorage
 
-**Option B: Supabase Edge Functions (Advanced)***
+#### Option B: Supabase pg_cron (Advanced - Future Upgrade)
 
 ```sql
 -- Set up pg_cron extension (requires Supabase Pro plan)
 SELECT cron.schedule('daily-ticket-cleanup', '0 2 * * *', 'SELECT auto_cleanup_tickets();');
 ```
+
+When upgrading to Supabase Pro, you can migrate from browser-based to server-side scheduling for better reliability.
 
 ## 🎛️ Management Interface Features
 
@@ -124,9 +118,23 @@ The `TicketCleanupManager` component provides:
 
 - **Real-time Statistics**: Current ticket counts and database size
 - **Cleanup Recommendations**: Automatic suggestions based on thresholds
-- **Manual Cleanup Options**: Daily, weekly, and emergency cleanup
+- **Manual Cleanup Options**:
+  - **Clean All Completed**: Removes all completed/cancelled tickets immediately
+  - **Emergency Reset**: Complete database cleanup with confirmation
+  - **Run Manual Check**: Forces an immediate automated cleanup cycle
 - **Historical Data**: Track cleanup activity over time
 - **Archive Management**: Safe ticket preservation before deletion
+- **Automated Status**: Shows last automated cleanup time in dashboard header
+
+### Updated Manual Cleanup Behavior
+
+Since automated cleanup now runs every 24 hours, the manual cleanup options have been updated:
+
+- **"Clean All Completed"**: Immediately removes ALL completed/cancelled tickets (0 hours age limit)
+- **"Emergency Reset"**: Same immediate cleanup with extra confirmation
+- **"Run Manual Check"**: Triggers the standard 24-hour automated cleanup logic
+
+This ensures manual cleanup provides immediate relief when needed, while automated cleanup handles routine maintenance.
 
 ## 🔧 Configuration Options
 
@@ -208,20 +216,23 @@ After implementing cleanup:
 
 ## 🔄 Maintenance Schedule
 
-### Daily
+### Daily (Automated)
 
-- [ ] Run automated cleanup (handled automatically)
-- [ ] Monitor cleanup statistics
+- ✅ **Automated cleanup runs every 24 hours** (handled automatically in dashboard)
+- ✅ **Status visible in dashboard header** (shows last cleanup time)
+- ✅ **Cleanup history stored locally** (persistent across sessions)
 
-### Weekly
+### Weekly (Manual Review)
 
 - [ ] Review cleanup statistics dashboard
 - [ ] Check database performance metrics
+- [ ] Verify automated cleanup is running (check dashboard status)
 
-### Monthly
+### Monthly (System Health)
 
 - [ ] Review Supabase usage and costs
 - [ ] Adjust cleanup thresholds if needed
+- [ ] Consider upgrading to Supabase Pro for pg_cron scheduling
 - [ ] Archive old cleanup logs if needed
 
 ## 🆘 Troubleshooting
