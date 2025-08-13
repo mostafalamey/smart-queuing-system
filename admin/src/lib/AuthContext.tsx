@@ -6,6 +6,7 @@ import { supabase } from './supabase';
 import { Database } from './database.types';
 import { SessionRecovery } from './sessionRecovery';
 import { CacheDetection } from './cacheDetection';
+import { AuthLoadingOverlay } from '../components/AuthLoadingOverlay';
 
 type UserProfile = Database['public']['Tables']['members']['Row'] & {
   organization: Database['public']['Tables']['organizations']['Row'] | null;
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authOverlayVisible, setAuthOverlayVisible] = useState(true);
   const [sessionRecovery] = useState(() => SessionRecovery.getInstance());
 
   // Function to fetch user profile
@@ -104,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setUserProfile(null);
           setLoading(false);
+          setAuthOverlayVisible(false); // Hide overlay when cache cleared
           CacheDetection.setCacheMarker(); // Set marker for future detection
           return;
         }
@@ -154,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         setLoading(false);
+        setAuthOverlayVisible(false); // Hide auth overlay on completion
         retryCount = 0; // Reset retry count on success
         
       } catch (error) {
@@ -254,6 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Always set loading to false after processing auth state change
           console.log('Setting loading to false');
           setLoading(false);
+          setAuthOverlayVisible(false); // Hide auth overlay when auth state is processed
         } catch (error) {
           console.error('Auth state change error:', error);
           // Don't set loading to false here - let the error handling in visibility change handle it
@@ -269,6 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Only handle when page becomes visible (user switches back to tab)
       if (!document.hidden && mounted) {
         console.log('Tab became visible, checking session...');
+        setAuthOverlayVisible(true); // Show overlay during tab switch validation
         
         // Small delay to ensure tab is fully focused
         setTimeout(async () => {
@@ -314,8 +320,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setLoading(false);
             }
             
+            // Hide overlay after visibility change handling
+            setAuthOverlayVisible(false);
+            
           } catch (error) {
             console.error('Visibility change error:', error);
+            setAuthOverlayVisible(false); // Hide overlay even on error
             if (!loading) {
               setLoading(true);
               await initializeAuth();
@@ -482,6 +492,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      <AuthLoadingOverlay isVisible={authOverlayVisible} />
     </AuthContext.Provider>
   );
 }
