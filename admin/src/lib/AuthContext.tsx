@@ -93,16 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const hasStoredSession = cacheStatus.hasAuthTokens;
         console.log('Stored session exists:', hasStoredSession);
         
-        // Get initial session with timeout
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 8000)
-        );
-        
-        const { data: { session }, error } = await Promise.race([
-          sessionPromise, 
-          timeoutPromise
-        ]) as any;
+        // Get initial session (let Supabase handle its own timeouts)
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
@@ -149,13 +141,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Auth initialization error:', error);
         
         if (mounted) {
-          // Check if this is a timeout or network error
-          const isTimeoutError = error instanceof Error && error.message === 'Session timeout';
+          // Check if cache was cleared
           const hasStoredSession = checkForStoredSession();
           
-          if (isTimeoutError && !hasStoredSession) {
-            // Timeout with no stored session - likely cache was cleared
-            console.log('Session timeout with no stored data - cache may have been cleared');
+          if (!hasStoredSession) {
+            // No stored session - likely cache was cleared
+            console.log('No stored session found - cache may have been cleared');
             setUser(null);
             setUserProfile(null);
             setLoading(false);
