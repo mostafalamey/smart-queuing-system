@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Fetching user profile for:', userId);
       
-      // Add timeout to profile fetch
+      // Reduced timeout to 5s for faster feedback
       const profilePromise = supabase
         .from('members')
         .select(`
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
       
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
       );
       
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
@@ -59,7 +59,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(data);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
-      setUserProfile(null);
+      // Set minimal profile fallback for functionality
+      setUserProfile({
+        id: userId,
+        email: user?.email || 'Unknown',
+        role: 'member',
+        organization: null
+      } as any);
+      console.log('Using fallback profile data to maintain functionality');
     }
   };
 
