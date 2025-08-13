@@ -6,27 +6,72 @@ This document outlines the comprehensive queue management improvements implement
 
 ## ✅ Completed Features
 
-### 1. Single Reset Button Implementation
+### 1. Smart Reset Queue Modal Implementation
 
-**Problem Solved**: Eliminated UI clutter from having two separate reset buttons.
+**Problem Solved**: Eliminated confusion from sequential toast notifications for reset options.
 
-**Solution**: Progressive disclosure approach using toast notifications.
+**Solution**: Professional modal interface with clear side-by-side options.
 
 **How it Works**:
 
-1. Single "Reset Queue" button triggers first confirmation toast
-2. Second toast automatically appears offering database cleanup option
-3. Users can choose either simple reset or enhanced reset with cleanup
-4. Maintains all functionality while reducing visual complexity
+1. Single "Reset Queue" button triggers custom modal
+2. Modal displays two clear options with descriptions:
+   - **Reset Queue Only**: Quick reset for immediate queue clearing
+   - **Reset + Cleanup Database**: Reset with database optimization (recommended)
+3. Users make deliberate choice from single interface
+4. Modal closes and selected action executes
+5. Success/error feedback via toast notifications
 
 **Benefits**:
 
-- Cleaner interface
-- Progressive disclosure UX pattern
-- Maintains all existing functionality
-- Better user guidance through toast sequence
+- Professional modal interface
+- Clear choice presentation
+- No timing confusion
+- Better visual hierarchy
+- Improved user decision-making
 
-### 2. Skip & Complete Functionality
+### 2. Enhanced Delete Confirmations
+
+**Problem Solved**: No confirmation for destructive delete operations in manage page.
+
+**Solution**: Professional confirmation modals for all delete operations.
+
+**Features**:
+
+- **Branch Deletion**: Modal warns about associated department deletion
+- **Department Deletion**: Clear confirmation with department name
+- **Contextual Messages**: Shows exactly what will be affected
+- **Danger Styling**: Red color scheme for destructive actions
+- **Easy Cancellation**: Clear cancel option to prevent accidents
+
+**Benefits**:
+
+- Prevents accidental deletions
+- Clear consequence communication
+- Professional user experience
+- Improved safety for critical operations
+
+### 3. Secure Sign Out Flow
+
+**Problem Solved**: No confirmation for signing out, leading to accidental logouts.
+
+**Solution**: Confirmation modal before sign out with automatic redirect.
+
+**Features**:
+
+- **Sign Out Confirmation**: Modal appears before logging out
+- **Automatic Redirect**: Confirmed sign out redirects to login page
+- **Clear Messaging**: Explains that re-login will be required
+- **Easy Cancellation**: Simple way to stay logged in
+
+**Benefits**:
+
+- Prevents accidental logouts
+- Better session management
+- Improved user confidence
+- Clear user flow
+
+### 4. Skip & Complete Functionality
 
 **Problem Solved**: Staff could only call next customer but couldn't handle other scenarios (no-shows, completed service, etc.).
 
@@ -81,22 +126,45 @@ No schema changes required - utilizing existing `status` and timestamp columns:
 
 ### Toast Notification Integration
 
-All actions now use the enhanced toast system for confirmations:
+All feedback actions now use the enhanced toast system for confirmations:
 
 ```typescript
-// Skip confirmation
-showWarning(
-  'Skip Current Ticket?',
-  `Mark ticket ${ticketNumber} as cancelled?`,
-  { label: 'Skip Ticket', onClick: () => skipCurrentTicket() }
+// Success feedback after modal confirmation
+showSuccess(
+  'Branch Deleted!',
+  `"${branchName}" and all its departments have been successfully removed.`
 )
 
-// Complete confirmation  
-showInfo(
-  'Complete Current Ticket?',
-  `Mark ticket ${ticketNumber} as completed?`,
-  { label: 'Complete', onClick: () => completeCurrentTicket() }
+// Error feedback if operation fails
+showError(
+  'Deletion Failed',
+  'Unable to delete the branch. Please try again.'
 )
+```
+
+### Modal Confirmation Examples
+
+```typescript
+// Delete confirmation modal
+<ConfirmationModal
+  isOpen={showDeleteBranchConfirm}
+  onClose={() => setShowDeleteBranchConfirm(false)}
+  onConfirm={confirmDeleteBranch}
+  title="Delete Branch"
+  message={`Are you sure you want to delete "${branchName}"? This will also delete all associated departments and cannot be undone.`}
+  confirmText="Delete Branch"
+  cancelText="Cancel"
+  type="danger"
+/>
+
+// Reset queue modal with options
+<ResetQueueModal
+  isOpen={showResetQueueModal}
+  onClose={() => setShowResetQueueModal(false)}
+  onResetOnly={() => resetQueue(false)}
+  onResetWithCleanup={() => resetQueue(true)}
+  queueName={departmentName}
+/>
 ```
 
 ### State Management

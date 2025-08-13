@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { User, Settings, LogOut } from 'lucide-react';
+import ConfirmationModal from './ConfirmationModal';
 
 interface ProfileDropdownProps {
   userProfile: any;
@@ -11,6 +12,7 @@ interface ProfileDropdownProps {
 
 export default function ProfileDropdown({ userProfile, onEditProfile, onSignOut }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,8 +33,12 @@ export default function ProfileDropdown({ userProfile, onEditProfile, onSignOut 
     onEditProfile();
   };
 
-  const handleSignOut = () => {
+  const handleSignOutClick = () => {
     setIsOpen(false);
+    setShowSignOutConfirm(true);
+  };
+
+  const handleConfirmSignOut = () => {
     onSignOut();
   };
 
@@ -78,7 +84,7 @@ export default function ProfileDropdown({ userProfile, onEditProfile, onSignOut 
             Edit Profile
           </button>
           <button
-            onClick={handleSignOut}
+            onClick={handleSignOutClick}
             className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors duration-150"
           >
             <LogOut className="w-4 h-4" />
@@ -86,6 +92,17 @@ export default function ProfileDropdown({ userProfile, onEditProfile, onSignOut 
           </button>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={handleConfirmSignOut}
+        title="Sign Out"
+        message="Are you sure you want to sign out? You will need to log in again to access the admin dashboard."
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        type="warning"
+      />
     </div>
   );
 }

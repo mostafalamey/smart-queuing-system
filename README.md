@@ -27,16 +27,16 @@
 - **Organization Management** - Multi-tenant architecture with custom branding
 - **Branch & Department Management** - Hierarchical structure with full CRUD operations
 - **Advanced Queue Management** - Enhanced workflow with skip/complete functionality
-  - **Smart Reset Options** - Single button with progressive disclosure (simple reset or cleanup)
+  - **Smart Reset Options** - Professional modal interface with clear choice between simple reset or cleanup
   - **Complete Ticket Workflow** - Skip, complete, or call next customer
   - **Database State Tracking** - Proper status management (waiting, serving, completed, cancelled)
-  - **Toast Confirmations** - Professional feedback for all queue actions
+  - **Modal Confirmations** - Professional confirmation modals for destructive actions (delete, reset)
 - **Real-time Queue Monitoring** - Live updates with WebSocket subscriptions
 - **QR Code Generation** - Dynamic customer app links with organization theming
 - **User Invitation System** - Email-based team invitations with role management
-- **Profile Management** - Avatar upload, user settings, and profile editing
+- **Profile Management** - Avatar upload, user settings, and profile editing with secure sign-out confirmation
 - **Professional UI** - Celestial dark theme with responsive design
-- **Advanced Toast System** - App-wide notifications with success/error feedback
+- **Advanced Modal System** - Confirmation modals for critical actions with toast notifications for feedback
 
 ### 📱 **Customer Application**
 

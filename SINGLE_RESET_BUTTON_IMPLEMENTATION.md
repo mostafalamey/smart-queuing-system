@@ -2,197 +2,205 @@
 
 ## Recent Improvements (August 2025)
 
-### **1. Single Reset Button Implementation ✅**
+### **1. Professional Reset Queue Modal Implementation ✅**
 
-#### **Before**: Two Reset Buttons
+#### **Before**: Sequential Toast Notifications
 
-- 🔴 "Reset Queue" button - basic reset only
-- 🟣 "Reset + Cleanup" button - reset with database cleanup
+- � First toast: "Reset Queue?" confirmation
+- � Second toast: "Want to Optimize Database Too?" follow-up
 
-#### **After**: One Smart Reset Button
+#### **After**: Single Professional Modal
 
-- 🔴 **"Reset Queue"** button - intelligently offers both options via toast notifications
+- 🔴 **"Reset Queue"** button opens comprehensive modal with both options side-by-side
 
-### **2. Skip & Complete Functionality ✅**
+### **2. Enhanced Confirmation System ✅**
 
-#### **New Features Added**
+#### **New Modal Features Added**
 
-- 🟠 **"Skip" Button** - Mark current serving ticket as cancelled/skipped
-- 🟢 **"Complete" Button** - Mark current serving ticket as completed
-- 🎯 **Smart Display Logic** - Buttons only appear when actively serving a customer
+- � **Sign Out Confirmation** - Prevents accidental logouts from profile dropdown
+- �️ **Delete Confirmations** - Professional modals for branch/department deletion
+- 🎯 **Clear Visual Hierarchy** - Danger actions use red styling, warnings use amber
+- 🎨 **Professional Design** - Consistent modal design with backdrop blur and animations
 
-#### **Enhanced Workflow**
+#### **Enhanced Safety & UX**
 
-- Staff can now handle customers beyond just calling next
-- Proper ticket status tracking in database
-- Clear serving state management
+- Staff protected from accidental destructive actions
+- Clear consequence communication before dangerous operations
+- Professional appearance matching app design standards
+- Better accessibility with proper ARIA labels and keyboard navigation
 
 ## How It Works Now
 
 ### 1. **Reset Queue Workflow**
 
-1. User clicks the single "Reset Queue" button
-2. **First Toast** appears: "Reset Queue?" with "Reset Queue" action button
-3. **Second Toast** appears: "Want to Optimize Database Too?" with "Reset + Cleanup" action button
-4. User chooses their preferred option by clicking the appropriate toast action
+1. User clicks the "Reset Queue" button
+2. **Professional Modal** appears with two clear options:
+   - **"Reset Queue Only"** - Quick reset with orange icon
+   - **"Reset + Cleanup Database"** - Reset with optimization (recommended) with red icon
+3. User makes deliberate choice from single interface
+4. Modal closes and selected action executes
+5. Success/error feedback via toast notifications
 
-### 2. **Skip & Complete Workflow**
+### 2. **Delete Confirmation Workflow**
 
-1. **When serving a customer**: Skip and Complete buttons appear on the currently serving card
-2. **Skip Button**:
-   - Shows warning confirmation toast
-   - Marks ticket as `cancelled` in database
-   - Clears currently serving state
-   - Ready to call next customer
-3. **Complete Button**:
-   - Shows info confirmation toast  
-   - Marks ticket as `completed` with timestamp
-   - Clears currently serving state
-   - Ready to call next customer
+1. **When deleting branches/departments**: Delete action triggers confirmation modal
+2. **Branch Deletion Modal**:
+   - Shows branch name in confirmation
+   - Warns about associated department deletion
+   - Uses danger (red) styling for destructive action
+3. **Department Deletion Modal**:
+   - Shows department name in confirmation
+   - Clear warning about permanent deletion
+   - Easy cancel option to prevent accidents
 
-### 3. **Benefits of This Approach**
+### 3. **Sign Out Protection Workflow**
 
-- ✅ **Cleaner UI**: One reset button instead of two
-- ✅ **Progressive Disclosure**: Shows basic option first, then enhanced option
-- ✅ **Better UX**: Users see both choices without cluttering the interface
-- ✅ **Clear Messaging**: Each toast explains exactly what will happen
-- ✅ **Flexible**: Users can choose based on their immediate needs
-- ✅ **Complete Workflow**: Staff can handle all customer scenarios
-- ✅ **Proper State Management**: Database accurately tracks ticket statuses
+1. **When signing out**: Click "Sign Out" from profile dropdown
+2. **Confirmation Modal**:
+   - Asks "Are you sure you want to sign out?"
+   - Explains re-login requirement
+   - Clear confirm/cancel options
+3. **If confirmed**: Automatic redirect to login page
+4. **If cancelled**: Modal closes, user stays logged in
 
-### 4. **Toast Sequence Examples**
+### 4. **Benefits of This Approach**
 
-#### Reset Queue Flow
+- ✅ **Professional Appearance**: Modals match modern app design patterns
+- ✅ **Clear Decision Making**: Side-by-side options eliminate confusion
+- ✅ **Safety First**: All destructive actions require explicit confirmation
+- ✅ **Better UX**: No timing issues with sequential notifications
+- ✅ **Accessibility**: Proper keyboard navigation and screen reader support
+- ✅ **Contextual Information**: Shows exactly what will be affected
+- ✅ **Visual Hierarchy**: Danger actions clearly marked with red styling
 
-```workflow
-[Reset Button Clicked]
-    ↓
-[Warning Toast]: "Reset Queue?"
-    → Action: "Reset Queue" (simple reset)
-        - Cancel all waiting/serving tickets
-        - Clear currently serving customer
-        - Reset ticket numbering to start from 001
-    ↓
-[Info Toast]: "Want to Optimize Database Too?"
-    → Action: "Reset + Cleanup" (reset + database cleanup)
-        - All reset actions above
-        - Archive old completed/cancelled tickets
-        - Clean up database for optimization
+### 5. **Modal Examples**
+
+#### Reset Queue Modal
+
+```typescript
+<ResetQueueModal
+  isOpen={showResetQueueModal}
+  onClose={() => setShowResetQueueModal(false)}
+  onResetOnly={() => resetQueue(false)}
+  onResetWithCleanup={() => resetQueue(true)}
+  queueName={departmentName}
+/>
 ```
 
-#### Skip/Complete Flow
+**Visual Features:**
 
-```workflow
-[Currently Serving Customer]
-    ↓
-[Skip Button] → [Warning Toast] → [Confirm] → [Ticket marked as cancelled]
-    OR
-[Complete Button] → [Info Toast] → [Confirm] → [Ticket marked as completed]
-    ↓
-[Currently Serving Cleared] → [Ready for Next Customer]
+- Two side-by-side option cards
+- Orange icon for basic reset, red icon for cleanup
+- Clear descriptions of each action
+- Department name in modal title
+- Professional backdrop blur effect
+
+#### Delete Confirmation Modal
+
+```typescript
+<ConfirmationModal
+  isOpen={showDeleteConfirm}
+  onClose={() => setShowDeleteConfirm(false)}
+  onConfirm={handleDelete}
+  title="Delete Branch"
+  message={`Are you sure you want to delete "${branchName}"? This will also delete all associated departments and cannot be undone.`}
+  confirmText="Delete Branch"
+  cancelText="Cancel"
+  type="danger"
+/>
 ```
+
+**Safety Features:**
+
+- Danger type uses red color scheme
+- Shows exact item name being deleted
+- Explains consequences (e.g., department deletion)
+- Clear confirm/cancel buttons
+- Warning icon for visual emphasis
+
+#### Sign Out Confirmation Modal
+
+```typescript
+<ConfirmationModal
+  isOpen={showSignOutConfirm}
+  onClose={() => setShowSignOutConfirm(false)}
+  onConfirm={handleSignOut}
+  title="Sign Out"
+  message="Are you sure you want to sign out? You will need to log in again to access the admin dashboard."
+  confirmText="Sign Out"
+  cancelText="Cancel"
+  type="warning"
+/>
+```
+
+**User Protection:**
+
+- Warning type uses amber color scheme
+- Explains re-login requirement
+- Automatic redirect after confirmation
+- Easy cancellation to stay logged in
 
 ## Technical Implementation
 
-### **Smart Reset Method**
+### **Modal Component Architecture**
 
 ```typescript
-ToastConfirmation.confirmSmartReset(
-  () => resetQueue(),           // Simple reset function
-  () => resetQueueWithCleanup(), // Enhanced reset function
-  showWarning,                  // Warning toast for first option
-  showInfo                      // Info toast for second option
-)
-```
+// Base ConfirmationModal for standard confirmations
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: 'warning' | 'danger' | 'info';
+}
 
-### **Skip & Complete Methods**
-
-#### Skip Current Ticket
-
-```typescript
-const skipCurrentTicket = async () => {
-  // Get currently serving ticket
-  const servingTicket = await getCurrentServingTicket()
-  
-  // Mark as cancelled
-  await supabase
-    .from('tickets')
-    .update({ 
-      status: 'cancelled',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', servingTicket.id)
-
-  // Clear serving state
-  await clearCurrentServing()
-  
-  // Show confirmation
-  showWarning('Ticket Skipped', 'Ticket marked as cancelled')
+// Specialized ResetQueueModal for reset operations
+interface ResetQueueModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onResetOnly: () => void;
+  onResetWithCleanup: () => void;
+  queueName?: string;
 }
 ```
 
-#### Complete Current Ticket
+### **State Management Pattern**
 
 ```typescript
-const completeCurrentTicket = async () => {
-  // Get currently serving ticket
-  const servingTicket = await getCurrentServingTicket()
-  
-  // Mark as completed
-  await supabase
-    .from('tickets')
-    .update({ 
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', servingTicket.id)
+// Modal state management
+const [showModal, setShowModal] = useState(false);
+const [itemToAction, setItemToAction] = useState<{id: string, name: string} | null>(null);
 
-  // Clear serving state
-  await clearCurrentServing()
-  
-  // Show confirmation
-  showSuccess('Ticket Completed!', 'Ticket marked as completed')
-}
+// Trigger confirmation
+const handleAction = (id: string, name: string) => {
+  setItemToAction({id, name});
+  setShowModal(true);
+};
+
+// Execute action after confirmation
+const confirmAction = async () => {
+  if (itemToAction) {
+    await performAction(itemToAction.id);
+    setItemToAction(null);
+  }
+};
 ```
 
-### **Database Status Tracking**
+This modal-based confirmation system provides enterprise-grade user experience with proper safety measures, professional appearance, and excellent accessibility support.
+This modal-based confirmation system provides enterprise-grade user experience with proper safety measures, professional appearance, and excellent accessibility support.
 
-The system now properly tracks all ticket states:
+## Summary
 
-- **`waiting`** - Customer in queue
-- **`serving`** - Currently being helped
-- **`completed`** - Service finished successfully
-- **`cancelled`** - Service skipped/cancelled
+The modal-based confirmation system delivers:
 
-### **Ticket Numbering Reset**
+- **Professional UX**: Consistent modal design across all critical actions
+- **Enhanced Safety**: Explicit confirmation for all destructive operations  
+- **Clear Communication**: Contextual information about consequences
+- **Better Accessibility**: Proper ARIA labels and keyboard navigation
+- **Modern Design**: Matches current app design standards
+- **Improved Decision Making**: Side-by-side options eliminate confusion
 
-When resetting the queue, the system:
-
-1. **Resets `last_ticket_number`** in `queue_settings` to `0`
-2. **Next ticket starts from 001** - e.g., "BA001", "CS001", etc.
-3. **Department prefix preserved** - Based on first 2 letters of department name
-4. **Atomic numbering** - Prevents duplicate tickets during concurrent requests
-
-Example: After reset in "Banking" department, next customer gets ticket "BA001"
-
-### **Code Cleanup Completed**
-
-- ✅ Removed duplicate reset button
-- ✅ Cleaned up unused toast confirmation methods
-- ✅ Streamlined the ToastConfirmation class
-- ✅ Maintained all existing functionality
-- ✅ Added comprehensive skip/complete functionality
-- ✅ Enhanced database state management
-
-## Result
-
-Your dashboard now provides a complete queue management solution:
-
-1. **Clean Interface**: Single reset button with smart options
-2. **Complete Workflow**: Handle all customer service scenarios
-3. **Proper Tracking**: Database accurately reflects all ticket statuses
-4. **Better UX**: Toast notifications provide clear feedback
-5. **Flexible Operations**: Staff can skip, complete, or call next as needed
-
-The implementation maintains all safety features (confirmations, error handling) while providing a comprehensive and intuitive queue management experience! 🎉
+This implementation elevates the admin dashboard to enterprise-grade standards with comprehensive safety measures and professional user experience.

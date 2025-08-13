@@ -8,6 +8,8 @@ import { RefreshCw, Phone, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ToastConfirmation } from '../../lib/ticketCleanup'
 import { useAppToast } from '../../hooks/useAppToast'
+import ConfirmationModal from '@/components/ConfirmationModal'
+import ResetQueueModal from '@/components/ResetQueueModal'
 
 interface Department {
   id: string
@@ -38,6 +40,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [connectionError, setConnectionError] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [showResetQueueModal, setShowResetQueueModal] = useState(false)
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -468,8 +471,6 @@ export default function DashboardPage() {
       )
     }
   }
-
-  const resetQueueWithCleanup = () => resetQueue(true)
 
   const skipCurrentTicket = async () => {
     if (!selectedDepartment || !queueData?.currentServing) return
@@ -978,14 +979,7 @@ export default function DashboardPage() {
                           {/* Secondary Action Buttons */}
                           <div className="grid grid-cols-1 gap-3">
                             <button
-                              onClick={() => {
-                                ToastConfirmation.confirmSmartReset(
-                                  () => resetQueue(),
-                                  () => resetQueueWithCleanup(),
-                                  showWarning,
-                                  showInfo
-                                )
-                              }}
+                              onClick={() => setShowResetQueueModal(true)}
                               className="w-full relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group/btn"
                             >
                               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
@@ -1002,6 +996,15 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Reset Queue Modal */}
+      <ResetQueueModal
+        isOpen={showResetQueueModal}
+        onClose={() => setShowResetQueueModal(false)}
+        onResetOnly={() => resetQueue(false)}
+        onResetWithCleanup={() => resetQueue(true)}
+        queueName={queueData?.department?.name || 'queue'}
+      />
     </DashboardLayout>
   )
 }

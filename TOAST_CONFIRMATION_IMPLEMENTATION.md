@@ -1,118 +1,163 @@
-# Toast-Based Confirmation System - Implementation Complete! ✅
+# Confirmation System - Modal Implementation Complete! ✅
 
 ## What We've Accomplished
 
-I've successfully updated your smart queuing system to replace all browser `confirm()` dialogs with your elegant toast notification system. Here's what changed:
+I've successfully updated your smart queuing system to use professional confirmation modals for critical actions, while maintaining toast notifications for feedback. This creates a more intuitive and modern user experience.
 
 ## 🔄 Changes Made
 
-### 1. **Enhanced Ticket Cleanup Service** (`admin/src/lib/ticketCleanup.ts`)
+### 1. **New ConfirmationModal Component** (`admin/src/components/ConfirmationModal.tsx`)
 
-- ✅ Added `ToastConfirmation` class for toast-based confirmations
-- ✅ Removed browser `confirm()` calls
-- ✅ Fixed TypeScript errors
-- ✅ Added specialized confirmation methods for different actions
+- ✅ Created reusable confirmation modal with customizable styling
+- ✅ Support for different types (warning, danger, info)
+- ✅ Proper accessibility with aria-labels and keyboard navigation
+- ✅ Professional design with backdrop blur and portal rendering
 
-### 2. **Updated Dashboard** (`admin/src/app/dashboard/page.tsx`)
+### 2. **Enhanced Sign Out Flow** (`admin/src/components/ProfileDropdown.tsx`)
 
-- ✅ Replaced 3 browser `confirm()` calls with toast confirmations
-- ✅ Added proper imports for the new confirmation system
-- ✅ Maintained all existing functionality
+- ✅ Added confirmation modal before sign out
+- ✅ Prevents accidental logouts
+- ✅ Redirects to login page after confirmation
+- ✅ Improved user experience in admin sidebar
+
+### 3. **Updated Manage Page** (`admin/src/app/manage/page.tsx`)
+
+- ✅ Replaced toast confirmations with modal confirmations for deletions
+- ✅ Added proper confirmation for branch deletion (includes warning about departments)
+- ✅ Added proper confirmation for department deletion
+- ✅ Maintained success/error feedback via toast system
+
+### 4. **Custom Reset Queue Modal** (`admin/src/components/ResetQueueModal.tsx`)
+
+- ✅ Replaced sequential toast notifications with single professional modal
+- ✅ Two clear options: "Reset Queue Only" and "Reset + Cleanup Database"
+- ✅ Visual icons and descriptions for each option
+- ✅ Shows department name in modal context
 
 ## 🎯 Confirmation Types Now Available
 
-### **Cleanup Confirmation**
+### **Destructive Action Confirmations**
 
 ```typescript
-ToastConfirmation.confirmCleanup(
-  () => performCleanup(),
-  showWarning
-)
+<ConfirmationModal
+  isOpen={showDeleteConfirm}
+  onClose={() => setShowDeleteConfirm(false)}
+  onConfirm={handleDelete}
+  title="Delete Item"
+  message="Are you sure you want to delete this item?"
+  confirmText="Delete"
+  cancelText="Cancel"
+  type="danger"
+/>
 ```
 
-**Shows**: "Clean Up Old Tickets?" with "Clean Up Now" button
+### **Sign Out Confirmation**
+
+```typescript
+<ConfirmationModal
+  isOpen={showSignOutConfirm}
+  onClose={() => setShowSignOutConfirm(false)}
+  onConfirm={handleSignOut}
+  title="Sign Out"
+  message="Are you sure you want to sign out?"
+  confirmText="Sign Out"
+  cancelText="Cancel"
+  type="warning"
+/>
+```
 
 ### **Reset Queue Confirmation**
 
 ```typescript
-ToastConfirmation.confirmReset(
-  () => resetQueue(),
-  showWarning
-)
+<ResetQueueModal
+  isOpen={showResetQueueModal}
+  onClose={() => setShowResetQueueModal(false)}
+  onResetOnly={() => resetQueue(false)}
+  onResetWithCleanup={() => resetQueue(true)}
+  queueName={departmentName}
+/>
 ```
-
-**Shows**: "Reset Queue?" with "Reset Queue" button
-
-### **Reset + Cleanup Confirmation**
-
-```typescript
-ToastConfirmation.confirmResetWithCleanup(
-  () => resetQueueWithCleanup(),
-  showWarning
-)
-```
-
-**Shows**: "Reset & Clean Up Database?" with "Reset & Clean Up" button
-
-### **Emergency Cleanup Confirmation** (Double confirmation for safety)
-
-```typescript
-ToastConfirmation.confirmEmergencyCleanup(
-  () => emergencyCleanup(),
-  showWarning,
-  showError
-)
-```
-
-**Shows**: Two-step confirmation with warning about data loss
 
 ## 🎨 User Experience Improvements
 
-### **Before** (Browser Alerts)
+### **Before** (Toast Confirmations)
 
-- ❌ Ugly system dialogs
-- ❌ Blocks the entire browser
-- ❌ Inconsistent styling
-- ❌ Poor mobile experience
+- ❌ Sequential toast notifications for reset options
+- ❌ Confusing timing between toasts
+- ❌ No confirmation for destructive deletions
+- ❌ No sign out confirmation
 
-### **After** (Toast Confirmations)
+### **After** (Professional Modals)
 
-- ✅ Beautiful, consistent UI
-- ✅ Matches your app's design
-- ✅ Non-blocking notifications
-- ✅ Mobile-friendly
-- ✅ Better accessibility
-- ✅ Action buttons in toasts
+- ✅ Beautiful, blocking confirmation modals
+- ✅ Clear single-screen choices for reset options
+- ✅ Proper confirmation for all destructive actions
+- ✅ Sign out protection with confirmation
+- ✅ Consistent design language across the app
+- ✅ Better accessibility and keyboard navigation
+- ✅ Toast notifications still used for feedback
 
 ## 📱 How It Works Now
 
-### **Cleanup Button**
+### **Sign Out Flow**
 
-1. User clicks "Clean Up" button
-2. Warning toast appears: "Clean Up Old Tickets?"
-3. Toast shows "Clean Up Now" action button
-4. User clicks the action button to confirm
-5. Cleanup executes with success/error toast feedback
+1. User clicks "Sign Out" from profile dropdown
+2. Confirmation modal appears: "Are you sure you want to sign out?"
+3. User can confirm or cancel
+4. If confirmed, redirects to login page
 
-### **Reset Queue Button**
+### **Delete Actions (Branches/Departments)**
+
+1. User clicks delete action
+2. Confirmation modal appears with specific item name
+3. Clear warning about consequences (e.g., "will delete all departments")
+4. User must explicitly confirm dangerous action
+5. Success/error feedback via toast system
+
+### **Reset Queue Flow**
 
 1. User clicks "Reset Queue" button
-2. Warning toast appears: "Reset Queue?"
-3. Toast shows "Reset Queue" action button
-4. User clicks to confirm
-5. Queue resets with toast feedback
-
-### **Reset + Cleanup Button**
-
-1. User clicks "Reset & Clean Up" button
-2. Warning toast appears: "Reset & Clean Up Database?"
-3. Toast shows "Reset & Clean Up" action button
-4. User clicks to confirm
-5. Both actions execute with toast feedback
+2. Custom modal appears with two clear options side-by-side:
+   - "Reset Queue Only" - Quick reset
+   - "Reset + Cleanup Database" - Reset with optimization
+3. User selects their preferred option
+4. Modal closes and action executes
+5. Success/error feedback via toast system
 
 ## 🛡️ Safety Features
 
 - **Clear messaging** - Each confirmation explains exactly what will happen
+- **Proper confirmation for destructive actions** - Delete and reset operations require explicit confirmation
+- **Contextual information** - Modals show specific item names and consequences
+- **Accessibility** - Proper ARIA labels and keyboard navigation support
+- **Visual hierarchy** - Danger actions use red styling, warnings use amber
+- **Prevention of accidents** - Sign out and delete operations protected by confirmation modals
+
+## 🎯 Benefits of Modal-Based Confirmations
+
+### **Better User Experience**
+
+- ✅ **Blocking interactions** - Users must make deliberate choices
+- ✅ **Clear visual hierarchy** - Dangerous actions are clearly marked
+- ✅ **Contextual information** - Shows exactly what will be affected
+- ✅ **Professional appearance** - Consistent with modern app design patterns
+
+### **Improved Safety**
+
+- ✅ **Prevents accidental actions** - Especially for destructive operations
+- ✅ **Clear consequences** - Users understand what will happen
+- ✅ **Proper confirmation flow** - No rushed decisions
+- ✅ **Escape routes** - Easy to cancel at any point
+
+### **Enhanced Accessibility**
+
+- ✅ **Screen reader support** - Proper ARIA labels and roles
+- ✅ **Keyboard navigation** - Full keyboard accessibility
+- ✅ **Focus management** - Proper focus trapping in modals
+- ✅ **High contrast** - Clear visual indicators for all actions
+
+This modal-based confirmation system provides a much more professional and safe user experience while maintaining the responsive feedback through toast notifications for operation results.
+
 - **Action buttons** - Users must actively click the confirmation button
 - **Non-intrusive** - Toasts don't block the entire interface
 - **Timeout** - Confirmations auto-dismiss if not acted upon

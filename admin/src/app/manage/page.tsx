@@ -9,6 +9,7 @@ import { useAppToast } from '@/hooks/useAppToast'
 import EditBranchModal from '@/components/EditBranchModal'
 import EditDepartmentModal from '@/components/EditDepartmentModal'
 import ActionDropdown from '@/components/ActionDropdown'
+import ConfirmationModal from '@/components/ConfirmationModal'
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic'
@@ -51,6 +52,11 @@ export default function ManagePage() {
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
   const [showEditBranchModal, setShowEditBranchModal] = useState(false)
   const [showEditDepartmentModal, setShowEditDepartmentModal] = useState(false)
+
+  // Confirmation modal state
+  const [showDeleteBranchConfirm, setShowDeleteBranchConfirm] = useState(false)
+  const [showDeleteDepartmentConfirm, setShowDeleteDepartmentConfirm] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null)
 
   // Branch form state
   const [branchForm, setBranchForm] = useState({
@@ -211,109 +217,91 @@ export default function ManagePage() {
   }
 
   const deleteBranch = async (branchId: string) => {
-    // First show a warning toast asking for confirmation
     const branch = branches.find(b => b.id === branchId)
     const branchName = branch?.name || 'this branch'
     
-    showWarning(
-      'Confirm Branch Deletion',
-      `Are you sure you want to delete "${branchName}"? This will also delete all associated departments and cannot be undone.`,
-      {
-        label: 'Delete Branch',
-        onClick: async () => {
-          try {
-            // First delete all departments in this branch
-            await supabase
-              .from('departments')
-              .delete()
-              .eq('branch_id', branchId)
+    setItemToDelete({ id: branchId, name: branchName })
+    setShowDeleteBranchConfirm(true)
+  }
 
-            // Then delete the branch
-            const { error } = await supabase
-              .from('branches')
-              .delete()
-              .eq('id', branchId)
+  const confirmDeleteBranch = async () => {
+    if (!itemToDelete) return
+    
+    try {
+      // First delete all departments in this branch
+      await supabase
+        .from('departments')
+        .delete()
+        .eq('branch_id', itemToDelete.id)
 
-            if (!error) {
-              await fetchBranches()
-              await fetchDepartments()
-              
-              showSuccess(
-                'Branch Deleted!',
-                `"${branchName}" and all its departments have been successfully removed.`
-              )
-            } else {
-              showError(
-                'Deletion Failed',
-                'Unable to delete the branch. Please try again.',
-                {
-                  label: 'Retry',
-                  onClick: () => deleteBranch(branchId)
-                }
-              )
-            }
-          } catch (error) {
-            showError(
-              'Deletion Error',
-              'An unexpected error occurred while deleting the branch.',
-              {
-                label: 'Try Again',
-                onClick: () => deleteBranch(branchId)
-              }
-            )
-          }
-        }
+      // Then delete the branch
+      const { error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('id', itemToDelete.id)
+
+      if (!error) {
+        await fetchBranches()
+        await fetchDepartments()
+        
+        showSuccess(
+          'Branch Deleted!',
+          `"${itemToDelete.name}" and all its departments have been successfully removed.`
+        )
+      } else {
+        showError(
+          'Deletion Failed',
+          'Unable to delete the branch. Please try again.'
+        )
       }
-    )
+    } catch (error) {
+      showError(
+        'Deletion Error',
+        'An unexpected error occurred while deleting the branch.'
+      )
+    } finally {
+      setItemToDelete(null)
+    }
   }
 
   const deleteDepartment = async (departmentId: string) => {
-    // First show a warning toast asking for confirmation
     const department = departments.find(d => d.id === departmentId)
     const departmentName = department?.name || 'this department'
     
-    showWarning(
-      'Confirm Department Deletion',
-      `Are you sure you want to delete "${departmentName}"? This action cannot be undone.`,
-      {
-        label: 'Delete Department',
-        onClick: async () => {
-          try {
-            const { error } = await supabase
-              .from('departments')
-              .delete()
-              .eq('id', departmentId)
+    setItemToDelete({ id: departmentId, name: departmentName })
+    setShowDeleteDepartmentConfirm(true)
+  }
 
-            if (!error) {
-              await fetchDepartments()
-              
-              showSuccess(
-                'Department Deleted!',
-                `"${departmentName}" has been successfully removed.`
-              )
-            } else {
-              showError(
-                'Deletion Failed',
-                'Unable to delete the department. Please try again.',
-                {
-                  label: 'Retry',
-                  onClick: () => deleteDepartment(departmentId)
-                }
-              )
-            }
-          } catch (error) {
-            showError(
-              'Deletion Error',
-              'An unexpected error occurred while deleting the department.',
-              {
-                label: 'Try Again',
-                onClick: () => deleteDepartment(departmentId)
-              }
-            )
-          }
-        }
+  const confirmDeleteDepartment = async () => {
+    if (!itemToDelete) return
+    
+    try {
+      const { error } = await supabase
+        .from('departments')
+        .delete()
+        .eq('id', itemToDelete.id)
+
+      if (!error) {
+        await fetchDepartments()
+        
+        showSuccess(
+          'Department Deleted!',
+          `"${itemToDelete.name}" has been successfully removed.`
+        )
+      } else {
+        showError(
+          'Deletion Failed',
+          'Unable to delete the department. Please try again.'
+        )
       }
-    )
+    } catch (error) {
+      showError(
+        'Deletion Error',
+        'An unexpected error occurred while deleting the department.'
+      )
+    } finally {
+      setItemToDelete(null)
+    }
   }
 
   // Edit functions
@@ -719,6 +707,35 @@ export default function ManagePage() {
           description: editingDepartment.description || ''
         } : null}
         onSave={updateDepartment}
+      />
+
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={showDeleteBranchConfirm}
+        onClose={() => {
+          setShowDeleteBranchConfirm(false)
+          setItemToDelete(null)
+        }}
+        onConfirm={confirmDeleteBranch}
+        title="Delete Branch"
+        message={`Are you sure you want to delete "${itemToDelete?.name}"? This will also delete all associated departments and cannot be undone.`}
+        confirmText="Delete Branch"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteDepartmentConfirm}
+        onClose={() => {
+          setShowDeleteDepartmentConfirm(false)
+          setItemToDelete(null)
+        }}
+        onConfirm={confirmDeleteDepartment}
+        title="Delete Department"
+        message={`Are you sure you want to delete "${itemToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete Department"
+        cancelText="Cancel"
+        type="danger"
       />
     </DashboardLayout>
   )
