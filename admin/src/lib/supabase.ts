@@ -30,13 +30,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     headers: {
-      'X-Client-Info': 'smart-queue-admin'
-    }
+      'x-application-name': 'smart-queue-admin',
+    },
+  },
+  db: {
+    schema: 'public',
   },
   realtime: {
-    timeout: 10000,
-    heartbeatIntervalMs: 30000
-  }
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 })
 
 export type Database = {

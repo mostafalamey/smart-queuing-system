@@ -57,16 +57,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
 
     const initializeAuth = async () => {
       try {
-        // Get initial session
+        // Get initial session with retry logic
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
         if (error) {
           console.error('Session error:', error);
+          // Retry logic for session errors
+          if (retryCount < maxRetries) {
+            retryCount++;
+            setTimeout(initializeAuth, 1000 * retryCount);
+            return;
+          }
           setLoading(false);
           return;
         }
@@ -81,6 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('Auth initialization error:', error);
         if (mounted) {
+          // Retry logic for network errors
+          if (retryCount < maxRetries) {
+            retryCount++;
+            setTimeout(initializeAuth, 1000 * retryCount);
+            return;
+          }
           setLoading(false);
         }
       }
@@ -88,50 +102,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes with improved error handling
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
         console.log('Auth state changed:', event, session?.user?.id);
         
-        setUser(session?.user || null);
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setUserProfile(null);
-        }
-        
-        // Only set loading to false if we're not in the middle of a sign in
-        if (event !== 'SIGNED_IN' || session) {
+        try {
+          setUser(session?.user || null);
+          
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          } else {
+            setUserProfile(null);
+          }
+          
+          // Only set loading to false if we're not in the middle of a sign in
+          if (event !== 'SIGNED_IN' || session) {
+            setLoading(false);
+          }
+        } catch (error) {
+          console.error('Auth state change error:', error);
           setLoading(false);
         }
       }
     );
 
-    // Handle page visibility changes to reconnect to Supabase
-    const handleVisibilityChange = () => {
+    // Handle page visibility changes with improved session refresh
+    const handleVisibilityChange = async () => {
       if (!document.hidden && !loading) {
-        // Page became visible, refresh session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        try {
+          // Page became visible, refresh session
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Session refresh error:', error);
+            return;
+          }
+          
           if (session?.user && !user) {
             setUser(session.user);
-            fetchUserProfile(session.user.id);
+            await fetchUserProfile(session.user.id);
           } else if (!session?.user && user) {
             setUser(null);
             setUserProfile(null);
           }
-        });
+        } catch (error) {
+          console.error('Visibility change error:', error);
+        }
+      }
+    };
+
+    // Handle network reconnection
+    const handleOnline = () => {
+      if (!user && !loading) {
+        initializeAuth();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
     };
   }, []);
 
