@@ -70,55 +70,6 @@
 
 ---
 
-## 🚀 **Quick Start**
-
-### Prerequisites
-
-- Node.js 18+ and npm 8+
-- Supabase account and project
-
-### Development Setup
-
-1. **Clone the repository**
-
-```bash
-git clone https://github.com/mostafalamey/smart-queuing-system.git
-cd smart-queuing-system
-```
-
-1. **Install dependencies**
-
-```bash
-npm run install:all
-```
-
-1. **Configure environment variables**
-
-```bash
-# Copy and configure admin environment
-cp admin/.env.production.template admin/.env.local
-
-# Copy and configure customer environment  
-cp customer/.env.production.template customer/.env.local
-```
-
-1. **Set up database**
-
-- Import `DATABASE_SETUP.md` schema into your Supabase project
-
-1. **Start development servers**
-
-```bash
-npm run dev
-```
-
-**Applications will be available at:**
-
-- 📊 **Admin Dashboard**: <http://localhost:3001>
-- 📱 **Customer App**: <http://localhost:3002>
-
----
-
 ## 📦 **Deployment**
 
 ### ✅ Production Deployment (Live)
