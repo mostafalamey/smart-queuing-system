@@ -10,6 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Smart Queue",
   description: "Join the queue digitally",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
@@ -17,6 +18,20 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Smart Queue"
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: "cover"
+  },
+  themeColor: "#3b82f6",
+  colorScheme: "light"
 };
 
 export default function RootLayout({

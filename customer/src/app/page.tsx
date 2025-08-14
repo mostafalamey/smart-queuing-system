@@ -5,7 +5,9 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-fixed'
 import { DynamicTheme } from '@/components/DynamicTheme'
 import { notificationService } from '@/lib/notifications'
-import { Phone, ChevronRight, MapPin, Users, Clock } from 'lucide-react'
+import { pushNotificationService } from '@/lib/pushNotifications'
+import { queueNotificationHelper } from '@/lib/queueNotifications'
+import { Phone, ChevronRight, MapPin, Users, Clock, Bell, BellOff } from 'lucide-react'
 
 interface Organization {
   id: string
@@ -49,6 +51,15 @@ function CustomerAppContent() {
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null)
   const [ticketNumber, setTicketNumber] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false)
+  const [pushNotificationsSupported, setPushNotificationsSupported] = useState(false)
+  const [showPushPrompt, setShowPushPrompt] = useState(false)
+  const [pushSubscriptionLoading, setPushSubscriptionLoading] = useState(false)
+
+  // Initialize push notifications
+  useEffect(() => {
+    initializePushNotifications()
+  }, [])
 
   useEffect(() => {
     if (orgId) {
@@ -77,10 +88,26 @@ function CustomerAppContent() {
     }
   }, [selectedDepartment])
 
+  // Initialize push notifications
+  const initializePushNotifications = async () => {
+    try {
+      const supported = pushNotificationService.isSupported()
+      setPushNotificationsSupported(supported)
+
+      if (supported) {
+        const initialized = await pushNotificationService.initialize()
+        if (initialized) {
+          const permission = pushNotificationService.getPermissionStatus()
+          setPushNotificationsEnabled(permission === 'granted')
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing push notifications:', error)
+    }
+  }
+
   const fetchOrganization = async () => {
     if (!orgId) return;
-    
-    console.log('Fetching organization:', orgId);
     
     try {
       const { data, error } = await supabase
@@ -94,7 +121,6 @@ function CustomerAppContent() {
         return;
       }
       
-      console.log('Organization fetched:', data);
       setOrganization(data)
     } catch (error) {
       console.error('Exception fetching organization:', error);
@@ -103,8 +129,6 @@ function CustomerAppContent() {
 
   const fetchBranches = async () => {
     if (!orgId) return;
-    
-    console.log('Fetching branches for organization:', orgId);
     
     try {
       const { data, error } = await supabase
@@ -118,7 +142,6 @@ function CustomerAppContent() {
         return;
       }
       
-      console.log('Branches fetched:', data);
       setBranches(data || [])
     } catch (error) {
       console.error('Exception fetching branches:', error);
@@ -128,8 +151,6 @@ function CustomerAppContent() {
 
   const fetchDepartments = async () => {
     if (!selectedBranch) return;
-    
-    console.log('Fetching departments for branch:', selectedBranch);
     
     try {
       const { data, error } = await supabase
@@ -143,7 +164,6 @@ function CustomerAppContent() {
         return;
       }
       
-      console.log('Departments fetched:', data);
       setDepartments(data || [])
     } catch (error) {
       console.error('Exception fetching departments:', error);
@@ -203,7 +223,6 @@ function CustomerAppContent() {
         .single()
 
       if (settingsError || !queueSettings) {
-        console.log('Queue settings not found, creating new one...')
         // Create queue settings if it doesn't exist
         const { data: newSettings, error: createError } = await supabase
           .from('queue_settings')
@@ -257,19 +276,42 @@ function CustomerAppContent() {
         setTicketNumber(ticketId)
         setStep(4) // Show confirmation
         
-        // Send WhatsApp notification
+        // Try to send push notification first, fallback to WhatsApp if needed
         const department = departments.find(d => d.id === selectedDepartment)
         if (department && organization) {
-          await notificationService.notifyTicketCreated(
-            phoneNumber,
-            ticketId,
-            department.name,
-            organization.name,
-            queueStatus?.waitingCount || 0
-          )
+          let pushSent = false
+          
+          // Try push notification if enabled
+          if (pushNotificationsEnabled && orgId) {
+            try {
+              pushSent = await queueNotificationHelper.sendTicketCreatedNotification({
+                organizationId: orgId,
+                customerPhone: phoneNumber,
+                ticketNumber: ticketId,
+                departmentName: department.name,
+                organizationName: organization.name,
+                organizationLogo: organization.logo_url || undefined,
+                organizationColor: organization.primary_color || undefined,
+                waitingCount: queueStatus?.waitingCount || 0
+              })
+              
+            } catch (error) {
+              console.error('Push notification failed:', error)
+            }
+          }
+          
+          // Send WhatsApp notification (either as fallback or primary)
+          if (!pushSent || !pushNotificationsEnabled) {
+            await notificationService.notifyTicketCreated(
+              phoneNumber,
+              ticketId,
+              department.name,
+              organization.name,
+              queueStatus?.waitingCount || 0
+            )
+          }
         }
         
-        console.log('Ticket created:', ticketId)
       } else {
         console.error('Error creating ticket:', error)
         throw error
@@ -281,8 +323,52 @@ function CustomerAppContent() {
     }
   }
 
+  // Enable push notifications
+  const enablePushNotifications = async () => {
+    setPushSubscriptionLoading(true)
+
+    if (!phoneNumber) {
+      console.error('Phone number is required for push notifications')
+      setPushSubscriptionLoading(false)
+      return
+    }
+
+    if (!orgId) {
+      console.error('Organization ID is required for push notifications')
+      setPushSubscriptionLoading(false)
+      return
+    }
+
+    try {
+      // Ensure this is triggered by user interaction
+      const success = await pushNotificationService.subscribe(orgId, phoneNumber)
+
+      if (success) {
+        setPushNotificationsEnabled(true)
+        setShowPushPrompt(false)
+      } else {
+        // Still hide the prompt even if denied, so user can proceed
+        setShowPushPrompt(false)
+      }
+    } catch (error) {
+      console.error('Error enabling push notifications:', error)
+      // Hide prompt on error so user can proceed
+      setShowPushPrompt(false)
+    } finally {
+      setPushSubscriptionLoading(false)
+    }
+  }  // Dismiss push notification prompt
+  const dismissPushPrompt = () => {
+    setShowPushPrompt(false)
+  }
+
   const handleContinue = () => {
     if (step === 1 && phoneNumber) {
+      // Show push notification prompt after phone number is entered
+      if (pushNotificationsSupported && !pushNotificationsEnabled) {
+        setShowPushPrompt(true)
+      }
+      
       if (branchId) {
         setStep(3) // Skip branch selection if branch is pre-selected
       } else {
@@ -344,7 +430,7 @@ function CustomerAppContent() {
             <h2 className="text-xl font-semibold text-gray-900 mb-3">
               Welcome to {organization?.name || 'our queue system'}
             </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               {organization?.welcome_message || 
                'Welcome to our smart queue system. Please take your number and wait for your turn.'}
             </p>
@@ -378,7 +464,7 @@ function CustomerAppContent() {
                   Enter Your Phone Number
                 </h4>
                 <p className="text-gray-600">
-                  We'll send your queue ticket via WhatsApp
+                  We'll send your queue updates via {pushNotificationsSupported ? 'notifications and WhatsApp' : 'WhatsApp'}
                 </p>
 
                 <div>
@@ -574,6 +660,54 @@ function CustomerAppContent() {
                   <button className="text-sm text-primary-600 underline">
                     ✉️ Email us
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Push Notification Prompt */}
+          {showPushPrompt && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Bell className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Enable Notifications?
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    Get instant notifications when it's almost your turn and when you're called, even when the app is closed.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={enablePushNotifications}
+                      disabled={pushSubscriptionLoading}
+                      className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {pushSubscriptionLoading ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 inline-block border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Setting up...
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="w-4 h-4 mr-2 inline" />
+                          Enable Notifications
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={dismissPushPrompt}
+                      className="w-full text-gray-600 font-medium py-3 px-6 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      <BellOff className="w-4 h-4 mr-2 inline" />
+                      Use WhatsApp Only
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    You can change this anytime in your browser settings
+                  </p>
                 </div>
               </div>
             </div>

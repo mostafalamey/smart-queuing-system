@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
   const [branches, setBranches] = useState<any[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
+  const [organization, setOrganization] = useState<any>(null)
   const [queueData, setQueueData] = useState<QueueData | null>(null)
   const [loading, setLoading] = useState(false)
   const [connectionError, setConnectionError] = useState(false)
@@ -43,203 +44,13 @@ export default function DashboardPage() {
   const [showResetQueueModal, setShowResetQueueModal] = useState(false)
   const [lastCleanupTime, setLastCleanupTime] = useState<Date | null>(null)
 
-  // Ensure component is mounted on client side
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // Refs to prevent multiple simultaneous operations
+  const isFetchingRef = useRef(false)
+  const subscriptionsRef = useRef<any>({ tickets: null, queueSettings: null })
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user && mounted) {
-      router.replace('/login')
-    }
-  }, [user, authLoading, router, mounted])
-
-  useEffect(() => {
-    if (userProfile?.organization_id) {
-      fetchBranches()
-    }
-  }, [userProfile])
-
-  useEffect(() => {
-    if (selectedBranch) {
-      fetchDepartments()
-    }
-  }, [selectedBranch])
-
-  useEffect(() => {
-    if (selectedDepartment) {
-      fetchQueueData()
-    }
-  }, [selectedDepartment])
-
-  // Real-time subscriptions for live updates
-  useEffect(() => {
-    if (!selectedDepartment) return
-
-    let ticketsSubscription: any = null
-    let queueSettingsSubscription: any = null
-
-    const setupSubscriptions = () => {
-      try {
-        // Subscribe to tickets changes
-        ticketsSubscription = supabase
-          .channel(`tickets-changes-${selectedDepartment}`)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'tickets',
-              filter: `department_id=eq.${selectedDepartment}`
-            },
-            (payload) => {
-              console.log('Tickets real-time update:', payload)
-              fetchQueueData()
-            }
-          )
-          .subscribe((status: string) => {
-            if (status === 'SUBSCRIBED') {
-              console.log('Tickets subscription active')
-              setConnectionError(false)
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('Tickets subscription error, retrying...')
-              setConnectionError(true)
-              setTimeout(setupSubscriptions, 5000)
-            }
-          })
-
-        // Subscribe to queue_settings changes
-        queueSettingsSubscription = supabase
-          .channel(`queue-settings-changes-${selectedDepartment}`)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'queue_settings',
-              filter: `department_id=eq.${selectedDepartment}`
-            },
-            (payload) => {
-              console.log('Queue settings real-time update:', payload)
-              fetchQueueData()
-            }
-          )
-          .subscribe((status: string) => {
-            if (status === 'SUBSCRIBED') {
-              console.log('Queue settings subscription active')
-              setConnectionError(false)
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('Queue settings subscription error, retrying...')
-              setConnectionError(true)
-              setTimeout(setupSubscriptions, 5000)
-            }
-          })
-      } catch (error) {
-        console.error('Error setting up subscriptions:', error)
-        setConnectionError(true)
-      }
-    }
-
-    setupSubscriptions()
-
-    // Handle page visibility changes
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchQueueData()
-        if (connectionError) {
-          setupSubscriptions()
-        }
-      }
-    }
-
-    // Handle online/offline events
-    const handleOnline = () => {
-      console.log('Connection restored')
-      setConnectionError(false)
-      fetchQueueData()
-      setupSubscriptions()
-    }
-
-    const handleOffline = () => {
-      console.log('Connection lost')
-      setConnectionError(true)
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    // Cleanup subscriptions
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-      if (ticketsSubscription) {
-        supabase.removeChannel(ticketsSubscription)
-      }
-      if (queueSettingsSubscription) {
-        supabase.removeChannel(queueSettingsSubscription)
-      }
-    }
-  }, [selectedDepartment])
-
-  // Automated ticket cleanup - runs every 24 hours
-  useEffect(() => {
-    if (!user || !userProfile) return // Only run for authenticated users
-
-    let cleanupInterval: NodeJS.Timeout | null = null
-    const hoursToMs = (hours: number) => hours * 60 * 60 * 1000
-
-    // Initialize last cleanup time from localStorage
-    const storedLastCleanup = localStorage.getItem('lastCleanupTime')
-    const lastStoredTime = storedLastCleanup ? parseInt(storedLastCleanup) : 0
-    if (lastStoredTime > 0) {
-      setLastCleanupTime(new Date(lastStoredTime))
-    }
-
-    const runAutomatedCleanup = async () => {
-      try {
-        console.log('Running automated ticket cleanup...')
-        await TicketCleanupService.runAutomatedCleanup()
-        const now = new Date()
-        const nowTimestamp = now.getTime()
-        setLastCleanupTime(now)
-        localStorage.setItem('lastCleanupTime', nowTimestamp.toString())
-        console.log('Automated ticket cleanup completed successfully')
-        
-        // Show a subtle notification that cleanup happened
-        showInfo('Database Maintenance', 'Automated ticket cleanup completed in the background.')
-      } catch (error) {
-        console.error('Automated cleanup failed:', error)
-        // Don't show error to user as this is background process
-      }
-    }
-
-    // Check if we need to run initial cleanup
-    const timeSinceLastCleanup = Date.now() - lastStoredTime
-
-    // If more than 23 hours since last cleanup, run it now
-    if (timeSinceLastCleanup > hoursToMs(23)) {
-      setTimeout(() => {
-        runAutomatedCleanup()
-      }, 5000) // Wait 5 seconds after page load to avoid interfering with initial load
-    }
-
-    // Set up interval for every 24 hours
-    cleanupInterval = setInterval(() => {
-      runAutomatedCleanup()
-    }, hoursToMs(24))
-
-    // Cleanup interval on unmount
-    return () => {
-      if (cleanupInterval) {
-        clearInterval(cleanupInterval)
-      }
-    }
-  }, [user, userProfile, showInfo])
-
-  const fetchBranches = async () => {
+  // Function declarations with useCallback
+  const fetchBranches = useCallback(async () => {
     if (!userProfile?.organization_id) return
     
     try {
@@ -253,14 +64,30 @@ export default function DashboardPage() {
       if (data && data.length > 0) {
         setSelectedBranch(data[0].id)
       }
-      setConnectionError(false)
     } catch (error) {
       console.error('Error fetching branches:', error)
       setConnectionError(true)
     }
-  }
+  }, [userProfile?.organization_id])
 
-  const fetchDepartments = async () => {
+  const fetchOrganization = useCallback(async () => {
+    if (!userProfile?.organization_id) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, logo_url, primary_color')
+        .eq('id', userProfile.organization_id)
+        .single()
+      
+      if (error) throw error
+      setOrganization(data)
+    } catch (error) {
+      console.error('Error fetching organization:', error)
+    }
+  }, [userProfile?.organization_id])
+
+  const fetchDepartments = useCallback(async () => {
     if (!selectedBranch) return
     
     try {
@@ -279,18 +106,19 @@ export default function DashboardPage() {
       if (data && data.length > 0) {
         setSelectedDepartment(data[0].id)
       }
-      setConnectionError(false)
     } catch (error) {
       console.error('Error fetching departments:', error)
       setDepartments([])
       setConnectionError(true)
     }
-  }
+  }, [selectedBranch])
 
-  const fetchQueueData = async () => {
-    if (!selectedDepartment) return
+  const fetchQueueData = useCallback(async () => {
+    if (!selectedDepartment || isFetchingRef.current) return
 
+    isFetchingRef.current = true
     setLoading(true)
+    
     try {
       // Get department info
       const { data: department } = await supabase
@@ -336,15 +164,295 @@ export default function DashboardPage() {
         lastTicketNumber: lastTickets?.[0]?.ticket_number || null,
       })
 
-      setConnectionError(false)
     } catch (error) {
       console.error('Error fetching queue data:', error)
       setQueueData(null)
       setConnectionError(true)
     } finally {
       setLoading(false)
+      isFetchingRef.current = false
     }
-  }
+  }, [selectedDepartment])
+
+  // Ensure component is mounted on client side
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user && mounted) {
+      router.replace('/login')
+    }
+  }, [user, authLoading, router, mounted])
+
+  useEffect(() => {
+    if (userProfile?.organization_id) {
+      fetchBranches()
+      fetchOrganization()
+    }
+  }, [userProfile, fetchBranches, fetchOrganization])
+
+  useEffect(() => {
+    if (selectedBranch) {
+      fetchDepartments()
+    }
+  }, [selectedBranch, fetchDepartments])
+
+  useEffect(() => {
+    if (selectedDepartment) {
+      fetchQueueData()
+    }
+  }, [selectedDepartment, fetchQueueData])
+
+  // Real-time subscriptions for live updates
+  useEffect(() => {
+    if (!selectedDepartment) {
+      // Clean up existing subscriptions if department is cleared
+      if (subscriptionsRef.current.tickets) {
+        supabase.removeChannel(subscriptionsRef.current.tickets)
+        subscriptionsRef.current.tickets = null
+      }
+      if (subscriptionsRef.current.queueSettings) {
+        supabase.removeChannel(subscriptionsRef.current.queueSettings)
+        subscriptionsRef.current.queueSettings = null
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
+      return
+    }
+
+    // Store the current department ID to prevent stale closures
+    const currentDepartmentId = selectedDepartment
+    let isActive = true
+
+    // Create a stable refresh function that doesn't trigger state updates that cause re-renders
+    const refreshData = async () => {
+      if (isFetchingRef.current || !isActive) return
+      
+      isFetchingRef.current = true
+      try {
+        // Get department info
+        const { data: department } = await supabase
+          .from('departments')
+          .select(`
+            *,
+            branches:branch_id (
+              id,
+              name
+            )
+          `)
+          .eq('id', currentDepartmentId)
+          .single()
+
+        // Get waiting count
+        const { count } = await supabase
+          .from('tickets')
+          .select('*', { count: 'exact' })
+          .eq('department_id', currentDepartmentId)
+          .eq('status', 'waiting')
+
+        // Get currently serving ticket
+        const { data: servingTickets } = await supabase
+          .from('tickets')
+          .select('ticket_number')
+          .eq('department_id', currentDepartmentId)
+          .eq('status', 'serving')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+
+        // Get last ticket number
+        const { data: lastTickets } = await supabase
+          .from('tickets')
+          .select('ticket_number')
+          .eq('department_id', currentDepartmentId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        // Only update state if the component is still active
+        if (isActive) {
+          setQueueData({
+            department,
+            currentServing: servingTickets?.[0]?.ticket_number || null,
+            waitingCount: count || 0,
+            lastTicketNumber: lastTickets?.[0]?.ticket_number || null,
+          })
+        }
+      } catch (error) {
+        console.error('Error refreshing queue data:', error)
+        // Don't update connection error state here to prevent re-renders
+      } finally {
+        isFetchingRef.current = false
+      }
+    }
+
+    const setupSubscriptions = () => {
+      // Clean up existing subscriptions first
+      if (subscriptionsRef.current.tickets) {
+        supabase.removeChannel(subscriptionsRef.current.tickets)
+      }
+      if (subscriptionsRef.current.queueSettings) {
+        supabase.removeChannel(subscriptionsRef.current.queueSettings)
+      }
+      
+      if (!isActive) return
+      
+      try {
+        // Subscribe to tickets changes
+        subscriptionsRef.current.tickets = supabase
+          .channel(`tickets-changes-${currentDepartmentId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'tickets',
+              filter: `department_id=eq.${currentDepartmentId}`
+            },
+            (payload) => {
+              // Use setTimeout to batch updates and prevent rapid successive calls
+              if (isActive) {
+                setTimeout(() => refreshData(), 100)
+              }
+            }
+          )
+          .subscribe()
+
+        // Subscribe to queue_settings changes
+        subscriptionsRef.current.queueSettings = supabase
+          .channel(`queue-settings-changes-${currentDepartmentId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'queue_settings',
+              filter: `department_id=eq.${currentDepartmentId}`
+            },
+            (payload) => {
+              // Use setTimeout to batch updates and prevent rapid successive calls
+              if (isActive) {
+                setTimeout(() => refreshData(), 100)
+              }
+            }
+          )
+          .subscribe()
+      } catch (error) {
+        console.error('Error setting up subscriptions:', error)
+        // Don't update connection error state here to prevent re-renders
+      }
+    }
+
+    setupSubscriptions()
+
+    // Handle page visibility changes
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isActive) {
+        refreshData()
+      }
+    }
+
+    // Handle online/offline events  
+    const handleOnline = () => {
+      if (isActive) {
+        refreshData()
+        setupSubscriptions()
+      }
+    }
+
+    const handleOffline = () => {
+      // Don't update connection error state here to prevent re-renders
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Cleanup subscriptions
+    return () => {
+      isActive = false
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      
+      if (subscriptionsRef.current.tickets) {
+        supabase.removeChannel(subscriptionsRef.current.tickets)
+        subscriptionsRef.current.tickets = null
+      }
+      if (subscriptionsRef.current.queueSettings) {
+        supabase.removeChannel(subscriptionsRef.current.queueSettings)
+        subscriptionsRef.current.queueSettings = null
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
+    }
+  }, [selectedDepartment]) // Only depend on selectedDepartment
+
+  // TEMPORARILY DISABLED - Automated ticket cleanup - runs every 24 hours
+  // useEffect(() => {
+  //   if (!user || !userProfile) return // Only run for authenticated users
+
+  //   let cleanupInterval: NodeJS.Timeout | null = null
+  //   let hasInitialized = false
+  //   const hoursToMs = (hours: number) => hours * 60 * 60 * 1000
+
+  //   const runAutomatedCleanup = async () => {
+  //     try {
+  //       console.log('Running automated ticket cleanup...')
+  //       await TicketCleanupService.runAutomatedCleanup()
+  //       const now = new Date()
+  //       const nowTimestamp = now.getTime()
+  //       setLastCleanupTime(now)
+  //       localStorage.setItem('lastCleanupTime', nowTimestamp.toString())
+  //       console.log('Automated ticket cleanup completed successfully')
+        
+  //       // Show a subtle notification that cleanup happened
+  //       if (showInfo) {
+  //         showInfo('Database Maintenance', 'Automated ticket cleanup completed in the background.')
+  //       }
+  //     } catch (error) {
+  //       console.error('Automated cleanup failed:', error)
+  //       // Don't show error to user as this is background process
+  //     }
+  //   }
+
+  //   // Initialize last cleanup time from localStorage only once
+  //   if (!hasInitialized) {
+  //     hasInitialized = true
+  //     const storedLastCleanup = localStorage.getItem('lastCleanupTime')
+  //     const lastStoredTime = storedLastCleanup ? parseInt(storedLastCleanup) : 0
+      
+  //     if (lastStoredTime > 0) {
+  //       setLastCleanupTime(new Date(lastStoredTime))
+  //     }
+
+  //     // Check if we need to run initial cleanup
+  //     const timeSinceLastCleanup = Date.now() - lastStoredTime
+
+  //     // If more than 23 hours since last cleanup, run it now
+  //     if (timeSinceLastCleanup > hoursToMs(23)) {
+  //       setTimeout(() => {
+  //         runAutomatedCleanup()
+  //       }, 5000) // Wait 5 seconds after page load to avoid interfering with initial load
+  //     }
+  //   }
+
+  //   // Set up interval for every 24 hours
+  //   cleanupInterval = setInterval(() => {
+  //     runAutomatedCleanup()
+  //   }, hoursToMs(24))
+
+  //   // Cleanup interval on unmount
+  //   return () => {
+  //     if (cleanupInterval) {
+  //       clearInterval(cleanupInterval)
+  //     }
+  //   }
+  // }, [user, userProfile]) // Only depend on user and userProfile
 
   const callNext = async () => {
     if (!selectedDepartment || !queueData) return
@@ -391,6 +499,79 @@ export default function DashboardPage() {
             current_serving: nextTicket.ticket_number
           })
 
+        // Send push notifications
+        try {
+          // Validate required data for notifications
+          if (!userProfile?.organization_id) {
+            console.error('Organization ID not found in user profile')
+            throw new Error('Organization ID required for notifications')
+          }
+
+          // 1. Send "Your Turn" notification to the customer being called
+          const yourTurnResponse = await fetch('/api/notifications/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              organizationId: userProfile.organization_id,
+              customerPhone: nextTicket.customer_phone,
+              payload: {
+                title: `🎯 Your Turn! - ${queueData.department.branches.name}`,
+                body: `Ticket ${nextTicket.ticket_number} - Please proceed to ${queueData.department.name}`,
+                icon: organization?.logo_url || '/logo_s.png',
+                requireInteraction: true,
+                vibrate: [300, 100, 300, 100, 300],
+                tag: 'your-turn'
+              },
+              notificationType: 'your_turn',
+              ticketNumber: nextTicket.ticket_number
+            })
+          })
+
+          const yourTurnResult = await yourTurnResponse.json()
+
+          // 2. Send "Almost Your Turn" notification to the next 1-2 customers in line
+          const { data: upcomingTickets } = await supabase
+            .from('tickets')
+            .select('*')
+            .eq('department_id', selectedDepartment)
+            .eq('status', 'waiting')
+            .order('created_at', { ascending: true })
+            .limit(2)
+
+          if (upcomingTickets && upcomingTickets.length > 0) {
+            for (const upcomingTicket of upcomingTickets) {
+              const position = upcomingTickets.indexOf(upcomingTicket) + 1
+              const message = position === 1 
+                ? "You're next! Please get ready."
+                : "You're almost up! Please be ready."
+
+              const almostTurnResponse = await fetch('/api/notifications/push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  organizationId: userProfile.organization_id,
+                  customerPhone: upcomingTicket.customer_phone,
+                  payload: {
+                    title: `🔔 Almost Your Turn - ${queueData.department.branches.name}`,
+                    body: `Ticket ${upcomingTicket.ticket_number} - ${message}\nCurrently serving: ${nextTicket.ticket_number}`,
+                    icon: organization?.logo_url || '/logo_s.png',
+                    requireInteraction: false,
+                    vibrate: [200, 100, 200],
+                    tag: 'almost-your-turn'
+                  },
+                  notificationType: 'almost_your_turn',
+                  ticketNumber: upcomingTicket.ticket_number
+                })
+              })
+
+              await almostTurnResponse.json()
+            }
+          }
+        } catch (notificationError) {
+          console.error('Error sending push notifications:', notificationError)
+          // Don't fail the entire operation if notifications fail
+        }
+
         fetchQueueData()
         setConnectionError(false)
         
@@ -400,7 +581,9 @@ export default function DashboardPage() {
           `Now serving ticket ${nextTicket.ticket_number}`,
           {
             label: 'View Details',
-            onClick: () => console.log('View ticket details', nextTicket.id)
+            onClick: () => {
+              // TODO: Implement ticket details view
+            }
           }
         )
       } else {
@@ -474,7 +657,7 @@ export default function DashboardPage() {
                 }))
               )
           } catch (archiveError) {
-            console.log('Archive table not available, skipping archival')
+            // Archive table not available, skip archival and proceed with deletion
           }
 
           // Delete ALL completed/cancelled tickets

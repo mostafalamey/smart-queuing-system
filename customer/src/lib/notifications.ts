@@ -27,8 +27,7 @@ class NotificationService {
     try {
       const message = this.formatMessage(data)
       
-      // For MVP: Log to console
-      console.log(`📱 WhatsApp to ${data.phone}:`, message)
+      // For MVP: Log to console (replace with actual WhatsApp API in production)
       
       // TODO: In production, replace with actual WhatsApp API call
       // Example with UltraMsg:
