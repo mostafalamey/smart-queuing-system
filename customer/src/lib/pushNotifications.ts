@@ -1,6 +1,8 @@
 // Push Notification Service for Customer App
 // Handles service worker registration, push subscriptions, and notification permissions
 
+import { logger } from './logger'
+
 interface PushSubscriptionData {
   endpoint: string
   keys: {
@@ -37,22 +39,20 @@ class PushNotificationService {
     this.vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
     this.adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL!
     
-    // Debug logging for environment variables
-    console.log('Push Notification Service initialized:')
-    console.log('- VAPID Public Key:', this.vapidPublicKey ? `${this.vapidPublicKey.substring(0, 10)}...` : 'NOT SET')
-    console.log('- Admin URL:', this.adminUrl || 'NOT SET')
-    
+    // Validate environment variables
     if (!this.vapidPublicKey) {
-      console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set!')
+      logger.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set!')
     }
     if (!this.adminUrl) {
-      console.error('NEXT_PUBLIC_ADMIN_URL is not set!')
+      logger.error('NEXT_PUBLIC_ADMIN_URL is not set!')
     }
+    
+    logger.log('Push Notification Service initialized')
   }
 
   /**
    * Initialize the push notification service
-   * This should be called when the customer app loads
+   * Enhanced for iOS Safari PWA compatibility
    */
   async initialize(): Promise<boolean> {
     try {
@@ -68,6 +68,23 @@ class PushNotificationService {
       if (!('PushManager' in window)) {
         console.log('Push Manager not supported')
         return false
+      }
+
+      // Enhanced iOS Safari detection
+      const isIOSSafari = this.isIOSSafari()
+      const isPWAMode = this.isPWAMode()
+      
+      console.log('Browser environment:', {
+        isIOSSafari,
+        isPWAMode,
+        userAgent: navigator.userAgent
+      })
+
+      // Special handling for iOS Safari PWA mode
+      if (isIOSSafari && isPWAMode) {
+        console.log('iOS Safari PWA mode detected - applying enhanced compatibility')
+        // Add delay for iOS Safari PWA initialization
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
       console.log('Browser supports service workers and push notifications')
@@ -545,6 +562,37 @@ class PushNotificationService {
       binary += String.fromCharCode(bytes[i])
     }
     return window.btoa(binary)
+  }
+
+  /**
+   * Detect if running on iOS Safari
+   */
+  private isIOSSafari(): boolean {
+    if (typeof window === 'undefined') return false
+    
+    const userAgent = navigator.userAgent
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent)
+    const isSafari = /Safari/.test(userAgent) && !/Chrome|CriOS|FxiOS/.test(userAgent)
+    
+    return isIOS && isSafari
+  }
+
+  /**
+   * Detect if the app is running as a PWA
+   */
+  private isPWAMode(): boolean {
+    if (typeof window === 'undefined') return false
+    
+    // Check for standalone display mode
+    const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+    
+    // Check for iOS Safari home screen mode
+    const isIOSStandalone = 'standalone' in window.navigator && (window.navigator as any).standalone === true
+    
+    // Check for Android PWA
+    const isAndroidPWA = window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches
+    
+    return isStandalone || isIOSStandalone || isAndroidPWA
   }
 }
 

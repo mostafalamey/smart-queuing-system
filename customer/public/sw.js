@@ -1,54 +1,68 @@
-// Service Worker for Push Notifications
-// This file handles push events and notification display
+// Service Worker for Push Notifications and PWA Support
+// Enhanced for iOS Safari PWA compatibility
 
-const CACHE_NAME = 'smart-queue-v1'
+const CACHE_NAME = 'smart-queue-v2'
 const urlsToCache = [
   '/',
   '/favicon.svg',
-  '/logo_s.png'
+  '/logo_s.png',
+  '/manifest.json'
 ]
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
+  console.log('Service Worker: Installing...')
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
+        console.log('Service Worker: Caching files')
         return cache.addAll(urlsToCache)
       })
       .then(() => {
+        console.log('Service Worker: Files cached successfully')
         return self.skipWaiting()
+      })
+      .catch((error) => {
+        console.error('Service Worker: Cache installation failed:', error)
       })
   )
 })
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Activating...')
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('Service Worker: Deleting old cache:', cacheName)
             return caches.delete(cacheName)
           }
         })
       )
     }).then(() => {
+      console.log('Service Worker: Claiming clients')
       return self.clients.claim()
     })
   )
 })
 
 // Push event - handle incoming push notifications
+// Enhanced for iOS Safari PWA compatibility
 self.addEventListener('push', (event) => {
   console.log('Service Worker: Push event received')
 
   if (!event.data) {
+    console.log('Service Worker: No data in push event')
     return
   }
 
   try {
     const data = event.data.json()
+    console.log('Service Worker: Push data:', data)
 
+    // Enhanced notification options for iOS Safari compatibility
     const options = {
       body: data.body,
       icon: data.icon || '/logo_s.png',
@@ -58,21 +72,25 @@ self.addEventListener('push', (event) => {
       actions: data.actions || [],
       requireInteraction: data.requireInteraction || false,
       silent: data.silent || false,
-      tag: data.tag || 'smart-queue',
+      tag: data.tag || 'smart-queue-notification',
       renotify: data.renotify || false,
       vibrate: data.vibrate || [200, 100, 200],
       timestamp: Date.now()
     }
 
+    // For iOS Safari, ensure we always show the notification
     event.waitUntil(
       self.registration.showNotification(data.title, options)
+        .then(() => {
+          console.log('Service Worker: Notification shown successfully')
+        })
         .catch((error) => {
-          console.error('Error displaying notification:', error)
+          console.error('Service Worker: Error showing notification:', error)
         })
     )
 
   } catch (error) {
-    console.error('Error parsing push data:', error)
+    console.error('Service Worker: Error processing push event:', error)
     
     // Fallback notification if data parsing fails
     event.waitUntil(

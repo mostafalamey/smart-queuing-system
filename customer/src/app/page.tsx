@@ -8,6 +8,8 @@ import { notificationService } from '@/lib/notifications'
 import { pushNotificationService } from '@/lib/pushNotifications'
 import { queueNotificationHelper } from '@/lib/queueNotifications'
 import { BrowserDetection, type BrowserInfo } from '@/lib/browserDetection'
+import { URLPersistenceService } from '@/lib/urlPersistence'
+import PWAInstallHelper from '@/components/PWAInstallHelper'
 import { Phone, ChevronRight, MapPin, Users, Clock, Bell, BellOff, AlertTriangle, Info } from 'lucide-react'
 
 interface Organization {
@@ -39,14 +41,17 @@ interface QueueStatus {
 
 function CustomerAppContent() {
   const searchParams = useSearchParams()
-  const orgId = searchParams.get('org')
-  const branchId = searchParams.get('branch')
+  
+  // Enhanced URL parameter handling with persistence
+  const urlParams = URLPersistenceService.getCurrentParams(searchParams)
+  const orgId = urlParams.org
+  const branchId = urlParams.branch
 
   const [step, setStep] = useState(1) // 1: Phone, 2: Branch, 3: Service
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [branches, setBranches] = useState<Branch[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
-  const [selectedBranch, setSelectedBranch] = useState<string>('')
+  const [selectedBranch, setSelectedBranch] = useState<string>(branchId || '')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null)
@@ -74,10 +79,12 @@ function CustomerAppContent() {
   useEffect(() => {
     if (branchId) {
       setSelectedBranch(branchId)
+      // Update stored parameters
+      URLPersistenceService.updateStoredParams(orgId, branchId)
       // Don't change step - keep at step 1 for phone number entry
       // The branch is just pre-selected for later use
     }
-  }, [branchId])
+  }, [branchId, orgId])
 
   useEffect(() => {
     if (selectedBranch) {
@@ -539,6 +546,8 @@ function CustomerAppContent() {
                       key={branch.id}
                       onClick={() => {
                         setSelectedBranch(branch.id)
+                        // Update stored parameters when user selects a branch
+                        URLPersistenceService.updateStoredParams(orgId, branch.id)
                         setStep(3)
                       }}
                       className="w-full p-4 border border-gray-200 rounded-xl text-left hover:border-primary-500 transition-colors"
@@ -830,6 +839,16 @@ function CustomerAppContent() {
           )}
         </div>
       </div>
+      
+      {/* PWA Install Helper */}
+      {orgId && (
+        <PWAInstallHelper 
+          orgId={orgId}
+          branchId={selectedBranch}
+          organizationName={organization?.name}
+          organizationLogo={organization?.logo_url || undefined}
+        />
+      )}
     </DynamicTheme>
   )
 }
