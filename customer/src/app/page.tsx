@@ -103,21 +103,26 @@ function CustomerAppContent() {
       // Set support based on detailed detection
       setPushNotificationsSupported(browserInfo.isSupported)
 
-      // Show warning for limited support
-      if (browserInfo.supportLevel === 'limited' || !browserInfo.isSupported) {
+      // Show warning ONLY for unsupported browsers, not limited support
+      if (!browserInfo.isSupported) {
         setShowBrowserWarning(true)
       }
 
       if (browserInfo.isSupported) {
         const initialized = await pushNotificationService.initialize()
+        console.log('Push notification service initialized:', initialized)
+        
         if (initialized) {
           const permission = pushNotificationService.getPermissionStatus()
+          console.log('Current permission status:', permission)
           setPushNotificationsEnabled(permission === 'granted')
           
-          // For iOS Safari, show prompt after user interaction
-          if (browserInfo.platform === 'iOS' && browserInfo.browser === 'Safari' && permission === 'default') {
+          // Show prompt for all browsers when permission is default, not just iOS Safari
+          if (permission === 'default') {
             setShowPushPrompt(true)
           }
+        } else {
+          console.error('Failed to initialize push notification service')
         }
       }
     } catch (error) {
