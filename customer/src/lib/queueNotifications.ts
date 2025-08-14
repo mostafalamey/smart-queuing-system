@@ -25,6 +25,14 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
 
   constructor() {
     this.adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL!
+    
+    // Validate that admin URL is properly configured
+    if (!this.adminUrl || this.adminUrl === 'undefined') {
+      console.error('NEXT_PUBLIC_ADMIN_URL environment variable is not properly configured')
+      console.error('Push notifications will not work without the admin app URL')
+      // Use a placeholder that will fail gracefully
+      this.adminUrl = 'ADMIN_URL_NOT_CONFIGURED'
+    }
   }
 
   /**
@@ -162,7 +170,17 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
     notificationType: string
   ): Promise<boolean> {
     try {
-      const response = await fetch(`${this.adminUrl}/api/notifications/push`, {
+      // Check if admin URL is properly configured
+      if (!this.adminUrl || this.adminUrl === 'ADMIN_URL_NOT_CONFIGURED') {
+        console.error('Cannot send push notification: Admin URL not configured')
+        console.error('Please set NEXT_PUBLIC_ADMIN_URL environment variable in Vercel')
+        return false
+      }
+
+      const url = `${this.adminUrl}/api/notifications/push`
+      console.log('Sending push notification to:', url)
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -176,11 +194,18 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
         })
       })
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Push notification API error (${response.status}):`, errorText)
+        return false
+      }
+
       const result = await response.json()
       return result.success
 
     } catch (error) {
       console.error('Error sending push notification:', error)
+      console.error('This usually indicates a configuration or network issue')
       return false
     }
   }

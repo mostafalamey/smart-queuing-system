@@ -7,7 +7,8 @@ import { DynamicTheme } from '@/components/DynamicTheme'
 import { notificationService } from '@/lib/notifications'
 import { pushNotificationService } from '@/lib/pushNotifications'
 import { queueNotificationHelper } from '@/lib/queueNotifications'
-import { Phone, ChevronRight, MapPin, Users, Clock, Bell, BellOff } from 'lucide-react'
+import { BrowserDetection, type BrowserInfo } from '@/lib/browserDetection'
+import { Phone, ChevronRight, MapPin, Users, Clock, Bell, BellOff, AlertTriangle, Info } from 'lucide-react'
 
 interface Organization {
   id: string
@@ -55,6 +56,8 @@ function CustomerAppContent() {
   const [pushNotificationsSupported, setPushNotificationsSupported] = useState(false)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
   const [pushSubscriptionLoading, setPushSubscriptionLoading] = useState(false)
+  const [browserInfo, setBrowserInfo] = useState<BrowserInfo | null>(null)
+  const [showBrowserWarning, setShowBrowserWarning] = useState(false)
 
   // Initialize push notifications
   useEffect(() => {
@@ -91,14 +94,30 @@ function CustomerAppContent() {
   // Initialize push notifications
   const initializePushNotifications = async () => {
     try {
-      const supported = pushNotificationService.isSupported()
-      setPushNotificationsSupported(supported)
+      // Get detailed browser information
+      const browserInfo = BrowserDetection.getBrowserInfo()
+      setBrowserInfo(browserInfo)
 
-      if (supported) {
+      console.log('Browser detection:', browserInfo)
+
+      // Set support based on detailed detection
+      setPushNotificationsSupported(browserInfo.isSupported)
+
+      // Show warning for limited support
+      if (browserInfo.supportLevel === 'limited' || !browserInfo.isSupported) {
+        setShowBrowserWarning(true)
+      }
+
+      if (browserInfo.isSupported) {
         const initialized = await pushNotificationService.initialize()
         if (initialized) {
           const permission = pushNotificationService.getPermissionStatus()
           setPushNotificationsEnabled(permission === 'granted')
+          
+          // For iOS Safari, show prompt after user interaction
+          if (browserInfo.platform === 'iOS' && browserInfo.browser === 'Safari' && permission === 'default') {
+            setShowPushPrompt(true)
+          }
         }
       }
     } catch (error) {
@@ -340,13 +359,26 @@ function CustomerAppContent() {
     }
 
     try {
+      console.log('Attempting to enable push notifications for:', {
+        platform: browserInfo?.platform,
+        browser: browserInfo?.browser,
+        supportLevel: browserInfo?.supportLevel
+      })
+
+      // For iOS Safari, add a small delay to ensure user interaction is processed
+      if (browserInfo?.platform === 'iOS' && browserInfo?.browser === 'Safari') {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+
       // Ensure this is triggered by user interaction
       const success = await pushNotificationService.subscribe(orgId, phoneNumber)
 
       if (success) {
         setPushNotificationsEnabled(true)
         setShowPushPrompt(false)
+        console.log('Push notifications enabled successfully')
       } else {
+        console.log('Push notification permission denied or failed')
         // Still hide the prompt even if denied, so user can proceed
         setShowPushPrompt(false)
       }
@@ -665,6 +697,74 @@ function CustomerAppContent() {
             </div>
           )}
 
+          {/* Browser Compatibility Warning */}
+          {showBrowserWarning && browserInfo && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    {browserInfo.isSupported ? (
+                      <Info className="w-8 h-8 text-amber-600" />
+                    ) : (
+                      <AlertTriangle className="w-8 h-8 text-amber-600" />
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {browserInfo.isSupported ? 'Limited Notification Support' : 'Notifications Not Supported'}
+                  </h3>
+                  <div className="text-left space-y-2">
+                    <p className="text-sm text-gray-600">
+                      <strong>Platform:</strong> {browserInfo.platform}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Browser:</strong> {browserInfo.browser}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Support Level:</strong> {browserInfo.supportLevel}
+                    </p>
+                    {browserInfo.limitations.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-sm font-medium text-gray-700 mb-1">Limitations:</p>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          {browserInfo.limitations.map((limitation, index) => (
+                            <li key={index} className="flex items-start">
+                              <span className="text-amber-500 mr-1">•</span>
+                              {limitation}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      {BrowserDetection.getRecommendation(browserInfo)}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {browserInfo.isSupported && (
+                      <button
+                        onClick={() => {
+                          setShowBrowserWarning(false)
+                          setShowPushPrompt(true)
+                        }}
+                        className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200"
+                      >
+                        Continue with Limited Support
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowBrowserWarning(false)}
+                      className="w-full text-gray-600 font-medium py-3 px-6 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      I Understand
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Push Notification Prompt */}
           {showPushPrompt && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -679,6 +779,20 @@ function CustomerAppContent() {
                   <p className="text-gray-600 text-sm">
                     Get instant notifications when it's almost your turn and when you're called, even when the app is closed.
                   </p>
+                  {browserInfo && browserInfo.platform === 'iOS' && (
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-xs text-blue-800">
+                        <strong>iOS Safari:</strong> After clicking "Enable", you'll see a browser permission popup. Make sure to tap "Allow" to receive notifications.
+                      </p>
+                    </div>
+                  )}
+                  {browserInfo && browserInfo.platform === 'Windows' && (
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-xs text-blue-800">
+                        <strong>Windows:</strong> Your browser will ask for notification permission. Click "Allow" in the popup that appears.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     <button
                       onClick={enablePushNotifications}

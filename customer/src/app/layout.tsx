@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Smart Queue"
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-title": "Smart Queue",
+    "apple-mobile-web-app-status-bar-style": "default"
   },
   viewport: {
     width: "device-width",
