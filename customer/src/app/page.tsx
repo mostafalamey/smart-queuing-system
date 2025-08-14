@@ -59,9 +59,9 @@ function CustomerAppContent() {
   const [browserInfo, setBrowserInfo] = useState<BrowserInfo | null>(null)
   const [showBrowserWarning, setShowBrowserWarning] = useState(false)
 
-  // Initialize push notifications
+  // Initialize browser detection only (no permission request yet)
   useEffect(() => {
-    initializePushNotifications()
+    initializeBrowserDetection()
   }, [])
 
   useEffect(() => {
@@ -91,8 +91,8 @@ function CustomerAppContent() {
     }
   }, [selectedDepartment])
 
-  // Initialize push notifications
-  const initializePushNotifications = async () => {
+  // Initialize browser detection only (no permission request)
+  const initializeBrowserDetection = async () => {
     try {
       // Get detailed browser information
       const browserInfo = BrowserDetection.getBrowserInfo()
@@ -107,26 +107,8 @@ function CustomerAppContent() {
       if (!browserInfo.isSupported) {
         setShowBrowserWarning(true)
       }
-
-      if (browserInfo.isSupported) {
-        const initialized = await pushNotificationService.initialize()
-        console.log('Push notification service initialized:', initialized)
-        
-        if (initialized) {
-          const permission = pushNotificationService.getPermissionStatus()
-          console.log('Current permission status:', permission)
-          setPushNotificationsEnabled(permission === 'granted')
-          
-          // Show prompt for all browsers when permission is default, not just iOS Safari
-          if (permission === 'default') {
-            setShowPushPrompt(true)
-          }
-        } else {
-          console.error('Failed to initialize push notification service')
-        }
-      }
     } catch (error) {
-      console.error('Error initializing push notifications:', error)
+      console.error('Error detecting browser capabilities:', error)
     }
   }
 
@@ -399,11 +381,26 @@ function CustomerAppContent() {
     setShowPushPrompt(false)
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (step === 1 && phoneNumber) {
-      // Show push notification prompt after phone number is entered
+      // Initialize push notifications only when user tries to continue after entering phone
       if (pushNotificationsSupported && !pushNotificationsEnabled) {
-        setShowPushPrompt(true)
+        // Initialize the push notification service without requesting permission yet
+        try {
+          const initialized = await pushNotificationService.initialize()
+          if (initialized) {
+            const permission = pushNotificationService.getPermissionStatus()
+            console.log('Current permission status:', permission)
+            setPushNotificationsEnabled(permission === 'granted')
+            
+            // Only show prompt if permission is default (not granted or denied)
+            if (permission === 'default') {
+              setShowPushPrompt(true)
+            }
+          }
+        } catch (error) {
+          console.error('Error initializing push notifications:', error)
+        }
       }
       
       if (branchId) {

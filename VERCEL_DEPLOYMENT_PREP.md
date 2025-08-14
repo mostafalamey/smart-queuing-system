@@ -113,30 +113,39 @@ In Vercel Dashboard → smart-queue-customer → Settings → Environment Variab
 
 After setting all environment variables, trigger a new deployment from the Vercel dashboard.
 
-## ✅ Environment Variables Status: RESOLVED
+## 🚨 CRITICAL: Environment Variables Still Missing in Customer App
 
-### Deployment Configuration Confirmed
+### Current Console Error Analysis
 
-Environment variables have been properly configured in Vercel for both applications:
+The production console shows environment variables are **NOT** set in the customer app:
 
-**Admin Dashboard Variables** ✅
-- VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
-- Supabase configuration (URL, ANON_KEY, SERVICE_ROLE_KEY)
-- Customer app URL reference
+```env
+NEXT_PUBLIC_ADMIN_URL environment variable is not properly configured
+Push notifications will not work without the admin app URL
+Error subscribing to push notifications: TypeError: Cannot read properties of undefined (reading 'length')
+PUT https://smart-queue-customer.vercel.app/undefined/api/notifications/subscribe net::ERR_ABORTED 405
+```
 
-**Customer App Variables** ✅
-- NEXT_PUBLIC_ADMIN_URL: `https://smart-queue-admin.vercel.app`
-- NEXT_PUBLIC_VAPID_PUBLIC_KEY: Properly configured
-- Supabase configuration (URL, ANON_KEY)
+**Root Cause**: The customer app environment variables are still undefined in production.
 
-### Current Status
+### IMMEDIATE ACTION REQUIRED
 
-Both applications are deployed and environment variables are correctly set. If push notifications are still experiencing issues, they may be related to:
+1. **Go to Vercel Dashboard**
+2. **Navigate to**: smart-queue-customer project → Settings → Environment Variables
+3. **Verify these variables are set** (they appear to be missing):
 
-1. **Browser Compatibility**: Some browsers may have different push notification behaviors
-2. **Permission States**: Users may need to re-grant notification permissions
-3. **Service Worker Updates**: The updated service worker may need time to activate
-4. **Network Connectivity**: Temporary network issues affecting the push service
+   - `NEXT_PUBLIC_ADMIN_URL` = `https://smart-queue-admin.vercel.app`
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = `BGUReuLggRpU7vUmPZsDgFIxRtjmKmsObnNOP5mNL25WwQ4F1JtzBgxsuAaZHttM9QUpnw8WD1QaPSzCEvdDrO0`
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://xxaqztdwdjgrkdyfnjvr.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4YXF6dGR3ZGpncmtkeWZuanZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4NjkyNTYsImV4cCI6MjA3MDQ0NTI1Nn0.mr35VgacJYZTc35lAbn5KQ5BsV8ElucEp-Ekf_E63wg`
+
+4. **After setting variables, REDEPLOY the customer app** - environment variables only take effect after redeployment
+
+### Key Points
+
+- Environment variables must be set in Vercel dashboard AND the app must be redeployed
+- The console errors prove the variables are currently undefined in production
+- Push notifications cannot work without these environment variables
 
 ### Error Analysis
 
@@ -282,13 +291,13 @@ git push origin main
 
 ## Current Status
 
-**Status**: ✅ Successfully deployed to production
+**Status**: ⚠️ Deployed but environment variables missing in customer app
 **Last Updated**: August 14, 2025
 **Build Status**: ✅ Both applications deployed successfully
-**Environment Variables**: ✅ All VAPID and configuration variables properly set
-**Feature Status**: ✅ All enhanced features production-ready and live
-**Push Notifications**: ✅ Working across supported browsers
-**Next Action**: Test all functionality in production environment
+**Environment Variables**: ❌ Customer app variables are undefined in production
+**Feature Status**: ❌ Push notifications failing due to missing environment variables
+**Push Notifications**: ❌ Not working - VAPID key and admin URL undefined
+**Next Action**: Set environment variables in Vercel customer app dashboard and redeploy
 
 ## Resolution Summary
 
