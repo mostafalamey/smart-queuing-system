@@ -10,6 +10,7 @@ import { queueNotificationHelper } from '@/lib/queueNotifications'
 import { BrowserDetection, type BrowserInfo } from '@/lib/browserDetection'
 import { URLPersistenceService } from '@/lib/urlPersistence'
 import PWAInstallHelper from '@/components/PWAInstallHelper'
+import PushNotificationPopup from '@/components/PushNotificationPopup'
 import { logger } from '@/lib/logger'
 import { Phone, ChevronRight, MapPin, Users, Clock, Bell, BellOff, AlertTriangle, Info } from 'lucide-react'
 
@@ -76,10 +77,18 @@ function CustomerAppContent() {
   const [pushSubscriptionLoading, setPushSubscriptionLoading] = useState(false)
   const [browserInfo, setBrowserInfo] = useState<BrowserInfo | null>(null)
   const [showBrowserWarning, setShowBrowserWarning] = useState(false)
+  // Current notification for in-app popup display
+  const [currentNotification, setCurrentNotification] = useState<{
+    title: string
+    body: string
+    type: 'ticket_created' | 'almost_your_turn' | 'your_turn' | 'general'
+    timestamp: number
+  } | null>(null)
 
-  // Initialize browser detection only (no permission request yet)
+  // Initialize browser detection and push notification listeners
   useEffect(() => {
     initializeBrowserDetection()
+    setupPushMessageListener()
   }, [])
 
   useEffect(() => {
@@ -117,6 +126,17 @@ function CustomerAppContent() {
     }
   }, [selectedService])
 
+  // Polling for ticket status changes to show notifications
+  useEffect(() => {
+    if (ticketNumber && pushNotificationsEnabled) {
+      const interval = setInterval(async () => {
+        await checkTicketStatusForNotifications()
+      }, 30000) // Check every 30 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [ticketNumber, pushNotificationsEnabled])
+
   // Initialize browser detection only (no permission request)
   const initializeBrowserDetection = async () => {
     try {
@@ -135,6 +155,81 @@ function CustomerAppContent() {
       }
     } catch (error) {
       logger.error('Error detecting browser capabilities:', error)
+    }
+  }
+
+  // Setup listener for push messages received while app is open
+  const setupPushMessageListener = () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'PUSH_NOTIFICATION') {
+          const { title, body, data } = event.data.payload
+          
+          // Determine notification type from data
+          const notificationType = data?.notificationType || 'general'
+          
+          // Show in-app popup
+          setCurrentNotification({
+            title,
+            body,
+            type: notificationType as 'ticket_created' | 'almost_your_turn' | 'your_turn' | 'general',
+            timestamp: Date.now()
+          })
+        }
+      })
+    }
+  }
+
+  // Check ticket status for in-app notifications when status changes
+  const checkTicketStatusForNotifications = async () => {
+    if (!ticketNumber || !selectedService) return
+
+    try {
+      // Get current ticket status
+      const { data: ticket, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('ticket_number', ticketNumber)
+        .eq('customer_phone', phoneNumber)
+        .single()
+
+      if (error || !ticket) return
+
+      // Get queue position
+      const { data: queueData } = await supabase
+        .from('tickets')
+        .select('ticket_number')
+        .eq('service_id', selectedService)
+        .eq('status', 'waiting')
+        .order('created_at', { ascending: true })
+
+      const queuePosition = queueData ? queueData.findIndex(t => t.ticket_number === ticketNumber) + 1 : 0
+
+      // Show notifications based on status and position
+      if (ticket.status === 'serving') {
+        setCurrentNotification({
+          title: 'Your Turn Now!',
+          body: `Please proceed to the service counter. Ticket ${ticketNumber} is being served.`,
+          type: 'your_turn',
+          timestamp: Date.now()
+        })
+      } else if (queuePosition === 1 && ticket.status === 'waiting') {
+        setCurrentNotification({
+          title: 'You\'re Next!',
+          body: `You are next in line! Please be ready. Ticket ${ticketNumber}`,
+          type: 'almost_your_turn',
+          timestamp: Date.now()
+        })
+      } else if (queuePosition <= 3 && queuePosition > 1 && ticket.status === 'waiting') {
+        setCurrentNotification({
+          title: 'Almost Your Turn',
+          body: `You are ${queuePosition} in line. Please stay nearby. Ticket ${ticketNumber}`,
+          type: 'almost_your_turn',
+          timestamp: Date.now()
+        })
+      }
+    } catch (error) {
+      logger.error('Error checking ticket status for notifications:', error)
     }
   }
 
@@ -358,6 +453,14 @@ function CustomerAppContent() {
 
       setTicketNumber(ticketNumberString)
       setStep(5) // Move to confirmation step
+      
+      // Show in-app notification for ticket creation
+      setCurrentNotification({
+        title: 'Ticket Created Successfully!',
+        body: `Your ticket ${ticketNumberString} has been created. You are in the queue for ${service.name}.`,
+        type: 'ticket_created',
+        timestamp: Date.now()
+      })
       
       // Refresh queue status
       fetchQueueStatus()
@@ -1001,6 +1104,12 @@ function CustomerAppContent() {
           organizationLogo={organization?.logo_url || undefined}
         />
       )}
+      
+      {/* Push Notification Popup */}
+      <PushNotificationPopup 
+        notification={currentNotification}
+        onClose={() => setCurrentNotification(null)}
+      />
     </DynamicTheme>
   )
 }

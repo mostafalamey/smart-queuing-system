@@ -3,7 +3,15 @@ import QRCode from 'qrcode'
 
 export async function POST(request: NextRequest) {
   try {
-    const { organizationId, branchId, departmentId, organizationName, departmentName } = await request.json()
+    let requestBody;
+    try {
+      requestBody = await request.json()
+    } catch (jsonError) {
+      console.error('QR Code generation JSON parse error:', jsonError)
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+    }
+
+    const { organizationId, branchId, departmentId, organizationName, departmentName } = requestBody
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 })

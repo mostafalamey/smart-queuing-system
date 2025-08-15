@@ -264,12 +264,12 @@
   }
   
   .tree-node {
-    @apply backdrop-blur-sm rounded-xl shadow-elegant transition-all duration-300 cursor-move select-none hover:scale-105 hover:shadow-2xl;
+    @apply backdrop-blur-sm rounded-3xl shadow-elegant transition-all duration-300 cursor-move select-none hover:scale-105 hover:shadow-2xl overflow-hidden;
   }
   
   /* Branch Nodes - Blue Theme - Largest */
   .tree-node.branch {
-    @apply w-56 bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-300 hover:from-blue-200 hover:to-blue-300;
+    @apply w-64 bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-300 hover:from-blue-200 hover:to-blue-300;
     box-shadow: 0 12px 40px rgba(59, 130, 246, 0.25);
   }
   
@@ -299,7 +299,7 @@
   
   /* Department Nodes - Green Theme - Medium */
   .tree-node.department {
-    @apply w-48 bg-gradient-to-br from-emerald-100 to-emerald-200 border-2 border-emerald-300 hover:from-emerald-200 hover:to-emerald-300;
+    @apply w-64 bg-gradient-to-br from-emerald-100 to-emerald-200 border-2 border-emerald-300 hover:from-emerald-200 hover:to-emerald-300;
     box-shadow: 0 10px 35px rgba(16, 185, 129, 0.25);
   }
   
@@ -325,7 +325,7 @@
   
   /* Service Nodes - Amber/Orange Theme - Smallest */
   .tree-node.service {
-    @apply w-40 bg-gradient-to-br from-orange-100 to-orange-200 border-2 border-orange-300 hover:from-orange-200 hover:to-orange-300;
+    @apply w-56 bg-gradient-to-br from-orange-100 to-orange-200 border-2 border-orange-300 hover:from-orange-200 hover:to-orange-300;
     box-shadow: 0 8px 30px rgba(251, 146, 60, 0.25);
   }
   
@@ -466,5 +466,39 @@
   
   .tree-node-wrapper {
     position: absolute;
+  }
+
+  /* Touch-specific improvements */
+  .tree-canvas {
+    touch-action: none; /* Prevent default touch behaviors like scrolling */
+    -webkit-user-select: none; /* Prevent text selection during gestures */
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  .tree-node {
+    /* Larger touch targets for better mobile interaction */
+    min-height: 44px; /* iOS recommended minimum touch target */
+  }
+
+  .tree-node button {
+    /* Ensure buttons have adequate touch targets */
+    min-width: 44px;
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  /* Prevent text selection during touch interactions */
+  .tree-node-wrapper {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation; /* Enable touch but prevent default gestures like pinch/zoom on this element */
+  }
+
+  .tree-node {
+    touch-action: manipulation; /* Allow touch interactions on nodes */
   }
 }

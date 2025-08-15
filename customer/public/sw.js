@@ -80,7 +80,19 @@ self.addEventListener('push', (event) => {
 
     // For iOS Safari, ensure we always show the notification
     event.waitUntil(
-      self.registration.showNotification(data.title, options)
+      Promise.all([
+        // Show system notification
+        self.registration.showNotification(data.title, options),
+        // Send message to app for in-app popup
+        sendMessageToApp({
+          type: 'PUSH_NOTIFICATION',
+          payload: {
+            title: data.title,
+            body: data.body,
+            data: data.data || {}
+          }
+        })
+      ])
         .then(() => {
           // console.log('Service Worker: Notification shown successfully')
         })
@@ -267,6 +279,22 @@ async function syncQueueStatus() {
     
   } catch (error) {
     console.error('Service Worker: Error syncing queue status:', error)
+  }
+}
+
+// Send message to all open app windows/tabs
+async function sendMessageToApp(message) {
+  try {
+    const clients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    })
+    
+    clients.forEach(client => {
+      client.postMessage(message)
+    })
+  } catch (error) {
+    console.error('Service Worker: Error sending message to app:', error)
   }
 }
 

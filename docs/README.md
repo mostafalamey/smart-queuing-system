@@ -26,7 +26,15 @@
 - **Beautiful Loading Overlays** - Professional auth feedback with animated progress indicators  
 - **Organization Management** - Multi-tenant architecture with custom branding
 - **Service-Level Queuing** - Hierarchical organization → branch → department → service structure
-- **Tree View Management** - Visual tree interface for managing organizational hierarchy
+- **Interactive Tree Management** - Advanced visual tree interface with:
+  - **Drag & Drop Interface** - Real-time node repositioning with visual feedback
+  - **Zoom & Pan Canvas** - Mouse wheel zoom (0.3x-3x) with smooth pan navigation
+  - **Persistent Layouts** - Auto-save node positions and viewport settings per organization
+  - **Smart Click Detection** - Distinguishes between clicks and drags for optimal UX
+  - **Minimizable Details Panel** - Collapsible node information to reduce visual clutter
+  - **Glassmorphism Design** - Professional semi-transparent UI with backdrop blur effects
+  - **SVG Connections** - Smooth curved lines connecting parent and child nodes
+  - **Modular Architecture** - Feature-based components for maintainable code
 - **Enhanced QR Code System** - General, branch-specific, and department-specific QR codes
 - **Advanced Queue Management** - Enhanced workflow with skip/complete functionality
   - **Smart Reset Options** - Professional modal interface with clear choice between simple reset or cleanup

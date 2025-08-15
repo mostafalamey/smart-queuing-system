@@ -1,5 +1,40 @@
 # Smart Queue System - Changelog
 
+## Version 2.1.0 - Animated Push Notification Popups (August 15, 2025)
+
+### 🎬 In-App Animated Notification System
+
+#### PushNotificationPopup Component
+
+- **Animated Popups** - Beautiful in-app notifications with different animations per notification type
+- **Three Animation Types**:
+  - **Slide Down** - Gentle entrance for ticket creation notifications (blue theme)
+  - **Bounce In** - Attention-grabbing for "almost your turn" alerts (orange theme)
+  - **Pulse Glow** - Urgent pulsing animation for "your turn" notifications (green theme)
+- **Auto-dismiss** - 5-second countdown with animated progress bar
+- **Manual Close** - X button for immediate dismissal
+- **Responsive Design** - Mobile-optimized with top-right positioning
+
+#### Service Worker Integration
+
+- **Enhanced Service Worker** - Modified to send messages to app when push notifications arrive
+- **Dual Notification System** - System notifications + beautiful in-app popups
+- **Message Passing** - Seamless communication between service worker and main app
+
+#### Smart Notification Triggers
+
+- **Ticket Creation** - Immediate popup when customer joins queue
+- **Queue Position Updates** - Notifications when customer moves to top 3 positions
+- **Service Ready Alerts** - Urgent notification when it's customer's turn
+- **30-Second Polling** - Background monitoring of ticket status for real-time updates
+
+#### Technical Implementation
+
+- **Custom SVG Icons** - Lightweight icons without external dependencies
+- **CSS Animations** - Hardware-accelerated animations for smooth performance
+- **State Management** - Clean React state handling for notification display
+- **Accessibility** - Proper ARIA labels and keyboard navigation support
+
 ## Version 2.0.0 - Profile Management & UI/UX Overhaul (August 2025)
 
 ### 🎨 Complete UI/UX Design System Overhaul
