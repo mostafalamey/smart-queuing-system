@@ -2,6 +2,8 @@
 // This is a basic implementation that logs to console for MVP
 // In production, connect to UltraMsg, Twilio, or similar WhatsApp API
 
+import { logger } from './logger'
+
 interface NotificationData {
   phone: string
   ticketNumber: string
@@ -45,7 +47,7 @@ class NotificationService {
       
       return true
     } catch (error) {
-      console.error('Failed to send WhatsApp message:', error)
+      logger.error('Failed to send WhatsApp message:', error)
       return false
     }
   }

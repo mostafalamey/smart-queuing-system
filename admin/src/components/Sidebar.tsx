@@ -8,12 +8,11 @@ import ProfileDropdown from './ProfileDropdown'
 import { 
   LayoutDashboard, 
   Building2, 
-  Settings, 
   User,
-  ChevronDown,
   LogOut,
   X,
-  Sparkles
+  Sparkles,
+  GitBranch
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -31,10 +30,10 @@ const navigationItems = [
     color: 'text-yellowgreen-400',
   },
   {
-    name: 'Manage',
-    href: '/manage',
-    icon: Settings,
-    color: 'text-citrine-400',
+    name: 'Tree View',
+    href: '/tree',
+    icon: GitBranch,
+    color: 'text-purple-400',
   },
 ]
 
@@ -56,7 +55,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-84 bg-gradient-to-br from-celestial-600 via-french-600 to-celestial-700 transform transition-all duration-300 ease-out shadow-2xl",
+        "fixed inset-y-0 left-0 z-50 w-80 bg-gradient-to-br from-celestial-600 via-french-600 to-celestial-700 transform transition-all duration-300 ease-out shadow-2xl",
         isOpen ? "translate-x-0" : "-translate-x-full",
         "lg:translate-x-0"
       )}>
@@ -95,21 +94,26 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </button>
           </div>
 
-          {/* Organization Selector */}
+          {/* Organization Badge */}
           <div className="p-6 border-b border-white/10">
-            <div className="group relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 rounded-xl blur-sm"></div>
-              <div className="relative flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white border border-white/20 hover:bg-white/15 transition-all duration-300 cursor-pointer">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-caramel-400 to-caramel-500 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-lg">
+            <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              {/* Organization Logo */}
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center overflow-hidden">
+                {userProfile?.organization?.logo_url ? (
+                  <img
+                    src={userProfile.organization.logo_url}
+                    alt="Organization Logo"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-caramel-400 to-caramel-500 rounded-lg flex items-center justify-center text-white text-lg font-bold shadow-lg">
                     {userProfile?.organization?.name?.charAt(0) || 'O'}
                   </div>
-                  <div>
-                    <span className="text-sm font-semibold block">{userProfile?.organization?.name || 'Organization'}</span>
-                    <span className="text-white/60 text-xs">Active workspace</span>
-                  </div>
-                </div>
-                <ChevronDown className="w-4 h-4 text-white/60 group-hover:text-white transition-colors duration-200" />
+                )}
+              </div>
+              <div className="text-left">
+                <span className="text-sm font-semibold block text-white">{userProfile?.organization?.name || 'Organization'}</span>
+                <span className="text-white/60 text-xs">Active workspace</span>
               </div>
             </div>
           </div>

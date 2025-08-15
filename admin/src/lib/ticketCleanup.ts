@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { logger } from '@/lib/logger'
 
 export interface CleanupResult {
   total_cleaned: number
@@ -44,13 +45,13 @@ export class TicketCleanupService {
       })
 
       if (error) {
-        console.error('Error cleaning up tickets:', error)
+        logger.error('Error cleaning up tickets:', error)
         throw error
       }
 
       return data?.[0] || null
     } catch (error) {
-      console.error('Cleanup failed:', error)
+      logger.error('Cleanup failed:', error)
       throw error
     }
   }
@@ -64,11 +65,11 @@ export class TicketCleanupService {
       const { error } = await supabase.rpc('auto_cleanup_tickets')
       
       if (error) {
-        console.error('Error running automated cleanup:', error)
+        logger.error('Error running automated cleanup:', error)
         throw error
       }
     } catch (error) {
-      console.error('Automated cleanup failed:', error)
+      logger.error('Automated cleanup failed:', error)
       throw error
     }
   }
@@ -84,13 +85,13 @@ export class TicketCleanupService {
         .order('date', { ascending: false })
 
       if (error) {
-        console.error('Error fetching cleanup stats:', error)
+        logger.error('Error fetching cleanup stats:', error)
         throw error
       }
 
       return data || []
     } catch (error) {
-      console.error('Failed to get cleanup stats:', error)
+      logger.error('Failed to get cleanup stats:', error)
       throw error
     }
   }
@@ -103,13 +104,13 @@ export class TicketCleanupService {
       const { data, error } = await supabase.rpc('get_department_ticket_stats')
 
       if (error) {
-        console.error('Error fetching department stats:', error)
+        logger.error('Error fetching department stats:', error)
         throw error
       }
 
       return data || []
     } catch (error) {
-      console.error('Failed to get department stats:', error)
+      logger.error('Failed to get department stats:', error)
       throw error
     }
   }
@@ -182,7 +183,7 @@ export class TicketCleanupService {
         archived
       }
     } catch (error) {
-      console.error('Failed to get ticket count:', error)
+      logger.error('Failed to get ticket count:', error)
       throw error
     }
   }
@@ -290,7 +291,7 @@ export class ToastConfirmation {
           try {
             await onConfirm()
           } catch (error) {
-            console.error('Cleanup failed:', error)
+            logger.error('Cleanup failed:', error)
           }
         }
       }
@@ -316,7 +317,7 @@ export class ToastConfirmation {
           try {
             await onResetOnly()
           } catch (error) {
-            console.error('Reset failed:', error)
+            logger.error('Reset failed:', error)
           }
         }
       }
@@ -333,7 +334,7 @@ export class ToastConfirmation {
             try {
               await onResetWithCleanup()
             } catch (error) {
-              console.error('Reset with cleanup failed:', error)
+              logger.error('Reset with cleanup failed:', error)
             }
           }
         }
@@ -361,7 +362,7 @@ export class ToastConfirmation {
                 try {
                   await onConfirm()
                 } catch (error) {
-                  console.error('Emergency cleanup failed:', error)
+                  logger.error('Emergency cleanup failed:', error)
                 }
               }
             }

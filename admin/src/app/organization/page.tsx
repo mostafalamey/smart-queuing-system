@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { logger } from '@/lib/logger'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
@@ -20,8 +21,10 @@ export default function OrganizationPage() {
   const [organization, setOrganization] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
   const [branches, setBranches] = useState<any[]>([])
+  const [departments, setDepartments] = useState<any[]>([])
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [branchQrCodes, setBranchQrCodes] = useState<{[key: string]: string}>({})
+  const [departmentQrCodes, setDepartmentQrCodes] = useState<{[key: string]: string}>({})
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -47,6 +50,7 @@ export default function OrganizationPage() {
       fetchOrganization()
       fetchMembers()
       fetchBranches()
+      fetchDepartments()
     }
   }, [userProfile])
 
@@ -54,6 +58,7 @@ export default function OrganizationPage() {
   useEffect(() => {
     if (userProfile?.organization_id && organization?.name) {
       generateQRCode()
+      fetchDepartments() // Refetch departments when organization is loaded for QR generation
     }
   }, [userProfile?.organization_id, organization?.name])
 
@@ -128,10 +133,66 @@ export default function OrganizationPage() {
             qrCodes[branch.id] = qrData.qrCodeDataURL
           }
         } catch (error) {
-          console.error('Error generating branch QR code:', error)
+          logger.error('Error generating branch QR code:', error)
         }
       }
       setBranchQrCodes(qrCodes)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    if (!userProfile?.organization_id) return;
+    
+    const { data } = await supabase
+      .from('departments')
+      .select(`
+        *,
+        branches:branch_id (
+          id,
+          name
+        )
+      `)
+      .order('name')
+    
+    // Filter departments that belong to branches of this organization
+    const { data: orgBranches } = await supabase
+      .from('branches')
+      .select('id')
+      .eq('organization_id', userProfile.organization_id)
+    
+    const orgBranchIds = orgBranches?.map(b => b.id) || []
+    const orgDepartments = data?.filter(dept => orgBranchIds.includes(dept.branch_id)) || []
+    
+    setDepartments(orgDepartments)
+    
+    // Generate QR codes for each department
+    if (orgDepartments && orgDepartments.length > 0) {
+      const qrCodes: {[key: string]: string} = {}
+      for (const department of orgDepartments) {
+        try {
+          const response = await fetch('/api/generate-qr', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              organizationId: userProfile.organization_id,
+              branchId: department.branch_id,
+              departmentId: department.id,
+              organizationName: organization?.name || 'Organization',
+              departmentName: department.name
+            })
+          })
+
+          const qrData = await response.json()
+          if (qrData.success) {
+            qrCodes[department.id] = qrData.qrCodeDataURL
+          }
+        } catch (error) {
+          logger.error('Error generating department QR code:', error)
+        }
+      }
+      setDepartmentQrCodes(qrCodes)
     }
   }
 
@@ -163,7 +224,7 @@ export default function OrganizationPage() {
         setQrCodeUrl(data.qrCodeDataURL)
       }
     } catch (error) {
-      console.error('Error generating QR code:', error)
+      logger.error('Error generating QR code:', error)
     } finally {
       setQrGenerating(false);
     }
@@ -574,7 +635,178 @@ export default function OrganizationPage() {
         showError('Refresh Failed', 'Unable to generate QR code. Please try again.')
       }
     } catch (error) {
-      console.error('Error refreshing branch QR code:', error)
+      logger.error('Error refreshing branch QR code:', error)
+      showError('Refresh Failed', 'An error occurred while refreshing the QR code.')
+    }
+  }
+
+  // Department QR Functions
+  const downloadDepartmentQR = (departmentId: string, departmentName: string) => {
+    const qrCode = departmentQrCodes[departmentId]
+    if (!qrCode) {
+      showError('Download Failed', 'QR code not available. Please generate it first.')
+      return
+    }
+    
+    const link = document.createElement('a')
+    link.download = `${departmentName}-department-qr-code.png`
+    link.href = qrCode
+    link.click()
+    
+    showSuccess(
+      'QR Code Downloaded!',
+      `${departmentName} department QR code has been saved to your device.`
+    )
+  }
+
+  const copyDepartmentQRUrl = async (departmentId: string, departmentName?: string, branchId?: string) => {
+    if (!userProfile?.organization_id) return;
+    
+    try {
+      const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
+      const url = `${customerUrl}?org=${userProfile.organization_id}&branch=${branchId}&department=${departmentId}`
+      await navigator.clipboard.writeText(url)
+      
+      showSuccess(
+        'Department URL Copied!',
+        `${departmentName || 'Department'} queue URL has been copied to your clipboard.`,
+        {
+          label: 'Test URL',
+          onClick: () => window.open(url, '_blank')
+        }
+      )
+    } catch (error) {
+      showError('Copy Failed', 'Unable to copy URL to clipboard.')
+    }
+  }
+
+  const printDepartmentQR = (departmentId: string, departmentName: string, branchId: string) => {
+    const qrCode = departmentQrCodes[departmentId]
+    if (!qrCode) {
+      showError('Print Failed', 'QR code not available. Please generate it first.')
+      return
+    }
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      showError('Print Failed', 'Unable to open print window. Please check your browser settings.')
+      return
+    }
+
+    const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
+    const url = `${customerUrl}?org=${userProfile?.organization_id}&branch=${branchId}&department=${departmentId}`
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Department QR Code - ${departmentName}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 20px;
+              background: white;
+            }
+            .qr-container {
+              max-width: 400px;
+              margin: 0 auto;
+              padding: 20px;
+              border: 2px solid #333;
+            }
+            .logo { max-width: 100px; margin-bottom: 20px; }
+            h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+            h2 { color: #666; margin-bottom: 20px; font-size: 18px; }
+            .qr-code { margin: 20px 0; }
+            .instructions { 
+              margin-top: 20px; 
+              font-size: 14px; 
+              color: #666;
+              line-height: 1.4;
+            }
+            .url { 
+              font-size: 10px; 
+              color: #999; 
+              word-break: break-all; 
+              margin-top: 10px;
+              padding: 10px;
+              background: #f5f5f5;
+            }
+            @media print {
+              body { margin: 0; }
+              .qr-container { border: 1px solid #333; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="qr-container">
+            ${organization?.logo_url ? `<img src="${organization.logo_url}" alt="Logo" class="logo" />` : ''}
+            <h1>${organization?.name || 'Organization'}</h1>
+            <h2>${departmentName} Department</h2>
+            <div class="qr-code">
+              <img src="${qrCode}" alt="Department QR Code" style="max-width: 250px;" />
+            </div>
+            <div class="instructions">
+              <strong>How to Join the Queue:</strong><br>
+              1. Scan this QR code with your phone<br>
+              2. Enter your phone number<br>
+              3. Get your queue ticket instantly<br>
+              4. Receive SMS updates on your turn
+            </div>
+            <div class="url">${url}</div>
+          </div>
+        </body>
+      </html>
+    `)
+
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
+    
+    showInfo(
+      'Print Dialog Opened',
+      `${departmentName} department QR code is ready to print.`
+    )
+  }
+
+  const refreshDepartmentQR = async (departmentId: string, departmentName: string, branchId: string) => {
+    if (!userProfile?.organization_id || !organization?.name) {
+      showError('Refresh Failed', 'Missing organization data. Please try again.')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/generate-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          organizationId: userProfile.organization_id,
+          branchId: branchId,
+          departmentId: departmentId,
+          organizationName: organization.name,
+          departmentName: departmentName
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setDepartmentQrCodes(prev => ({
+          ...prev,
+          [departmentId]: data.qrCodeDataURL
+        }))
+        showSuccess(
+          'QR Code Refreshed!',
+          `${departmentName} department QR code has been regenerated successfully.`
+        )
+      } else {
+        showError('Refresh Failed', 'Unable to generate QR code. Please try again.')
+      }
+    } catch (error) {
+      logger.error('Error refreshing department QR code:', error)
       showError('Refresh Failed', 'An error occurred while refreshing the QR code.')
     }
   }
@@ -1071,6 +1303,16 @@ export default function OrganizationPage() {
               >
                 Branch-Specific ({branches.length})
               </button>
+              <button
+                onClick={() => setActiveQrTab('department')}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  activeQrTab === 'department'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Department-Specific ({departments.length})
+              </button>
             </div>
 
             {/* General Access Tab */}
@@ -1163,13 +1405,13 @@ export default function OrganizationPage() {
                     <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No Branches Available</h3>
                     <p className="text-gray-600 mb-4">
-                      Create branches in the Manage section to generate branch-specific QR codes
+                      Create branches in the Tree View to generate branch-specific QR codes
                     </p>
                     <button 
-                      onClick={() => setActiveTab('manage')}
+                      onClick={() => window.location.href = '/tree'}
                       className="btn-primary"
                     >
-                      Go to Manage Section
+                      Go to Tree View
                     </button>
                   </div>
                 ) : (
@@ -1239,6 +1481,107 @@ export default function OrganizationPage() {
                             
                             <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-500 break-all">
                               {typeof window !== 'undefined' && `${process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'}?org=${userProfile?.organization_id}&branch=${branch.id}`}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Department-Specific Tab */}
+            {activeQrTab === 'department' && (
+              <div>
+                {departments.length === 0 ? (
+                  <div className="bg-gray-50 rounded-lg p-8 text-center">
+                    <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Departments Available</h3>
+                    <p className="text-gray-600 mb-4">
+                      Create departments in the Tree View to generate department-specific QR codes
+                    </p>
+                    <button 
+                      onClick={() => window.location.href = '/tree'}
+                      className="btn-primary"
+                    >
+                      Go to Tree View
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {departments.map((department) => (
+                      <div key={department.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <QrCode className="w-5 h-5 text-purple-600" />
+                          <h4 className="font-semibold text-gray-900">{department.name}</h4>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Building2 className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm text-gray-600">
+                            {department.branches?.name || 'Unknown Branch'}
+                          </span>
+                        </div>
+                        
+                        {department.description && (
+                          <p className="text-sm text-gray-600 mb-4">{department.description}</p>
+                        )}
+
+                        <div className="text-center">
+                          {departmentQrCodes[department.id] ? (
+                            <img
+                              src={departmentQrCodes[department.id]}
+                              alt={`QR Code for ${department.name}`}
+                              className="mx-auto mb-4 border border-gray-200 rounded w-[250px] h-[250px]"
+                            />
+                          ) : (
+                            <div className="mx-auto mb-4 w-[200px] h-[200px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                              <div className="text-center">
+                                <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">QR Code not available</p>
+                                <p className="text-xs text-gray-400 mt-1">Click refresh to generate</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex flex-col space-y-2">
+                            <div className="flex flex-wrap gap-2 justify-center">
+                              <button
+                                onClick={() => downloadDepartmentQR(department.id, department.name)}
+                                disabled={!departmentQrCodes[department.id]}
+                                className="flex items-center space-x-1 px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Download</span>
+                              </button>
+                              <button
+                                onClick={() => printDepartmentQR(department.id, department.name, department.branch_id)}
+                                disabled={!departmentQrCodes[department.id]}
+                                className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                              >
+                                <Share className="w-3 h-3" />
+                                <span>Print</span>
+                              </button>
+                              <button
+                                onClick={() => copyDepartmentQRUrl(department.id, department.name, department.branch_id)}
+                                disabled={!departmentQrCodes[department.id]}
+                                className="flex items-center space-x-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>Copy URL</span>
+                              </button>
+                              <button
+                                onClick={() => refreshDepartmentQR(department.id, department.name, department.branch_id)}
+                                className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Refresh</span>
+                              </button>
+                            </div>
+                            
+                            <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-500 break-all">
+                              {typeof window !== 'undefined' && `${process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'}?org=${userProfile?.organization_id}&branch=${department.branch_id}&department=${department.id}`}
                             </div>
                           </div>
                         </div>

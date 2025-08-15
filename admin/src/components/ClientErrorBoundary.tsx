@@ -1,6 +1,7 @@
 'use client'
 
 import { Component, ReactNode } from 'react'
+import { logger } from '@/lib/logger'
 
 interface Props {
   children: ReactNode
@@ -23,7 +24,7 @@ export class ClientErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: any) {
     // Log the error
-    console.error('Client Error Boundary caught an error:', error, errorInfo)
+    logger.error('Client Error Boundary caught an error:', error, errorInfo)
     
     // Check if it's a chunk loading error
     if (

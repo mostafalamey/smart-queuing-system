@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 // WhatsApp Notification Service
 // This is a basic implementation that logs to console for MVP
 // In production, connect to UltraMsg, Twilio, or similar WhatsApp API
@@ -45,7 +46,7 @@ class NotificationService {
       
       return true
     } catch (error) {
-      console.error('Failed to send WhatsApp message:', error)
+      logger.error('Failed to send WhatsApp message:', error)
       return false
     }
   }

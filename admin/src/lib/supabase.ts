@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -16,7 +17,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
           try {
             return window.localStorage.getItem(key)
           } catch (error) {
-            console.error('localStorage getItem error:', error);
+            logger.error('localStorage getItem error:', error);
             return null;
           }
         }
@@ -27,7 +28,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
           try {
             window.localStorage.setItem(key, value)
           } catch (error) {
-            console.error('localStorage setItem error:', error);
+            logger.error('localStorage setItem error:', error);
           }
         }
       },
@@ -36,7 +37,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
           try {
             window.localStorage.removeItem(key)
           } catch (error) {
-            console.error('localStorage removeItem error:', error);
+            logger.error('localStorage removeItem error:', error);
           }
         }
       }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Utility to detect if browser cache has been cleared and handle auth recovery
  */
@@ -18,21 +19,21 @@ export class CacheDetection {
       
       // If we have no marker but auth tokens exist, cache might have been partially cleared
       if (!marker && hasAuthTokens) {
-        console.log('Cache marker missing but auth tokens present');
+        logger.log('Cache marker missing but auth tokens present');
         this.setCacheMarker(); // Restore marker
         return false;
       }
       
       // If no marker and no auth tokens, cache was likely cleared
       if (!marker && !hasAuthTokens) {
-        console.log('No cache marker and no auth tokens - cache was cleared');
+        logger.log('No cache marker and no auth tokens - cache was cleared');
         this.setCacheMarker(); // Set marker for future checks
         return true;
       }
       
       return false;
     } catch (error) {
-      console.error('Error checking cache status:', error);
+      logger.error('Error checking cache status:', error);
       return false;
     }
   }
@@ -64,7 +65,7 @@ export class CacheDetection {
         }
       });
     } catch (error) {
-      console.error('Error checking auth tokens:', error);
+      logger.error('Error checking auth tokens:', error);
       return false;
     }
   }
@@ -78,7 +79,7 @@ export class CacheDetection {
         localStorage.setItem(this.CACHE_MARKER_KEY, this.CACHE_MARKER_VALUE);
       }
     } catch (error) {
-      console.error('Error setting cache marker:', error);
+      logger.error('Error setting cache marker:', error);
     }
   }
   
@@ -91,7 +92,7 @@ export class CacheDetection {
         localStorage.removeItem(this.CACHE_MARKER_KEY);
       }
     } catch (error) {
-      console.error('Error clearing cache marker:', error);
+      logger.error('Error clearing cache marker:', error);
     }
   }
   
@@ -125,7 +126,7 @@ export class CacheDetection {
         authTokenCount
       };
     } catch (error) {
-      console.error('Error getting cache status:', error);
+      logger.error('Error getting cache status:', error);
       return {
         hasMarker: false,
         hasAuthTokens: false,

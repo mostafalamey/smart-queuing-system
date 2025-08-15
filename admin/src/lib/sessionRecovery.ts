@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { logger } from '@/lib/logger'
 
 export class SessionRecovery {
   private static instance: SessionRecovery;
@@ -39,18 +40,18 @@ export class SessionRecovery {
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error('Session recovery error:', error);
+        logger.error('Session recovery error:', error);
         
         // Try to recover from localStorage
         const storedSession = this.getStoredSession();
         if (storedSession) {
-          console.log('Attempting to recover from stored session...');
+          logger.log('Attempting to recover from stored session...');
           
           // Try to refresh the stored session
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           
           if (!refreshError && refreshData.session) {
-            console.log('Successfully recovered session');
+            logger.log('Successfully recovered session');
             return { session: refreshData.session, recovered: true };
           }
         }
@@ -61,7 +62,7 @@ export class SessionRecovery {
       return { session, recovered: false };
 
     } catch (error) {
-      console.error('Session recovery failed:', error);
+      logger.error('Session recovery failed:', error);
       return { 
         session: null, 
         recovered: false, 
@@ -85,30 +86,30 @@ export class SessionRecovery {
       const tokenData = localStorage.getItem(keys[0]);
       return tokenData ? JSON.parse(tokenData) : null;
     } catch (error) {
-      console.error('Error getting stored session:', error);
+      logger.error('Error getting stored session:', error);
       return null;
     }
   }
 
   async forceSessionRefresh(): Promise<{ success: boolean; session?: any; error?: string }> {
     try {
-      console.log('Forcing session refresh...');
+      logger.log('Forcing session refresh...');
       
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
-        console.error('Force refresh failed:', error);
+        logger.error('Force refresh failed:', error);
         return { success: false, error: error.message };
       }
       
       if (data.session) {
-        console.log('Session refreshed successfully');
+        logger.log('Session refreshed successfully');
         return { success: true, session: data.session };
       }
       
       return { success: false, error: 'No session returned after refresh' };
     } catch (error) {
-      console.error('Force refresh error:', error);
+      logger.error('Force refresh error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

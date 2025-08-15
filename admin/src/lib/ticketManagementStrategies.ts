@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase'
+import { logger } from '@/lib/logger'
 
 export class TicketManagementStrategies {
 
@@ -56,7 +57,7 @@ export class TicketManagementStrategies {
 
       return { success: false, message: 'No waiting tickets' }
     } catch (error) {
-      console.error('Error calling next with immediate deletion:', error)
+      logger.error('Error calling next with immediate deletion:', error)
       throw error
     }
   }
@@ -123,7 +124,7 @@ export class TicketManagementStrategies {
 
       return { success: false, message: 'No waiting tickets' }
     } catch (error) {
-      console.error('Error calling next with minimal logging:', error)
+      logger.error('Error calling next with minimal logging:', error)
       throw error
     }
   }
@@ -182,7 +183,7 @@ export class TicketManagementStrategies {
 
       return { success: false, message: 'No waiting tickets' }
     } catch (error) {
-      console.error('Error calling next with smart cleanup:', error)
+      logger.error('Error calling next with smart cleanup:', error)
       throw error
     }
   }

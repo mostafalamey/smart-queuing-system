@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { logger } from '@/lib/logger'
 import { useAppToast } from '@/hooks/useAppToast';
 import Portal from './Portal';
 
@@ -65,7 +66,7 @@ export default function EditDepartmentModal({ isOpen, onClose, department, onSav
       showSuccess('Department updated successfully!');
       onClose();
     } catch (error) {
-      console.error('Error updating department:', error);
+      logger.error('Error updating department:', error);
       showError('Failed to update department. Please try again.');
     } finally {
       setIsLoading(false);

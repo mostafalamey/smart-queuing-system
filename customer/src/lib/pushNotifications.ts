@@ -56,17 +56,17 @@ class PushNotificationService {
    */
   async initialize(): Promise<boolean> {
     try {
-      console.log('Initializing push notification service...')
+      logger.log('Initializing push notification service...')
       
       // Check if service workers are supported
       if (!('serviceWorker' in navigator)) {
-        console.log('Service workers not supported')
+        logger.log('Service workers not supported')
         return false
       }
 
       // Check if push notifications are supported
       if (!('PushManager' in window)) {
-        console.log('Push Manager not supported')
+        logger.log('Push Manager not supported')
         return false
       }
 
@@ -74,7 +74,7 @@ class PushNotificationService {
       const isIOSSafari = this.isIOSSafari()
       const isPWAMode = this.isPWAMode()
       
-      console.log('Browser environment:', {
+      logger.log('Browser environment:', {
         isIOSSafari,
         isPWAMode,
         userAgent: navigator.userAgent
@@ -82,26 +82,26 @@ class PushNotificationService {
 
       // Special handling for iOS Safari PWA mode
       if (isIOSSafari && isPWAMode) {
-        console.log('iOS Safari PWA mode detected - applying enhanced compatibility')
+        logger.log('iOS Safari PWA mode detected - applying enhanced compatibility')
         // Add delay for iOS Safari PWA initialization
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
-      console.log('Browser supports service workers and push notifications')
+      logger.log('Browser supports service workers and push notifications')
 
       // Register service worker
       const registration = await this.registerServiceWorker()
       if (!registration) {
-        console.error('Service worker registration failed')
+        logger.error('Service worker registration failed')
         return false
       }
 
-      console.log('Service worker registered successfully')
+      logger.log('Service worker registered successfully')
       this.serviceWorkerRegistration = registration
       return true
 
     } catch (error) {
-      console.error('Failed to initialize push notification service:', error)
+      logger.error('Failed to initialize push notification service:', error)
       return false
     }
   }
@@ -111,24 +111,24 @@ class PushNotificationService {
    */
   private async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     try {
-      console.log('Registering service worker...')
+      logger.log('Registering service worker...')
       
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
         updateViaCache: 'none'
       })
 
-      console.log('Service worker registered:', registration)
-      console.log('Service worker scope:', registration.scope)
-      console.log('Service worker state:', registration.active?.state)
+      logger.log('Service worker registered:', registration)
+      logger.log('Service worker scope:', registration.scope)
+      logger.log('Service worker state:', registration.active?.state)
 
       // Handle service worker updates
       registration.addEventListener('updatefound', () => {
-        console.log('Service worker update found')
+        logger.log('Service worker update found')
         const newWorker = registration.installing
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
-            console.log('Service worker state changed:', newWorker.state)
+            logger.log('Service worker state changed:', newWorker.state)
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               // Optionally show update notification to user
               this.handleServiceWorkerUpdate(registration)
@@ -140,7 +140,7 @@ class PushNotificationService {
       return registration
 
     } catch (error) {
-      console.error('Service Worker registration failed:', error)
+      logger.error('Service Worker registration failed:', error)
       return null
     }
   }
@@ -165,54 +165,54 @@ class PushNotificationService {
    */
   async requestPermission(): Promise<'granted' | 'denied' | 'default'> {
     try {
-      console.log('Requesting notification permission...')
+      logger.log('Requesting notification permission...')
       
       if (!('Notification' in window)) {
-        console.log('Notifications not supported')
+        logger.log('Notifications not supported')
         return 'denied'
       }
 
       // Check current permission status
       let permission = Notification.permission
-      console.log('Current permission status:', permission)
+      logger.log('Current permission status:', permission)
 
       // Request permission if not already granted or denied
       if (permission === 'default') {
-        console.log('Permission is default, requesting permission from user...')
+        logger.log('Permission is default, requesting permission from user...')
         
         // Use the newer Promise-based API if available, fallback to callback
         if ('requestPermission' in Notification && typeof Notification.requestPermission === 'function') {
           try {
-            console.log('Using Promise-based requestPermission')
+            logger.log('Using Promise-based requestPermission')
             permission = await Notification.requestPermission()
-            console.log('Permission result (Promise):', permission)
+            logger.log('Permission result (Promise):', permission)
           } catch (error) {
-            console.error('Error with Promise-based requestPermission:', error)
+            logger.error('Error with Promise-based requestPermission:', error)
             // Fallback to callback-based API for older browsers
-            console.log('Falling back to callback-based requestPermission')
+            logger.log('Falling back to callback-based requestPermission')
             permission = await new Promise((resolve) => {
               Notification.requestPermission((result) => {
-                console.log('Permission result (callback):', result)
+                logger.log('Permission result (callback):', result)
                 resolve(result)
               })
             })
           }
         } else {
-          console.log('Using callback-based requestPermission')
+          logger.log('Using callback-based requestPermission')
           permission = await new Promise((resolve) => {
             Notification.requestPermission((result) => {
-              console.log('Permission result (legacy callback):', result)
+              logger.log('Permission result (legacy callback):', result)
               resolve(result)
             })
           })
         }
       }
 
-      console.log('Final permission status:', permission)
+      logger.log('Final permission status:', permission)
       return permission
 
     } catch (error) {
-      console.error('Error requesting notification permission:', error)
+      logger.error('Error requesting notification permission:', error)
       return 'denied'
     }
   }
@@ -222,45 +222,45 @@ class PushNotificationService {
    */
   async subscribe(organizationId: string, customerPhone: string): Promise<boolean> {
     try {
-      console.log('Starting push notification subscription process...')
-      console.log('- Organization ID:', organizationId)
-      console.log('- Customer Phone:', customerPhone)
+      logger.log('Starting push notification subscription process...')
+      logger.log('- Organization ID:', organizationId)
+      logger.log('- Customer Phone:', customerPhone)
       
       if (!this.serviceWorkerRegistration) {
-        console.error('Service worker not registered')
+        logger.error('Service worker not registered')
         return false
       }
 
-      console.log('Service worker is registered, requesting permission...')
+      logger.log('Service worker is registered, requesting permission...')
       
       // Check permission
       const permission = await this.requestPermission()
-      console.log('Permission result:', permission)
+      logger.log('Permission result:', permission)
       
       if (permission !== 'granted') {
-        console.log('Permission not granted, subscription failed')
+        logger.log('Permission not granted, subscription failed')
         return false
       }
 
-      console.log('Permission granted, creating subscription...')
+      logger.log('Permission granted, creating subscription...')
 
       // Check if already subscribed
       let subscription = await this.serviceWorkerRegistration.pushManager.getSubscription()
-      console.log('Existing subscription:', subscription ? 'Found' : 'None')
+      logger.log('Existing subscription:', subscription ? 'Found' : 'None')
 
       // Always create a fresh subscription to ensure it's valid
       if (subscription) {
         try {
-          console.log('Unsubscribing from existing subscription...')
+          logger.log('Unsubscribing from existing subscription...')
           await subscription.unsubscribe()
-          console.log('Successfully unsubscribed from old subscription')
+          logger.log('Successfully unsubscribed from old subscription')
         } catch (error) {
-          console.warn('Error unsubscribing old subscription:', error)
+          logger.warn('Error unsubscribing old subscription:', error)
         }
       }
 
-      console.log('Creating new subscription with VAPID key...')
-      console.log('VAPID key (first 20 chars):', this.vapidPublicKey ? this.vapidPublicKey.substring(0, 20) : 'NOT SET')
+      logger.log('Creating new subscription with VAPID key...')
+      logger.log('VAPID key (first 20 chars):', this.vapidPublicKey ? this.vapidPublicKey.substring(0, 20) : 'NOT SET')
 
       // Create new subscription
       subscription = await this.serviceWorkerRegistration.pushManager.subscribe({
@@ -268,27 +268,27 @@ class PushNotificationService {
         applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey) as BufferSource
       })
 
-      console.log('New subscription created successfully!')
-      console.log('Subscription endpoint:', subscription.endpoint)
+      logger.log('New subscription created successfully!')
+      logger.log('Subscription endpoint:', subscription.endpoint)
 
       // Send subscription to server (with small delay to ensure browser is ready)
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      console.log('Sending subscription to server...')
+      logger.log('Sending subscription to server...')
       const success = await this.sendSubscriptionToServer(
         organizationId,
         customerPhone,
         subscription
       )
 
-      console.log('Subscription server response:', success ? 'SUCCESS' : 'FAILED')
+      logger.log('Subscription server response:', success ? 'SUCCESS' : 'FAILED')
       return success
 
     } catch (error) {
-      console.error('Error subscribing to push notifications:', error)
+      logger.error('Error subscribing to push notifications:', error)
       
       if (error instanceof Error) {
-        console.error('Error details:', {
+        logger.error('Error details:', {
           name: error.name,
           message: error.message,
           stack: error.stack
@@ -311,7 +311,7 @@ class PushNotificationService {
     retryCount = 0
   ): Promise<boolean> {
     try {
-      console.log(`Sending subscription to server (attempt ${retryCount + 1})...`)
+      logger.log(`Sending subscription to server (attempt ${retryCount + 1})...`)
       
       const subscriptionData: PushSubscriptionData = {
         endpoint: subscription.endpoint,
@@ -321,7 +321,7 @@ class PushNotificationService {
         }
       }
 
-      console.log('Subscription data prepared:', {
+      logger.log('Subscription data prepared:', {
         endpoint: subscriptionData.endpoint,
         hasP256dh: !!subscriptionData.keys.p256dh,
         hasAuth: !!subscriptionData.keys.auth
@@ -335,7 +335,7 @@ class PushNotificationService {
       }
 
       const url = `${this.adminUrl}/api/notifications/subscribe`
-      console.log('Sending POST request to:', url)
+      logger.log('Sending POST request to:', url)
 
       const response = await fetch(url, {
         method: 'POST',
@@ -345,35 +345,35 @@ class PushNotificationService {
         body: JSON.stringify(requestBody)
       })
 
-      console.log('Server response status:', response.status)
-      console.log('Server response ok:', response.ok)
+      logger.log('Server response status:', response.status)
+      logger.log('Server response ok:', response.ok)
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Server error response:', errorText)
+        logger.error('Server error response:', errorText)
         throw new Error(`Server responded with status: ${response.status} - ${errorText}`)
       }
 
       const result = await response.json()
-      console.log('Server response body:', result)
+      logger.log('Server response body:', result)
       
       const success = result.success === true
-      console.log('Subscription success:', success)
+      logger.log('Subscription success:', success)
       
       return success
 
     } catch (error) {
-      console.error(`Error sending subscription to server (attempt ${retryCount + 1}):`, error)
+      logger.error(`Error sending subscription to server (attempt ${retryCount + 1}):`, error)
       
       // Retry logic: retry up to 2 times with increasing delay
       if (retryCount < 2) {
         const delay = (retryCount + 1) * 1000 // 1s, 2s delays
-        console.log(`Retrying in ${delay}ms...`)
+        logger.log(`Retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
         return this.sendSubscriptionToServer(organizationId, customerPhone, subscription, retryCount + 1)
       }
       
-      console.error('All retry attempts failed')
+      logger.error('All retry attempts failed')
       return false
     }
   }
@@ -404,7 +404,7 @@ class PushNotificationService {
       }
 
     } catch (error) {
-      console.error('Error updating notification preferences:', error)
+      logger.error('Error updating notification preferences:', error)
     }
   }
 
@@ -427,7 +427,7 @@ class PushNotificationService {
       return null
 
     } catch (error) {
-      console.error('Error getting notification preferences:', error)
+      logger.error('Error getting notification preferences:', error)
       return null
     }
   }
@@ -471,7 +471,7 @@ class PushNotificationService {
       return true
 
     } catch (error) {
-      console.error('Error unsubscribing from push notifications:', error)
+      logger.error('Error unsubscribing from push notifications:', error)
       return false
     }
   }
@@ -529,7 +529,7 @@ class PushNotificationService {
       return result.success
 
     } catch (error) {
-      console.error('Error sending test notification:', error)
+      logger.error('Error sending test notification:', error)
       return false
     }
   }

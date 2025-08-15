@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { logger } from '@/lib/logger'
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -62,7 +63,7 @@ export default function ProfilePage() {
           .from('avatars')
           .remove([existingPath]);
       } catch (error) {
-        console.warn('Could not delete existing avatar:', error);
+        logger.warn('Could not delete existing avatar:', error);
       }
     }
 
@@ -120,7 +121,7 @@ export default function ProfilePage() {
       await refreshUser();
       
     } catch (error) {
-      console.error('Error updating profile:', error);
+      logger.error('Error updating profile:', error);
       showError('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);

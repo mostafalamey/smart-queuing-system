@@ -138,7 +138,8 @@ smart-queuing-system/
 │   │   ├── app/
 │   │   │   ├── profile/          # Profile management page
 │   │   │   ├── dashboard/        # Enhanced dashboard with queue management
-│   │   │   ├── manage/           # Branch/dept management with edit modals
+│   │   │   ├── manage/           # Tree View management interface
+│   │   │   ├── organization/     # QR code generation with department support
 │   │   │   └── ...
 │   │   ├── components/
 │   │   │   ├── ProfileDropdown.tsx      # Profile card with avatar & menu

@@ -5,6 +5,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
+import { logger } from '@/lib/logger'
 
 export function DynamicManifest() {
   const searchParams = useSearchParams()
@@ -40,7 +41,7 @@ export function DynamicManifest() {
     // Add to document head
     document.head.appendChild(manifestLink)
     
-    console.log('Dynamic manifest set:', manifestUrl)
+    logger.log('Dynamic manifest set:', manifestUrl)
 
     // Also dispatch a custom event to notify any install prompts to refresh
     window.dispatchEvent(new CustomEvent('manifestUpdated', { 

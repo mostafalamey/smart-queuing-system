@@ -11,15 +11,15 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Installing...')
+  // console.log('Service Worker: Installing...')
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Service Worker: Caching files')
+        // console.log('Service Worker: Caching files')
         return cache.addAll(urlsToCache)
       })
       .then(() => {
-        console.log('Service Worker: Files cached successfully')
+        // console.log('Service Worker: Files cached successfully')
         return self.skipWaiting()
       })
       .catch((error) => {
@@ -30,19 +30,19 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Activating...')
+  // console.log('Service Worker: Activating...')
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Deleting old cache:', cacheName)
+            // console.log('Service Worker: Deleting old cache:', cacheName)
             return caches.delete(cacheName)
           }
         })
       )
     }).then(() => {
-      console.log('Service Worker: Claiming clients')
+      // console.log('Service Worker: Claiming clients')
       return self.clients.claim()
     })
   )
@@ -51,16 +51,16 @@ self.addEventListener('activate', (event) => {
 // Push event - handle incoming push notifications
 // Enhanced for iOS Safari PWA compatibility
 self.addEventListener('push', (event) => {
-  console.log('Service Worker: Push event received')
+  // console.log('Service Worker: Push event received')
 
   if (!event.data) {
-    console.log('Service Worker: No data in push event')
+    // console.log('Service Worker: No data in push event')
     return
   }
 
   try {
     const data = event.data.json()
-    console.log('Service Worker: Push data:', data)
+    // console.log('Service Worker: Push data:', data)
 
     // Enhanced notification options for iOS Safari compatibility
     const options = {
@@ -82,7 +82,7 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(data.title, options)
         .then(() => {
-          console.log('Service Worker: Notification shown successfully')
+          // console.log('Service Worker: Notification shown successfully')
         })
         .catch((error) => {
           console.error('Service Worker: Error showing notification:', error)
@@ -124,7 +124,7 @@ self.addEventListener('notificationclick', (event) => {
         // Just close the notification (already done above)
         break
       default:
-        console.log('Service Worker: Unknown action:', event.action)
+        // console.log('Service Worker: Unknown action:', event.action)
     }
     return
   }
@@ -139,7 +139,7 @@ self.addEventListener('notificationclick', (event) => {
 
 // Notification close event - handle notification being dismissed
 self.addEventListener('notificationclose', (event) => {
-  console.log('Service Worker: Notification closed')
+  // console.log('Service Worker: Notification closed')
   
   const notification = event.notification
   const data = notification.data || {}
@@ -166,7 +166,7 @@ self.addEventListener('notificationclose', (event) => {
 
 // Background sync event - handle background data sync
 self.addEventListener('sync', (event) => {
-  console.log('Service Worker: Background sync triggered:', event.tag)
+  // console.log('Service Worker: Background sync triggered:', event.tag)
 
   if (event.tag === 'queue-status-sync') {
     event.waitUntil(syncQueueStatus())
@@ -257,13 +257,13 @@ async function openOrFocusApp(url) {
  */
 async function syncQueueStatus() {
   try {
-    console.log('Service Worker: Syncing queue status...')
+    // console.log('Service Worker: Syncing queue status...')
     
     // This would typically fetch latest queue status
     // and update local cache or IndexedDB
     
     // For now, just log that sync was triggered
-    console.log('Service Worker: Queue status sync completed')
+    // console.log('Service Worker: Queue status sync completed')
     
   } catch (error) {
     console.error('Service Worker: Error syncing queue status:', error)
@@ -272,7 +272,7 @@ async function syncQueueStatus() {
 
 // Message event - handle messages from main thread
 self.addEventListener('message', (event) => {
-  console.log('Service Worker: Message received:', event.data)
+  // console.log('Service Worker: Message received:', event.data)
 
   if (event.data && event.data.type) {
     switch (event.data.type) {
@@ -287,7 +287,7 @@ self.addEventListener('message', (event) => {
         updateCache(event.data.url, event.data.data)
         break
       default:
-        console.log('Service Worker: Unknown message type:', event.data.type)
+        // console.log('Service Worker: Unknown message type:', event.data.type)
     }
   }
 })
@@ -302,7 +302,7 @@ async function updateCache(url, data) {
       headers: { 'Content-Type': 'application/json' }
     })
     await cache.put(url, response)
-    console.log('Service Worker: Cache updated for:', url)
+    // console.log('Service Worker: Cache updated for:', url)
   } catch (error) {
     console.error('Service Worker: Error updating cache:', error)
   }

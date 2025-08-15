@@ -1,9 +1,12 @@
 // URL Parameter Persistence for iOS Safari PWA
 // Handles org/branch key preservation across Home Screen installations
 
+import { logger } from './logger'
+
 interface URLParams {
   org: string | null
   branch: string | null
+  department: string | null
 }
 
 interface StoredURLParams extends URLParams {
@@ -18,21 +21,21 @@ export class URLPersistenceService {
   /**
    * Store URL parameters in localStorage for PWA recovery
    */
-  static storeURLParams(orgId: string | null, branchId: string | null): void {
+  static storeURLParams(orgId: string | null, branchId: string | null, departmentId: string | null = null): void {
     try {
       if (typeof window === 'undefined') return
 
       const params: StoredURLParams = {
         org: orgId,
         branch: branchId,
+        department: departmentId,
         timestamp: Date.now(),
         userAgent: navigator.userAgent
       }
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(params))
-      console.log('URL parameters stored for PWA recovery:', params)
     } catch (error) {
-      console.error('Failed to store URL parameters:', error)
+      logger.error('Failed to store URL parameters:', error)
     }
   }
 
@@ -57,10 +60,11 @@ export class URLPersistenceService {
 
       return {
         org: params.org,
-        branch: params.branch
+        branch: params.branch,
+        department: params.department
       }
     } catch (error) {
-      console.error('Failed to retrieve stored URL parameters:', error)
+      logger.error('Failed to retrieve stored URL parameters:', error)
       return null
     }
   }
@@ -103,30 +107,31 @@ export class URLPersistenceService {
     // First try to get from URL
     const orgFromURL = searchParams.get('org')
     const branchFromURL = searchParams.get('branch')
+    const departmentFromURL = searchParams.get('department')
 
     // If we have URL params, store them and return
     if (orgFromURL) {
-      this.storeURLParams(orgFromURL, branchFromURL)
-      return { org: orgFromURL, branch: branchFromURL }
+      this.storeURLParams(orgFromURL, branchFromURL, departmentFromURL)
+      return { org: orgFromURL, branch: branchFromURL, department: departmentFromURL }
     }
 
     // If no URL params and we're in PWA mode, try stored params
     if (this.isPWAMode()) {
       const stored = this.getStoredURLParams()
       if (stored && stored.org) {
-        console.log('PWA mode detected: Using stored URL parameters', stored)
+        // Using stored URL parameters in PWA mode
         return stored
       }
     }
 
-    return { org: null, branch: null }
+    return { org: null, branch: null, department: null }
   }
 
   /**
    * Update stored parameters (e.g., when user selects a different branch)
    */
-  static updateStoredParams(orgId: string | null, branchId: string | null): void {
-    this.storeURLParams(orgId, branchId)
+  static updateStoredParams(orgId: string | null, branchId: string | null, departmentId: string | null = null): void {
+    this.storeURLParams(orgId, branchId, departmentId)
   }
 
   /**
@@ -136,18 +141,21 @@ export class URLPersistenceService {
     try {
       localStorage.removeItem(this.STORAGE_KEY)
     } catch (error) {
-      console.error('Failed to clear stored parameters:', error)
+      logger.error('Failed to clear stored parameters:', error)
     }
   }
 
   /**
    * Generate install URL with current parameters for sharing
    */
-  static generateInstallURL(baseURL: string, orgId: string, branchId?: string): string {
+  static generateInstallURL(baseURL: string, orgId: string, branchId?: string, departmentId?: string): string {
     const url = new URL(baseURL)
     url.searchParams.set('org', orgId)
     if (branchId) {
       url.searchParams.set('branch', branchId)
+    }
+    if (departmentId) {
+      url.searchParams.set('department', departmentId)
     }
     return url.toString()
   }

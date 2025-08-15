@@ -2,6 +2,39 @@
 
 ## Recent Fixes & Enhancements ✨
 
+### Service-Level Queuing System - IMPLEMENTED ✅
+
+**Enhancement**: Complete hierarchical service selection within departments
+**Implementation**: Four-tier structure (Organization → Branch → Department → Service)
+
+- Added service table with department relationships
+- Implemented service selection in customer app
+- Created Tree View management interface in admin dashboard
+- Enhanced QR code system with department-specific codes
+- Added RLS policies for anonymous service access
+
+### Tree View Management Interface - IMPLEMENTED ✅
+
+**Enhancement**: Visual tree structure replacing form-based organization management
+**Implementation**: Interactive tree component for admin dashboard
+
+- Visual hierarchy display of organization structure
+- Inline editing capabilities for quick updates
+- Contextual action menus for add/edit/delete operations
+- Real-time updates across all connected sessions
+- Improved user experience over traditional forms
+
+### Enhanced QR Code System - IMPLEMENTED ✅
+
+**Enhancement**: Three-tier QR code system for flexible customer access
+**Implementation**: General, branch-specific, and department-specific QR codes
+
+- General QR codes for full selection flow
+- Branch-specific QR codes for pre-selected branch access
+- Department-specific QR codes for direct service selection
+- Dynamic QR generation with organization branding
+- Multiple action options (download, copy, print, refresh)
+
 ### Modal-Based Confirmation System - IMPLEMENTED ✅
 
 **Enhancement**: Professional confirmation modals for critical user actions

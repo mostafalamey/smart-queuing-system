@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { logger } from '@/lib/logger'
 
 export default function GlobalError({
   error,
@@ -11,7 +12,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     // Log the error to an error reporting service
-    console.error('Global error:', error)
+    logger.error('Global error:', error)
     
     // Check if it's a chunk loading error
     if (error.message.includes('Loading chunk') || 

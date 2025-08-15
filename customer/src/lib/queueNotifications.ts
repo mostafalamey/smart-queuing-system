@@ -2,6 +2,7 @@
 // This module provides easy-to-use functions for sending queue-related push notifications
 
 import { pushNotificationService } from './pushNotifications'
+import { logger } from './logger'
 
 interface NotificationData {
   organizationId: string
@@ -28,8 +29,8 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
     
     // Validate that admin URL is properly configured
     if (!this.adminUrl || this.adminUrl === 'undefined') {
-      console.error('NEXT_PUBLIC_ADMIN_URL environment variable is not properly configured')
-      console.error('Push notifications will not work without the admin app URL')
+      logger.error('NEXT_PUBLIC_ADMIN_URL environment variable is not properly configured')
+      logger.error('Push notifications will not work without the admin app URL')
       // Use a placeholder that will fail gracefully
       this.adminUrl = 'ADMIN_URL_NOT_CONFIGURED'
     }
@@ -172,13 +173,13 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
     try {
       // Check if admin URL is properly configured
       if (!this.adminUrl || this.adminUrl === 'ADMIN_URL_NOT_CONFIGURED') {
-        console.error('Cannot send push notification: Admin URL not configured')
-        console.error('Please set NEXT_PUBLIC_ADMIN_URL environment variable in Vercel')
+        logger.error('Cannot send push notification: Admin URL not configured')
+        logger.error('Please set NEXT_PUBLIC_ADMIN_URL environment variable in Vercel')
         return false
       }
 
       const url = `${this.adminUrl}/api/notifications/push`
-      console.log('Sending push notification to:', url)
+      logger.log('Sending push notification to:', url)
 
       const response = await fetch(url, {
         method: 'POST',
@@ -196,7 +197,7 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`Push notification API error (${response.status}):`, errorText)
+        logger.error(`Push notification API error (${response.status}):`, errorText)
         return false
       }
 
@@ -204,8 +205,8 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
       return result.success
 
     } catch (error) {
-      console.error('Error sending push notification:', error)
-      console.error('This usually indicates a configuration or network issue')
+      logger.error('Error sending push notification:', error)
+      logger.error('This usually indicates a configuration or network issue')
       return false
     }
   }
@@ -227,7 +228,7 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
       return false
 
     } catch (error) {
-      console.error('Error checking push subscription status:', error)
+      logger.error('Error checking push subscription status:', error)
       return false
     }
   }
@@ -248,7 +249,7 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
       return null
 
     } catch (error) {
-      console.error('Error getting notification preferences:', error)
+      logger.error('Error getting notification preferences:', error)
       return null
     }
   }

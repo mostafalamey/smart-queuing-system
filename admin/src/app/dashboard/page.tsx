@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
 import { useAuth } from '@/lib/AuthContext'
 import { RefreshCw, Phone, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -21,8 +22,19 @@ interface Department {
   }
 }
 
+interface Service {
+  id: string
+  name: string
+  description: string | null
+  estimated_time: number
+  department_id: string
+  is_active: boolean
+  department: Department
+}
+
 interface QueueData {
   department: Department
+  service: Service | null
   currentServing: string | null
   waitingCount: number
   lastTicketNumber: string | null
@@ -34,8 +46,10 @@ export default function DashboardPage() {
   const { showSuccess, showError, showWarning, showInfo } = useAppToast()
   const [selectedBranch, setSelectedBranch] = useState<string>('')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [selectedService, setSelectedService] = useState<string>('')
   const [branches, setBranches] = useState<any[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [organization, setOrganization] = useState<any>(null)
   const [queueData, setQueueData] = useState<QueueData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -65,7 +79,7 @@ export default function DashboardPage() {
         setSelectedBranch(data[0].id)
       }
     } catch (error) {
-      console.error('Error fetching branches:', error)
+      logger.error('Error fetching branches:', error)
       setConnectionError(true)
     }
   }, [userProfile?.organization_id])
@@ -83,7 +97,7 @@ export default function DashboardPage() {
       if (error) throw error
       setOrganization(data)
     } catch (error) {
-      console.error('Error fetching organization:', error)
+      logger.error('Error fetching organization:', error)
     }
   }, [userProfile?.organization_id])
 
@@ -107,11 +121,44 @@ export default function DashboardPage() {
         setSelectedDepartment(data[0].id)
       }
     } catch (error) {
-      console.error('Error fetching departments:', error)
+      logger.error('Error fetching departments:', error)
       setDepartments([])
       setConnectionError(true)
     }
   }, [selectedBranch])
+
+  const fetchServices = useCallback(async () => {
+    if (!selectedDepartment) return
+    
+    try {
+      const { data } = await supabase
+        .from('services')
+        .select(`
+          *,
+          department:department_id (
+            id,
+            name,
+            branches:branch_id (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('department_id', selectedDepartment)
+        .eq('is_active', true)
+        .order('name')
+      
+      setServices(data || [])
+      if (data && data.length > 0) {
+        setSelectedService(data[0].id)
+      } else {
+        setSelectedService('')
+      }
+    } catch (error) {
+      logger.error('Error fetching services:', error)
+      setServices([])
+    }
+  }, [selectedDepartment])
 
   const fetchQueueData = useCallback(async () => {
     if (!selectedDepartment || isFetchingRef.current) return
@@ -133,46 +180,67 @@ export default function DashboardPage() {
         .eq('id', selectedDepartment)
         .single()
 
-      // Get waiting count
-      const { count } = await supabase
-        .from('tickets')
-        .select('*', { count: 'exact' })
-        .eq('department_id', selectedDepartment)
-        .eq('status', 'waiting')
+      // Get service info if a specific service is selected
+      let selectedServiceData = null
+      if (selectedService) {
+        const { data: serviceData } = await supabase
+          .from('services')
+          .select('*')
+          .eq('id', selectedService)
+          .single()
+        selectedServiceData = serviceData
+      }
 
-      // Get currently serving ticket
-      const { data: servingTickets } = await supabase
-        .from('tickets')
-        .select('ticket_number')
-        .eq('department_id', selectedDepartment)
+      // Build ticket queries based on whether a service is selected
+      // Get waiting count - create fresh query
+      let waitingQuery = supabase.from('tickets').select('*', { count: 'exact' });
+      if (selectedService) {
+        waitingQuery = waitingQuery.eq('service_id', selectedService);
+      } else {
+        waitingQuery = waitingQuery.eq('department_id', selectedDepartment).is('service_id', null);
+      }
+      const { count } = await waitingQuery.eq('status', 'waiting');
+
+      // Get currently serving ticket - create fresh query
+      let servingQuery = supabase.from('tickets').select('ticket_number');
+      if (selectedService) {
+        servingQuery = servingQuery.eq('service_id', selectedService);
+      } else {
+        servingQuery = servingQuery.eq('department_id', selectedDepartment).is('service_id', null);
+      }
+      const { data: servingTickets } = await servingQuery
         .eq('status', 'serving')
         .order('updated_at', { ascending: false })
-        .limit(1)
+        .limit(1);
 
-      // Get last ticket number
-      const { data: lastTickets } = await supabase
-        .from('tickets')
-        .select('ticket_number')
-        .eq('department_id', selectedDepartment)
+      // Get last ticket number - create fresh query
+      let lastTicketQuery = supabase.from('tickets').select('ticket_number');
+      if (selectedService) {
+        lastTicketQuery = lastTicketQuery.eq('service_id', selectedService);
+      } else {
+        lastTicketQuery = lastTicketQuery.eq('department_id', selectedDepartment).is('service_id', null);
+      }
+      const { data: lastTickets } = await lastTicketQuery
         .order('created_at', { ascending: false })
-        .limit(1)
+        .limit(1);
 
       setQueueData({
         department,
+        service: selectedServiceData,
         currentServing: servingTickets?.[0]?.ticket_number || null,
         waitingCount: count || 0,
         lastTicketNumber: lastTickets?.[0]?.ticket_number || null,
       })
 
     } catch (error) {
-      console.error('Error fetching queue data:', error)
+      logger.error('Error fetching queue data:', error)
       setQueueData(null)
       setConnectionError(true)
     } finally {
       setLoading(false)
       isFetchingRef.current = false
     }
-  }, [selectedDepartment])
+  }, [selectedDepartment, selectedService])
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -201,9 +269,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (selectedDepartment) {
+      fetchServices()
+    }
+  }, [selectedDepartment, fetchServices])
+
+  useEffect(() => {
+    if (selectedDepartment) {
       fetchQueueData()
     }
-  }, [selectedDepartment, fetchQueueData])
+  }, [selectedDepartment, selectedService, fetchQueueData])
 
   // Real-time subscriptions for live updates
   useEffect(() => {
@@ -275,13 +349,14 @@ export default function DashboardPage() {
         if (isActive) {
           setQueueData({
             department,
+            service: null, // For now, department-level queuing
             currentServing: servingTickets?.[0]?.ticket_number || null,
             waitingCount: count || 0,
             lastTicketNumber: lastTickets?.[0]?.ticket_number || null,
           })
         }
       } catch (error) {
-        console.error('Error refreshing queue data:', error)
+        logger.error('Error refreshing queue data:', error)
         // Don't update connection error state here to prevent re-renders
       } finally {
         isFetchingRef.current = false
@@ -340,7 +415,7 @@ export default function DashboardPage() {
           )
           .subscribe()
       } catch (error) {
-        console.error('Error setting up subscriptions:', error)
+        logger.error('Error setting up subscriptions:', error)
         // Don't update connection error state here to prevent re-renders
       }
     }
@@ -402,20 +477,20 @@ export default function DashboardPage() {
 
   //   const runAutomatedCleanup = async () => {
   //     try {
-  //       console.log('Running automated ticket cleanup...')
+  //       logger.log('Running automated ticket cleanup...')
   //       await TicketCleanupService.runAutomatedCleanup()
   //       const now = new Date()
   //       const nowTimestamp = now.getTime()
   //       setLastCleanupTime(now)
   //       localStorage.setItem('lastCleanupTime', nowTimestamp.toString())
-  //       console.log('Automated ticket cleanup completed successfully')
+  //       logger.log('Automated ticket cleanup completed successfully')
         
   //       // Show a subtle notification that cleanup happened
   //       if (showInfo) {
   //         showInfo('Database Maintenance', 'Automated ticket cleanup completed in the background.')
   //       }
   //     } catch (error) {
-  //       console.error('Automated cleanup failed:', error)
+  //       logger.error('Automated cleanup failed:', error)
   //       // Don't show error to user as this is background process
   //     }
   //   }
@@ -503,7 +578,7 @@ export default function DashboardPage() {
         try {
           // Validate required data for notifications
           if (!userProfile?.organization_id) {
-            console.error('Organization ID not found in user profile')
+            logger.error('Organization ID not found in user profile')
             throw new Error('Organization ID required for notifications')
           }
 
@@ -568,7 +643,7 @@ export default function DashboardPage() {
             }
           }
         } catch (notificationError) {
-          console.error('Error sending push notifications:', notificationError)
+          logger.error('Error sending push notifications:', notificationError)
           // Don't fail the entire operation if notifications fail
         }
 
@@ -594,7 +669,7 @@ export default function DashboardPage() {
         )
       }
     } catch (error) {
-      console.error('Error calling next ticket:', error)
+      logger.error('Error calling next ticket:', error)
       setConnectionError(true)
       
       // Show error toast
@@ -693,7 +768,7 @@ export default function DashboardPage() {
         }
       )
     } catch (error) {
-      console.error('Error resetting queue:', error)
+      logger.error('Error resetting queue:', error)
       setConnectionError(true)
       
       // Show error toast for reset failure
@@ -753,7 +828,7 @@ export default function DashboardPage() {
         )
       }
     } catch (error) {
-      console.error('Error skipping ticket:', error)
+      logger.error('Error skipping ticket:', error)
       setConnectionError(true)
       
       showError(
@@ -815,7 +890,7 @@ export default function DashboardPage() {
         )
       }
     } catch (error) {
-      console.error('Error completing ticket:', error)
+      logger.error('Error completing ticket:', error)
       setConnectionError(true)
       
       showError(
@@ -876,7 +951,7 @@ export default function DashboardPage() {
             }))
           )
       } catch (archiveError) {
-        console.warn('Archive table not available, proceeding with cleanup only')
+        logger.warn('Archive table not available, proceeding with cleanup only')
       }
 
       // Delete old tickets
@@ -894,7 +969,7 @@ export default function DashboardPage() {
         `Successfully cleaned up ${oldTickets.length} old tickets. Database optimized!`
       )
     } catch (error) {
-      console.error('Error during cleanup:', error)
+      logger.error('Error during cleanup:', error)
       showError(
         'Cleanup Failed',
         'There was an error cleaning up old tickets. Please try again.'
@@ -1043,7 +1118,7 @@ export default function DashboardPage() {
 
                     <div className="space-y-8">
                       {/* Branch Status Badge */}
-                      {selectedBranch && (
+                      {/* {selectedBranch && (
                         <div className="flex items-center space-x-4 mb-6">
                           <div className="flex items-center space-x-3 px-5 py-3 bg-gradient-to-r from-yellowgreen-100 to-citrine-100 text-yellowgreen-800 rounded-2xl text-sm border border-yellowgreen-200 shadow-md hover:shadow-lg transition-all duration-200">
                             <div className="w-3 h-3 bg-gradient-to-r from-yellowgreen-500 to-citrine-500 rounded-full animate-pulse shadow-sm"></div>
@@ -1053,7 +1128,7 @@ export default function DashboardPage() {
                             <span className="text-yellowgreen-600 font-semibold">• ACTIVE</span>
                           </div>
                         </div>
-                      )}
+                      )} */}
 
                       {/* Enhanced Branch Selection */}
                       <div className="space-y-3">
@@ -1108,6 +1183,35 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Service Selection */}
+                      {selectedDepartment && services.length > 0 && (
+                        <div className="space-y-3">
+                          <label className="block text-sm font-bold text-gray-700 mb-2">
+                            Select Service
+                          </label>
+                          <div className="relative group">
+                            <select
+                              value={selectedService}
+                              onChange={(e) => setSelectedService(e.target.value)}
+                              className="w-full px-5 py-4 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-3 focus:ring-celestial-200 focus:border-celestial-500 transition-all duration-200 appearance-none cursor-pointer hover:border-celestial-300 hover:shadow-md text-gray-900 font-medium"
+                              aria-label="Select Service"
+                            >
+                              <option value="">All Services</option>
+                              {services.map((service) => (
+                                <option key={service.id} value={service.id}>
+                                  {service.name} ({service.estimated_time}min)
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                              <svg className="w-5 h-5 text-celestial-500 group-hover:text-celestial-600 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Currently Serving Banner */}
                       {queueData && (
@@ -1176,6 +1280,11 @@ export default function DashboardPage() {
                             <p className="text-caramel-700 font-semibold text-xl">
                               {queueData.currentServing ? `Ticket ${queueData.currentServing}` : 'No ticket currently being served'}
                             </p>
+                            {queueData.service && (
+                              <p className="text-caramel-600 text-sm mt-1">
+                                Service: {queueData.service.name} ({queueData.service.estimated_time}min)
+                              </p>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1201,8 +1310,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex-1 flex flex-col justify-center">
                         <div className="text-center mb-8">
-                          <div className="text-6xl font-black mb-3 text-white drop-shadow-lg">{queueData.waitingCount || 0}</div>
-                          <div className="text-celestial-100 text-xl font-semibold">Customers Waiting</div>
+                          <div className="text-9xl font-black mb-3 text-white drop-shadow-lg leading-none">{queueData.waitingCount || 0}</div>
+                          <div className="text-celestial-100 text-2xl font-bold">Customers Waiting</div>
                         </div>
                         <div className="space-y-4">
                           {/* Enhanced Call Next Button - Main Action */}
@@ -1214,7 +1323,7 @@ export default function DashboardPage() {
                             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
                             <div className="relative flex items-center justify-center">
                               <Phone className="w-7 h-7 mr-3 group-hover/btn:rotate-12 transition-transform duration-200" />
-                              <span className="text-2xl">{loading ? 'Calling...' : 'Call Next Customer'}</span>
+                              <span className="text-xl">{loading ? 'Calling...' : 'Call Next Customer'}</span>
                             </div>
                           </button>
                           {/* Secondary Action Buttons */}
@@ -1244,7 +1353,7 @@ export default function DashboardPage() {
         onClose={() => setShowResetQueueModal(false)}
         onResetOnly={() => resetQueue(false)}
         onResetWithCleanup={() => resetQueue(true)}
-        queueName={queueData?.department?.name || 'queue'}
+        queueName={queueData?.service ? `${queueData.service.name} (${queueData.department?.name})` : queueData?.department?.name || 'queue'}
       />
     </DashboardLayout>
   )

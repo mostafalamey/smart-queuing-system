@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { logger } from '@/lib/logger'
 import { TicketCleanupService, CleanupResult, CleanupStats } from '../lib/ticketCleanup'
 import { useAppToast } from '../hooks/useAppToast'
 
@@ -42,7 +43,7 @@ export default function TicketCleanupManager({ className = '' }: TicketCleanupMa
       setTotalCounts(countsData)
       setCleanupNeeded(cleanupCheck)
     } catch (error) {
-      console.error('Error loading cleanup data:', error)
+      logger.error('Error loading cleanup data:', error)
       showError('Error Loading Data', 'Failed to load ticket cleanup statistics.')
     } finally {
       setIsLoading(false)
@@ -62,7 +63,7 @@ export default function TicketCleanupManager({ className = '' }: TicketCleanupMa
         await loadData() // Refresh data
       }
     } catch (error) {
-      console.error('Cleanup error:', error)
+      logger.error('Cleanup error:', error)
       showError('Cleanup Failed', 'There was an error during the cleanup process.')
     } finally {
       setIsLoading(false)
@@ -76,7 +77,7 @@ export default function TicketCleanupManager({ className = '' }: TicketCleanupMa
       showSuccess('Automated Cleanup', 'Automated cleanup completed successfully.')
       await loadData()
     } catch (error) {
-      console.error('Automated cleanup error:', error)
+      logger.error('Automated cleanup error:', error)
       showError('Automated Cleanup Failed', 'There was an error during automated cleanup.')
     } finally {
       setIsLoading(false)
@@ -96,7 +97,7 @@ export default function TicketCleanupManager({ className = '' }: TicketCleanupMa
         await loadData()
       }
     } catch (error) {
-      console.error('Emergency cleanup error:', error)
+      logger.error('Emergency cleanup error:', error)
       showError('Emergency Cleanup Failed', 'There was an error during emergency cleanup.')
     } finally {
       setIsLoading(false)

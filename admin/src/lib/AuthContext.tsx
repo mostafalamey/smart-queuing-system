@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { supabase } from './supabase';
+import { logger } from './logger';
 import { Database } from './database.types';
 import { SessionRecovery } from './sessionRecovery';
 import { CacheDetection } from './cacheDetection';
@@ -53,7 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Function to fetch user profile
   const fetchUserProfile = async (userId: string) => {
     try {
-      console.log('Fetching user profile for:', userId);
       
       // Increased timeout to 10s for production reliability
       const profilePromise = supabase
@@ -66,20 +66,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
       
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
       );
       
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       if (error) {
-        console.error('Profile fetch error:', error);
+        logger.error('Profile fetch error:', error);
         throw error;
       }
       
-      console.log('Profile fetched successfully:', data?.email);
       setUserProfile(data);
     } catch (error) {
-      console.error('Failed to fetch user profile:', error);
+      logger.error('Failed to fetch user profile:', error);
       // Set minimal profile fallback for functionality
       setUserProfile({
         id: userId,
@@ -87,7 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: 'member',
         organization: null
       } as any);
-      console.log('Using fallback profile data to maintain functionality');
     }
   };
 
@@ -107,11 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Safety timeout to prevent overlay from staying visible forever
     const safetyTimeout = setTimeout(() => {
       if (authOverlayVisible && mounted) {
-        console.warn('Safety timeout reached - hiding auth overlay');
         hideAuthOverlay(true);
         setLoading(false);
       }
-    }, 15000); // 15 second safety net
+    }, 3000); // 3 second safety net
 
     const initializeAuth = async () => {
       // Prevent multiple simultaneous initialization attempts
@@ -122,15 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initializationAttempted = true;
 
       try {
-        console.log(`Auth initialization attempt ${retryCount + 1}/${maxRetries + 1}`);
         
         // Check cache status first
         const cacheStatus = CacheDetection.getCacheStatus();
-        console.log('Cache status:', cacheStatus);
         
         // If cache was cleared, handle it gracefully
         if (cacheStatus.isCacheCleared) {
-          console.log('Browser cache was cleared - starting fresh auth flow');
           setUser(null);
           setUserProfile(null);
           setLoading(false);
@@ -141,7 +135,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Check if we have stored session data first
         const hasStoredSession = cacheStatus.hasAuthTokens;
-        console.log('Stored session exists:', hasStoredSession);
         
         // Get initial session (let Supabase handle its own timeouts)
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -149,11 +142,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
         
         if (error) {
-          console.error('Session error:', error);
+          logger.error('Session error:', error);
           
           // If no stored session and we get an error, don't retry indefinitely
           if (!hasStoredSession) {
-            console.log('No stored session found, setting auth state to unauthenticated');
             setUser(null);
             setUserProfile(null);
             setLoading(false);
@@ -164,20 +156,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Retry logic for session errors only if we have stored data
           if (retryCount < maxRetries) {
             retryCount++;
-            console.log(`Retrying auth initialization in ${retryCount}s...`);
             setTimeout(initializeAuth, 1000 * retryCount);
             return;
           }
           
           // Max retries reached - clear everything
-          console.log('Max retries reached, clearing auth state');
           setUser(null);
           setUserProfile(null);
           setLoading(false);
           return;
         }
         
-        console.log('Session retrieved:', session ? 'Found' : 'None');
         setUser(session?.user || null);
         
         if (session?.user) {
@@ -189,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         retryCount = 0; // Reset retry count on success
         
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        logger.error('Auth initialization error:', error);
         
         if (mounted) {
           // Check if cache was cleared
@@ -197,7 +186,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (!hasStoredSession) {
             // No stored session - likely cache was cleared
-            console.log('No stored session found - cache may have been cleared');
             setUser(null);
             setUserProfile(null);
             setLoading(false);
@@ -207,13 +195,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Retry logic for network errors only if we have stored session
           if (retryCount < maxRetries && hasStoredSession) {
             retryCount++;
-            console.log(`Retrying after error in ${retryCount}s...`);
             setTimeout(initializeAuth, 1000 * retryCount);
             return;
           }
           
           // Give up and clear state
-          console.log('Auth initialization failed, clearing state');
           setUser(null);
           setUserProfile(null);
           setLoading(false);
@@ -235,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return value && value !== 'null' && value !== '{}';
         });
       } catch (error) {
-        console.error('Error checking stored session:', error);
+        logger.error('Error checking stored session:', error);
         return false;
       }
     };
@@ -247,12 +233,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state changed:', event, session?.user?.id);
-        
         try {
           // Handle specific auth events
           if (event === 'SIGNED_OUT') {
-            console.log('User signed out');
             setUser(null);
             setUserProfile(null);
             setLoading(false);
@@ -260,35 +243,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           
           if (event === 'TOKEN_REFRESHED') {
-            console.log('Token refreshed successfully');
+            // Token refreshed successfully
           }
           
           if (event === 'SIGNED_IN') {
-            console.log('User signed in');
+            // User signed in
           }
           
-          console.log('Setting user in context:', session?.user?.id);
           setUser(session?.user || null);
           
           if (session?.user) {
-            console.log('Fetching profile for signed in user...');
+            // Fetching profile for signed in user...
             try {
               await fetchUserProfile(session.user.id);
-              console.log('Profile fetch completed');
+              // Profile fetch completed
             } catch (error) {
-              console.error('Profile fetch failed, but continuing:', error);
+              logger.error('Profile fetch failed, but continuing:', error);
             }
           } else {
-            console.log('No session user, clearing profile');
+
             setUserProfile(null);
           }
           
           // Always set loading to false after processing auth state change
-          console.log('Setting loading to false');
+          // Setting loading to false
           setLoading(false);
           hideAuthOverlay(); // Hide auth overlay when auth state is processed
         } catch (error) {
-          console.error('Auth state change error:', error);
+          logger.error('Auth state change error:', error);
           // Don't set loading to false here - let the error handling in visibility change handle it
           if (event === 'SIGNED_OUT') {
             setLoading(false);
@@ -301,7 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleVisibilityChange = async () => {
       // Only handle when page becomes visible (user switches back to tab)
       if (!document.hidden && mounted) {
-        console.log('Tab became visible, checking session...');
+        // Tab became visible, checking session...
         setAuthOverlayVisible(true); // Show overlay during tab switch validation
         
         // Small delay to ensure tab is fully focused
@@ -313,7 +295,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { session, recovered, error } = await sessionRecovery.checkAndRecoverSession();
             
             if (error) {
-              console.error('Session recovery failed:', error);
+              logger.error('Session recovery failed:', error);
               if (!loading) {
                 setLoading(true);
                 await initializeAuth();
@@ -325,20 +307,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const newUser = session?.user;
             
             if (recovered) {
-              console.log('Session recovered successfully');
+              // Session recovered successfully
             }
             
             // Check for auth state mismatch
             if (newUser && !currentUser) {
-              console.log('Auth state mismatch: user exists but not in context');
+              // Auth state mismatch: user exists but not in context
               setUser(newUser);
               await fetchUserProfile(newUser.id);
             } else if (!newUser && currentUser) {
-              console.log('Auth state mismatch: no user but exists in context');
+              // Auth state mismatch: no user but exists in context
               setUser(null);
               setUserProfile(null);
             } else if (newUser && currentUser && newUser.id !== currentUser.id) {
-              console.log('Auth state mismatch: different user');
+              // Auth state mismatch: different user
               setUser(newUser);
               await fetchUserProfile(newUser.id);
             }
@@ -352,7 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hideAuthOverlay();
             
           } catch (error) {
-            console.error('Visibility change error:', error);
+            logger.error('Visibility change error:', error);
             hideAuthOverlay(true); // Hide overlay immediately on error
             if (!loading) {
               setLoading(true);
@@ -366,21 +348,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Handle window focus events (additional layer)
     const handleWindowFocus = async () => {
       if (mounted && !document.hidden) {
-        console.log('Window focused, performing quick session check...');
-        
+        // Window focused, performing quick session check...
+
         try {
           // Quick session check without full recovery
           const { data: { session } } = await supabase.auth.getSession();
           
           // Quick check - if we have a session but no user in context, refresh
           if (session?.user && !user && !loading) {
-            console.log('Window focus: Found session but no user in context');
+            // Found session but no user in context
             setLoading(true);
             setUser(session.user);
             await fetchUserProfile(session.user.id);
             setLoading(false);
           } else if (!session?.user && user) {
-            console.log('Window focus: No session but user in context, attempting recovery...');
+            // No session but user in context, attempting recovery...
             const { session: recoveredSession } = await sessionRecovery.forceSessionRefresh();
             if (!recoveredSession) {
               setUser(null);
@@ -388,7 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } catch (error) {
-          console.error('Window focus error:', error);
+          logger.error('Window focus error:', error);
         }
       }
     };
@@ -396,7 +378,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Handle network reconnection
     const handleOnline = async () => {
       if (mounted) {
-        console.log('Network reconnected, refreshing auth...');
+        // Network reconnected, refreshing auth...
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session?.user && !user && !loading) {
@@ -408,7 +390,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await initializeAuth();
           }
         } catch (error) {
-          console.error('Online handler error:', error);
+          logger.error('Online handler error:', error);
         }
       }
     };

@@ -1,4 +1,4 @@
-// Production-ready logging utility
+// Production-ready logging utility for Admin App
 // Only logs in development mode, reduces console noise in production
 
 type LogLevel = 'log' | 'warn' | 'error' | 'info'

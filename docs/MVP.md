@@ -37,8 +37,10 @@ The MVP has successfully implemented all core functionality to make the queue sy
 
 ### Customer App ✅ COMPLETE + ENHANCED
 
-- ✅ Access via QR code (organization/branch key in URL)
-- ✅ Select department with dynamic organization branding
+- ✅ Access via QR code (organization/branch/department key in URL)
+- ✅ Select service within department with dynamic organization branding
+- ✅ **Enhanced**: Service-level queuing for specific service selection
+- ✅ **Enhanced**: Department pre-selection via department-specific QR codes
 - ✅ Enter phone number with validation
 - ✅ Receive alphanumeric ticket number (BA001, AR002, etc.)
 - ✅ View real-time queue status in app
@@ -50,9 +52,11 @@ The MVP has successfully implemented all core functionality to make the queue sy
 #### Admin Role ✅ COMPLETE + ENHANCED
 
 - ✅ Authentication via Supabase Auth with session recovery
-- ✅ Create organization, branches, and departments
+- ✅ Create organization, branches, departments, and services
+- ✅ **Enhanced**: Tree View management interface for organizational structure
 - ✅ Invite members and assign roles/branches/departments
-- ✅ Generate QR codes for organization and branches
+- ✅ Generate QR codes for organization, branches, and departments
+- ✅ **Enhanced**: Department-specific QR codes for streamlined customer access
 - ✅ **Enhanced**: View/call next ticket with real-time updates
 - ✅ **Enhanced**: Connection status monitoring and automatic recovery
 
@@ -88,6 +92,9 @@ The MVP has successfully implemented all core functionality to make the queue sy
 
 ### Advanced Features Delivered
 
+- **Service-Level Queuing System** - Complete hierarchical structure: Organization → Branch → Department → Service
+- **Tree View Management Interface** - Visual tree structure replacing form-based management
+- **Enhanced QR Code System** - Three-tier QR codes (general, branch-specific, department-specific)
 - **Real-time synchronization** - Live updates across all connected devices
 - **Professional UI/UX** - Modern, responsive design with organization branding
 - **Robust error handling** - Connection recovery and user-friendly error messages

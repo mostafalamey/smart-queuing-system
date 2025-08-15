@@ -21,7 +21,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       />
 
       {/* Main Content Area */}
-      <div className="lg:pl-64 transition-all duration-300">
+      <div className="lg:pl-80 transition-all duration-300">
         {/* Enhanced Mobile Header */}
         <div className="lg:hidden bg-white/80 backdrop-blur-md border-b border-gray-200/60 px-4 py-3 sticky top-0 z-40 shadow-sm">
           <div className="flex items-center justify-between">

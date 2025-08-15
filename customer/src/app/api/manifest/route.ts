@@ -4,6 +4,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Note: Server-side routes can't use the client-side logger, 
+// so we keep console.error for server-side error logging
+
 // Initialize Supabase client for server-side use
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

@@ -10,6 +10,7 @@ import { queueNotificationHelper } from '@/lib/queueNotifications'
 import { BrowserDetection, type BrowserInfo } from '@/lib/browserDetection'
 import { URLPersistenceService } from '@/lib/urlPersistence'
 import PWAInstallHelper from '@/components/PWAInstallHelper'
+import { logger } from '@/lib/logger'
 import { Phone, ChevronRight, MapPin, Users, Clock, Bell, BellOff, AlertTriangle, Info } from 'lucide-react'
 
 interface Organization {
@@ -33,6 +34,15 @@ interface Department {
   branch_id: string
 }
 
+interface Service {
+  id: string
+  name: string
+  description: string | null
+  estimated_time: number
+  department_id: string
+  is_active: boolean
+}
+
 interface QueueStatus {
   currentServing: number | null
   waitingCount: number
@@ -46,13 +56,16 @@ function CustomerAppContent() {
   const urlParams = URLPersistenceService.getCurrentParams(searchParams)
   const orgId = urlParams.org
   const branchId = urlParams.branch
+  const departmentId = urlParams.department
 
-  const [step, setStep] = useState(1) // 1: Phone, 2: Branch, 3: Service
+  const [step, setStep] = useState(1) // 1: Phone, 2: Department, 3: Service
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [branches, setBranches] = useState<Branch[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [selectedBranch, setSelectedBranch] = useState<string>(branchId || '')
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(departmentId || '')
+  const [selectedService, setSelectedService] = useState<string>('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null)
   const [ticketNumber, setTicketNumber] = useState<string>('')
@@ -80,11 +93,11 @@ function CustomerAppContent() {
     if (branchId) {
       setSelectedBranch(branchId)
       // Update stored parameters
-      URLPersistenceService.updateStoredParams(orgId, branchId)
+      URLPersistenceService.updateStoredParams(orgId, branchId, departmentId)
       // Don't change step - keep at step 1 for phone number entry
       // The branch is just pre-selected for later use
     }
-  }, [branchId, orgId])
+  }, [branchId, orgId, departmentId])
 
   useEffect(() => {
     if (selectedBranch) {
@@ -94,9 +107,15 @@ function CustomerAppContent() {
 
   useEffect(() => {
     if (selectedDepartment) {
-      fetchQueueStatus()
+      fetchServices()
     }
   }, [selectedDepartment])
+
+  useEffect(() => {
+    if (selectedService) {
+      fetchQueueStatus()
+    }
+  }, [selectedService])
 
   // Initialize browser detection only (no permission request)
   const initializeBrowserDetection = async () => {
@@ -105,7 +124,7 @@ function CustomerAppContent() {
       const browserInfo = BrowserDetection.getBrowserInfo()
       setBrowserInfo(browserInfo)
 
-      console.log('Browser detection:', browserInfo)
+      logger.log('Browser detection:', browserInfo)
 
       // Set support based on detailed detection
       setPushNotificationsSupported(browserInfo.isSupported)
@@ -115,7 +134,7 @@ function CustomerAppContent() {
         setShowBrowserWarning(true)
       }
     } catch (error) {
-      console.error('Error detecting browser capabilities:', error)
+      logger.error('Error detecting browser capabilities:', error)
     }
   }
 
@@ -130,13 +149,13 @@ function CustomerAppContent() {
         .single()
       
       if (error) {
-        console.error('Error fetching organization:', error);
+        logger.error('Error fetching organization:', error);
         return;
       }
       
       setOrganization(data)
     } catch (error) {
-      console.error('Exception fetching organization:', error);
+      logger.error('Exception fetching organization:', error);
     }
   }
 
@@ -150,14 +169,14 @@ function CustomerAppContent() {
         .eq('organization_id', orgId)
       
       if (error) {
-        console.error('Error fetching branches:', error);
+        logger.error('Error fetching branches:', error);
         setBranches([]);
         return;
       }
       
       setBranches(data || [])
     } catch (error) {
-      console.error('Exception fetching branches:', error);
+      logger.error('Exception fetching branches:', error);
       setBranches([]);
     }
   }
@@ -172,42 +191,76 @@ function CustomerAppContent() {
         .eq('branch_id', selectedBranch)
       
       if (error) {
-        console.error('Error fetching departments:', error);
+        logger.error('Error fetching departments:', error);
         setDepartments([]);
         return;
       }
       
       setDepartments(data || [])
     } catch (error) {
-      console.error('Exception fetching departments:', error);
+      logger.error('Exception fetching departments:', error);
       setDepartments([]);
     }
   }
 
-  const fetchQueueStatus = async () => {
-    if (!selectedDepartment) return
-
+  const fetchServices = async () => {
+    if (!selectedDepartment) return;
+    
     try {
-      // Try to get queue settings first
-      const { data: settings } = await supabase
-        .from('queue_settings')
+      const { data, error } = await supabase
+        .from('services')
         .select('*')
         .eq('department_id', selectedDepartment)
+        .eq('is_active', true)
+        .order('name')
+      
+      if (error) {
+        logger.error('Error fetching services:', error);
+        setServices([]);
+        return;
+      }
+      
+      setServices(data || [])
+    } catch (error) {
+      logger.error('Exception fetching services:', error);
+      setServices([]);
+    }
+  }
+
+  const fetchQueueStatus = async () => {
+    if (!selectedService) return
+
+    try {
+      // Get service details for estimated time
+      const { data: serviceData } = await supabase
+        .from('services')
+        .select('estimated_time')
+        .eq('id', selectedService)
         .single()
 
+      // Get queue status from tickets
       const { count } = await supabase
         .from('tickets')
         .select('*', { count: 'exact' })
-        .eq('department_id', selectedDepartment)
+        .eq('service_id', selectedService)
         .eq('status', 'waiting')
 
+      // Get currently serving ticket
+      const { data: servingTicket } = await supabase
+        .from('tickets')
+        .select('ticket_number')
+        .eq('service_id', selectedService)
+        .eq('status', 'serving')
+        .single()
+
+      const estimatedTime = serviceData?.estimated_time || 10 // Default 10 minutes
       setQueueStatus({
-        currentServing: settings?.current_serving || null,
+        currentServing: servingTicket?.ticket_number || null,
         waitingCount: count || 0,
-        estimatedWaitTime: (count || 0) * 5 // 5 minutes per customer estimate
+        estimatedWaitTime: (count || 0) * estimatedTime
       })
     } catch (error) {
-      console.error('Error fetching queue status:', error)
+      logger.error('Error fetching queue status:', error)
       // Fallback to basic count only
       const { count } = await supabase
         .from('tickets')
@@ -224,113 +277,131 @@ function CustomerAppContent() {
   }
 
   const joinQueue = async () => {
-    if (!phoneNumber || !selectedDepartment) return
+    if (!phoneNumber || !selectedService) {
+      logger.log('joinQueue validation failed:', { phoneNumber, selectedService })
+      return
+    }
 
+    logger.log('joinQueue starting with:', { phoneNumber, selectedService, selectedDepartment, organizationId: organization?.id })
+    
     setLoading(true)
     try {
-      // Get or create queue settings for this department
-      let { data: queueSettings, error: settingsError } = await supabase
-        .from('queue_settings')
-        .select('*')
-        .eq('department_id', selectedDepartment)
+      // Get service details
+      const { data: service, error: serviceError } = await supabase
+        .from('services')
+        .select(`
+          *,
+          department:department_id (
+            id,
+            name
+          )
+        `)
+        .eq('id', selectedService)
         .single()
 
-      if (settingsError || !queueSettings) {
-        // Create queue settings if it doesn't exist
-        const { data: newSettings, error: createError } = await supabase
-          .from('queue_settings')
-          .insert({
-            department_id: selectedDepartment,
-            current_serving: null,
-            last_ticket_number: 0
-          })
-          .select()
-          .single()
-        
-        if (createError) {
-          console.error('Error creating queue settings:', createError)
-          throw createError
-        }
-        queueSettings = newSettings
+      logger.log('Service query result:', { service, serviceError })
+
+      if (serviceError || !service) {
+        throw new Error('Service not found')
       }
 
-      const department = departments.find(d => d.id === selectedDepartment)
-      const departmentPrefix = department?.name.substring(0, 2).toUpperCase() || 'AA'
-      
-      // Extract numeric part from last ticket number (e.g., "BA003" -> 3)
+      // Get the next ticket number for this service
+      const { data: lastTicket } = await supabase
+        .from('tickets')
+        .select('ticket_number')
+        .eq('service_id', selectedService)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      // Generate ticket number: SERVICE_NAME-XXX
+      const servicePrefix = service.name.substring(0, 3).toUpperCase()
       let lastNumber = 0
-      if (queueSettings?.last_ticket_number && queueSettings.last_ticket_number !== '0') {
-        const match = queueSettings.last_ticket_number.match(/\d+/)
+      
+      if (lastTicket?.ticket_number) {
+        const match = lastTicket.ticket_number.match(/\d+$/)
         if (match) {
           lastNumber = parseInt(match[0])
         }
       }
       
       const newTicketNumber = lastNumber + 1
-      const ticketId = `${departmentPrefix}${newTicketNumber.toString().padStart(3, '0')}`
-      
-      // Create ticket
-      const { error } = await supabase
+      const ticketNumberString = `${servicePrefix}-${newTicketNumber.toString().padStart(3, '0')}`
+
+      logger.log('About to create ticket with data:', {
+        service_id: selectedService,
+        department_id: service.department_id,
+        ticket_number: ticketNumberString,
+        customer_phone: phoneNumber,
+        status: 'waiting'
+      })
+
+      // Create the ticket
+      const { data: newTicket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
-          department_id: selectedDepartment,
-          ticket_number: ticketId,
+          service_id: selectedService,
+          department_id: service.department_id,
+          ticket_number: ticketNumberString,
           customer_phone: phoneNumber,
           status: 'waiting'
         })
+        .select()
+        .single()
 
-      if (!error) {
-        // Update queue settings with new last ticket number
-        await supabase
-          .from('queue_settings')
-          .update({ last_ticket_number: ticketId })
-          .eq('department_id', selectedDepartment)
+      logger.log('Ticket creation result:', { newTicket, ticketError })
 
-        setTicketNumber(ticketId)
-        setStep(4) // Show confirmation
+      if (ticketError) {
+        logger.error('Error creating ticket:', ticketError)
+        throw ticketError
+      }
+
+      setTicketNumber(ticketNumberString)
+      setStep(5) // Move to confirmation step
+      
+      // Refresh queue status
+      fetchQueueStatus()
+
+      // Send notifications
+      const selectedServiceData = services.find(s => s.id === selectedService)
+      const department = departments.find(d => d.id === selectedServiceData?.department_id)
+      
+      if (selectedServiceData && department && organization) {
+        let pushSent = false
         
-        // Try to send push notification first, fallback to WhatsApp if needed
-        const department = departments.find(d => d.id === selectedDepartment)
-        if (department && organization) {
-          let pushSent = false
-          
-          // Try push notification if enabled
-          if (pushNotificationsEnabled && orgId) {
-            try {
-              pushSent = await queueNotificationHelper.sendTicketCreatedNotification({
-                organizationId: orgId,
-                customerPhone: phoneNumber,
-                ticketNumber: ticketId,
-                departmentName: department.name,
-                organizationName: organization.name,
-                organizationLogo: organization.logo_url || undefined,
-                organizationColor: organization.primary_color || undefined,
-                waitingCount: queueStatus?.waitingCount || 0
-              })
-              
-            } catch (error) {
-              console.error('Push notification failed:', error)
-            }
-          }
-          
-          // Send WhatsApp notification (either as fallback or primary)
-          if (!pushSent || !pushNotificationsEnabled) {
-            await notificationService.notifyTicketCreated(
-              phoneNumber,
-              ticketId,
-              department.name,
-              organization.name,
-              queueStatus?.waitingCount || 0
-            )
+        // Try push notification if enabled
+        if (pushNotificationsEnabled && orgId) {
+          try {
+            pushSent = await queueNotificationHelper.sendTicketCreatedNotification({
+              organizationId: orgId,
+              customerPhone: phoneNumber,
+              ticketNumber: ticketNumberString,
+              departmentName: department.name,
+              organizationName: organization.name,
+              organizationLogo: organization.logo_url || undefined,
+              organizationColor: organization.primary_color || undefined,
+              waitingCount: queueStatus?.waitingCount || 0
+            })
+            
+          } catch (error) {
+            logger.error('Push notification failed:', error)
           }
         }
         
-      } else {
-        console.error('Error creating ticket:', error)
-        throw error
+        // Send WhatsApp notification (either as fallback or primary)
+        if (!pushSent || !pushNotificationsEnabled) {
+          await notificationService.notifyTicketCreated(
+            phoneNumber,
+            ticketNumberString,
+            `${department.name} - ${selectedServiceData.name}`,
+            organization.name,
+            queueStatus?.waitingCount || 0
+          )
+        }
       }
+      
     } catch (error) {
-      console.error('Error joining queue:', error)
+      logger.error('Error joining queue:', error)
     } finally {
       setLoading(false)
     }
@@ -341,19 +412,19 @@ function CustomerAppContent() {
     setPushSubscriptionLoading(true)
 
     if (!phoneNumber) {
-      console.error('Phone number is required for push notifications')
+      logger.error('Phone number is required for push notifications')
       setPushSubscriptionLoading(false)
       return
     }
 
     if (!orgId) {
-      console.error('Organization ID is required for push notifications')
+      logger.error('Organization ID is required for push notifications')
       setPushSubscriptionLoading(false)
       return
     }
 
     try {
-      console.log('Attempting to enable push notifications for:', {
+      logger.log('Attempting to enable push notifications for:', {
         platform: browserInfo?.platform,
         browser: browserInfo?.browser,
         supportLevel: browserInfo?.supportLevel
@@ -370,14 +441,14 @@ function CustomerAppContent() {
       if (success) {
         setPushNotificationsEnabled(true)
         setShowPushPrompt(false)
-        console.log('Push notifications enabled successfully')
+        logger.log('Push notifications enabled successfully')
       } else {
-        console.log('Push notification permission denied or failed')
+        logger.log('Push notification permission denied or failed')
         // Still hide the prompt even if denied, so user can proceed
         setShowPushPrompt(false)
       }
     } catch (error) {
-      console.error('Error enabling push notifications:', error)
+      logger.error('Error enabling push notifications:', error)
       // Hide prompt on error so user can proceed
       setShowPushPrompt(false)
     } finally {
@@ -397,7 +468,7 @@ function CustomerAppContent() {
           const initialized = await pushNotificationService.initialize()
           if (initialized) {
             const permission = pushNotificationService.getPermissionStatus()
-            console.log('Current permission status:', permission)
+            logger.log('Current permission status:', permission)
             setPushNotificationsEnabled(permission === 'granted')
             
             // Only show prompt if permission is default (not granted or denied)
@@ -406,11 +477,13 @@ function CustomerAppContent() {
             }
           }
         } catch (error) {
-          console.error('Error initializing push notifications:', error)
+          logger.error('Error initializing push notifications:', error)
         }
       }
       
-      if (branchId) {
+      if (branchId && departmentId) {
+        setStep(4) // Skip branch and department selection if both are pre-selected
+      } else if (branchId) {
         setStep(3) // Skip branch selection if branch is pre-selected
       } else {
         setStep(2)
@@ -418,6 +491,8 @@ function CustomerAppContent() {
     } else if (step === 2 && selectedBranch) {
       setStep(3)
     } else if (step === 3 && selectedDepartment) {
+      setStep(4) // Move to service selection
+    } else if (step === 4 && selectedService) {
       joinQueue()
     }
   }
@@ -452,7 +527,7 @@ function CustomerAppContent() {
         </div>
 
         {/* Progress Steps */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="flex justify-center space-x-4 mb-8">
             <div className={`step-indicator ${step >= 1 ? 'step-active' : 'step-inactive'}`}>1</div>
             {!branchId && (
@@ -460,6 +535,9 @@ function CustomerAppContent() {
             )}
             <div className={`step-indicator ${step >= (branchId ? 2 : 3) ? 'step-active' : 'step-inactive'}`}>
               {branchId ? '2' : '3'}
+            </div>
+            <div className={`step-indicator ${step >= (branchId ? 3 : 4) ? 'step-active' : 'step-inactive'}`}>
+              {branchId ? '3' : '4'}
             </div>
           </div>
         )}
@@ -576,14 +654,18 @@ function CustomerAppContent() {
             <div className="card p-6">
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-gray-900">
-                  Select Service
+                  Select Department
                 </h4>
 
                 <div className="space-y-3">
                   {departments.map((department) => (
                     <button
                       key={department.id}
-                      onClick={() => setSelectedDepartment(department.id)}
+                      onClick={() => {
+                        setSelectedDepartment(department.id)
+                        // Update stored parameters when user selects a department
+                        URLPersistenceService.updateStoredParams(orgId, selectedBranch, department.id)
+                      }}
                       className={`w-full p-4 border rounded-xl text-left transition-colors ${
                         selectedDepartment === department.id
                           ? 'border-primary-500 bg-primary-50'
@@ -605,11 +687,81 @@ function CustomerAppContent() {
                           </div>
                         )}
                       </div>
+                      {department.description && (
+                        <p className="text-sm text-gray-600 mt-2">{department.description}</p>
+                      )}
                     </button>
                   ))}
                 </div>
 
-                {selectedDepartment && queueStatus && (
+                {selectedDepartment && (
+                  <button
+                    onClick={handleContinue}
+                    disabled={loading}
+                    className="w-full btn-primary mt-6"
+                  >
+                    {loading ? 'Loading...' : 'Continue to Services'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Service Selection */}
+          {step === 4 && (
+            <div className="card p-6">
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-gray-900">
+                  Select Service
+                </h4>
+
+                <div className="space-y-3">
+                  {services.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No services available for this department.</p>
+                    </div>
+                  ) : (
+                    services.map((service) => (
+                    <button
+                      key={service.id}
+                      onClick={() => {
+                        setSelectedService(service.id)
+                      }}
+                      className={`w-full p-4 border rounded-xl text-left transition-colors ${
+                        selectedService === service.id
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:border-primary-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className="w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold dynamic-icon-bg"
+                          >
+                            {service.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-900">{service.name}</span>
+                            <div className="text-sm text-gray-600">
+                              Estimated time: {service.estimated_time} minutes
+                            </div>
+                          </div>
+                        </div>
+                        {selectedService === service.id && (
+                          <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                      {service.description && (
+                        <p className="text-sm text-gray-600 mt-2">{service.description}</p>
+                      )}
+                    </button>
+                    ))
+                  )}
+                </div>
+
+                {selectedService && queueStatus && (
                   <div className="bg-gray-50 rounded-xl p-4 mt-6">
                     <h5 className="font-medium text-gray-900 mb-3">Current Queue Status</h5>
                     <div className="grid grid-cols-3 gap-4 text-center">
@@ -637,7 +789,7 @@ function CustomerAppContent() {
 
                 <button
                   onClick={handleContinue}
-                  disabled={!selectedDepartment || loading}
+                  disabled={!selectedService || loading}
                   className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50"
                 >
                   {loading ? 'Joining Queue...' : 'Join Queue'}
@@ -646,8 +798,8 @@ function CustomerAppContent() {
             </div>
           )}
 
-          {/* Step 4: Confirmation */}
-          {step === 4 && (
+          {/* Step 5: Confirmation */}
+          {step === 5 && (
             <div className="card p-6 text-center">
               <div className="space-y-6">
                 <div>
@@ -655,7 +807,7 @@ function CustomerAppContent() {
                     <Phone className="w-8 h-8 text-green-600" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    You're in the {departments.find(d => d.id === selectedDepartment)?.name || 'Queue'} Queue!
+                    You're in the {services.find(s => s.id === selectedService)?.name || 'Service'} Queue!
                   </h3>
                   <p className="text-gray-600">
                     Your ticket number is

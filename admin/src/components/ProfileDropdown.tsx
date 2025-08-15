@@ -46,30 +46,33 @@ export default function ProfileDropdown({ userProfile, onEditProfile, onSignOut 
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center space-x-3 p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-200"
+        className="w-full flex items-center space-x-6 p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-200"
       >
         <div className="relative">
           {userProfile?.avatar_url ? (
             <img
               src={userProfile.avatar_url}
               alt="Profile"
-              className="w-12 h-12 rounded-xl object-cover shadow-lg"
+              className="w-16 h-16 rounded-xl object-cover shadow-lg"
             />
           ) : (
-            <div className="w-12 h-12 bg-gradient-to-br from-caramel-400 to-caramel-500 rounded-xl flex items-center justify-center shadow-lg">
-              <User className="w-6 h-6 text-white" />
+            <div className="w-16 h-16 bg-gradient-to-br from-caramel-400 to-caramel-500 rounded-xl flex items-center justify-center shadow-lg">
+              <User className="w-8 h-8 text-white" />
             </div>
           )}
           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-yellowgreen-400 rounded-full border-2 border-white/20"></div>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm font-semibold truncate">
-            {userProfile?.name || 'User'}
-          </p>
-          <div className="flex items-center space-x-2">
-            <span className="text-white/60 text-xs capitalize bg-white/10 px-2 py-0.5 rounded-md">
+          <div className="flex flex-col items-start">
+            <p className="text-white text-sm font-semibold truncate">
+              {userProfile?.name || 'User'}
+            </p>
+            <span className="text-white/60 text-xs capitalize bg-white/10 px-2 py-1 rounded-md mt-1">
               {userProfile?.role || 'Role'}
             </span>
+            <p className="text-white/60 text-xs mt-2">
+              {userProfile?.email || 'user@example.com'}
+            </p>
           </div>
         </div>
       </button>

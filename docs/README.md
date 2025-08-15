@@ -25,7 +25,9 @@
 - **Enterprise Authentication** - Bulletproof session management with tab switching support
 - **Beautiful Loading Overlays** - Professional auth feedback with animated progress indicators  
 - **Organization Management** - Multi-tenant architecture with custom branding
-- **Branch & Department Management** - Hierarchical structure with full CRUD operations
+- **Service-Level Queuing** - Hierarchical organization → branch → department → service structure
+- **Tree View Management** - Visual tree interface for managing organizational hierarchy
+- **Enhanced QR Code System** - General, branch-specific, and department-specific QR codes
 - **Advanced Queue Management** - Enhanced workflow with skip/complete functionality
   - **Smart Reset Options** - Professional modal interface with clear choice between simple reset or cleanup
   - **Complete Ticket Workflow** - Skip, complete, or call next customer
@@ -37,7 +39,10 @@
   - "Almost Your Turn" alerts for upcoming customers
   - Organization logo integration for branded notifications
   - Professional notification formatting with rich content
-- **QR Code Generation** - Dynamic customer app links with organization theming
+- **Enhanced QR Code System** - Three-tier QR code generation:
+  - **General QR Codes** - Links to organization with full selection flow
+  - **Branch-Specific QR Codes** - Pre-selects branch for faster access
+  - **Department-Specific QR Codes** - Direct access to department with service selection
 - **User Invitation System** - Email-based team invitations with role management
 - **Profile Management** - Avatar upload, user settings, and profile editing with secure sign-out confirmation
 - **Professional UI** - Celestial dark theme with responsive design
@@ -46,6 +51,8 @@
 ### 📱 **Customer Application**
 
 - **Mobile-First Design** - Optimized for smartphones with dynamic theming
+- **Service-Level Selection** - Customers choose specific services within departments
+- **Department Pre-selection** - QR codes can pre-select departments for faster flow
 - **Organization Branding** - Custom themes based on organization settings
 - **Real-time Updates** - Live queue status and position notifications
 - **Push Notifications** - Browser-based notifications with:
@@ -184,6 +191,7 @@ npm run install:all      # Install all dependencies
 
 | Document | Description |
 |----------|-------------|
+| [SERVICE_LEVEL_QUEUING_GUIDE.md](./SERVICE_LEVEL_QUEUING_GUIDE.md) | Service-level queuing and Tree View interface |
 | [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) | Complete development setup |
 | [VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md) | Production deployment |
 | [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Database schema and setup |
@@ -198,9 +206,10 @@ npm run install:all      # Install all dependencies
 
 - [x] **Enterprise Authentication System** - Bulletproof session management with tab switching support
 - [x] **Professional Loading Overlays** - Beautiful auth feedback with progress indicators  
-- [x] **Organization and branch management** - Complete multi-tenant architecture
+- [x] **Service-Level Queuing System** - Complete hierarchical queue management
+- [x] **Tree View Management Interface** - Visual organizational structure management
+- [x] **Enhanced QR Code System** - General, branch-specific, and department-specific codes
 - [x] **Real-time queue updates** - Live WebSocket subscriptions with failover
-- [x] **QR code generation** - Dynamic links with organization branding
 - [x] **Mobile-responsive customer app** - Progressive Web App capabilities
 - [x] **Profile management system** - Avatar upload and comprehensive user settings
 - [x] **Advanced toast notification system** - App-wide feedback with animations
@@ -210,6 +219,9 @@ npm run install:all      # Install all dependencies
 
 🚀 **RECENT ENHANCEMENTS (August 2025)**
 
+- [x] **Service-Level Queuing Implementation** - Complete service selection within departments
+- [x] **Department-Specific QR Codes** - Direct access QR codes for streamlined customer flow
+- [x] **Tree View Management** - Visual interface replacing form-based organization management
 - [x] **Authentication Resilience** - Tab switching, cache clearing, and network interruption recovery
 - [x] **Loading UX Overhaul** - Professional modal overlays with animated feedback
 - [x] **Session Management** - Enterprise-grade authentication with automatic recovery

@@ -86,17 +86,37 @@
     z-index: -1;
   }
 
-  /* Enhanced Form Styles */
-  .input-field {
-    @apply w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-celestial-500 focus:border-transparent placeholder:text-gray-400 transition-all duration-300 hover:border-gray-300 focus:shadow-lg;
+  /* Tree View Styles */
+  .tree-canvas {
+    @apply h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden relative;
   }
   
-  .input-floating {
-    @apply relative;
+  .tree-node {
+    @apply w-48 bg-white/90 backdrop-blur-sm rounded-xl shadow-elegant border border-white/20 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-2xl;
   }
   
-  .input-floating input {
-    @apply w-full px-4 pt-6 pb-2 border border-gray-200 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-celestial-500 focus:border-transparent transition-all duration-300 peer;
+  .tree-node-selected {
+    @apply ring-2 ring-blue-400;
+  }
+  
+  .tree-toolbar {
+    @apply absolute top-4 left-4 z-10 flex flex-col gap-2;
+  }
+  
+  .tree-toolbar-group {
+    @apply bg-white/10 backdrop-blur-md rounded-lg p-2 flex gap-2;
+  }
+  
+  .tree-toolbar-button {
+    @apply p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors;
+  }
+  
+  .tree-info-panel {
+    @apply absolute top-4 right-4 z-10 bg-white/10 backdrop-blur-md rounded-lg p-4 text-white max-w-xs;
+  }
+  
+  .tree-connection {
+    @apply drop-shadow-sm;
   }
   
   .input-floating label {
@@ -236,5 +256,215 @@
     to {
       width: 0%;
     }
+  }
+  
+  /* Tree View Styles */
+  .tree-canvas {
+    @apply h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden relative;
+  }
+  
+  .tree-node {
+    @apply backdrop-blur-sm rounded-xl shadow-elegant transition-all duration-300 cursor-move select-none hover:scale-105 hover:shadow-2xl;
+  }
+  
+  /* Branch Nodes - Blue Theme - Largest */
+  .tree-node.branch {
+    @apply w-56 bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-300 hover:from-blue-200 hover:to-blue-300;
+    box-shadow: 0 12px 40px rgba(59, 130, 246, 0.25);
+  }
+  
+  .tree-node.branch:hover {
+    box-shadow: 0 16px 50px rgba(59, 130, 246, 0.35);
+  }
+  
+  .tree-node.branch .node-icon {
+    @apply bg-blue-200 text-blue-700 p-3;
+  }
+  
+  .tree-node.branch .node-header {
+    @apply border-b-2 border-blue-300/60;
+  }
+  
+  .tree-node.branch h3 {
+    @apply text-lg font-bold;
+  }
+  
+  .tree-node.branch p {
+    @apply text-sm;
+  }
+  
+  .tree-node.branch .p-4 {
+    @apply p-5;
+  }
+  
+  /* Department Nodes - Green Theme - Medium */
+  .tree-node.department {
+    @apply w-48 bg-gradient-to-br from-emerald-100 to-emerald-200 border-2 border-emerald-300 hover:from-emerald-200 hover:to-emerald-300;
+    box-shadow: 0 10px 35px rgba(16, 185, 129, 0.25);
+  }
+  
+  .tree-node.department:hover {
+    box-shadow: 0 14px 45px rgba(16, 185, 129, 0.35);
+  }
+  
+  .tree-node.department .node-icon {
+    @apply bg-emerald-200 text-emerald-700 p-2.5;
+  }
+  
+  .tree-node.department .node-header {
+    @apply border-b-2 border-emerald-300/60;
+  }
+  
+  .tree-node.department h3 {
+    @apply text-base font-semibold;
+  }
+  
+  .tree-node.department p {
+    @apply text-sm;
+  }
+  
+  /* Service Nodes - Amber/Orange Theme - Smallest */
+  .tree-node.service {
+    @apply w-40 bg-gradient-to-br from-orange-100 to-orange-200 border-2 border-orange-300 hover:from-orange-200 hover:to-orange-300;
+    box-shadow: 0 8px 30px rgba(251, 146, 60, 0.25);
+  }
+  
+  .tree-node.service:hover {
+    box-shadow: 0 12px 40px rgba(251, 146, 60, 0.35);
+  }
+  
+  .tree-node.service .node-icon {
+    @apply bg-orange-200 text-orange-700 p-2;
+  }
+  
+  .tree-node.service .node-header {
+    @apply border-b-2 border-orange-300/60;
+  }
+  
+  .tree-node.service h3 {
+    @apply text-sm font-medium;
+  }
+  
+  .tree-node.service p {
+    @apply text-xs;
+  }
+  
+  .tree-node.service .p-4 {
+    @apply p-3;
+  }
+  
+  .tree-node-selected {
+    @apply ring-2 ring-purple-400;
+  }
+  
+  /* Node header styling */
+  .tree-node .node-header {
+    @apply pb-2 mb-2;
+  }
+  
+  /* Branch node header */
+  .tree-node.branch .node-header {
+    @apply border-b border-blue-200/50;
+  }
+  
+  /* Department node header */
+  .tree-node.department .node-header {
+    @apply border-b border-emerald-200/50;
+  }
+  
+  /* Service node header */
+  .tree-node.service .node-header {
+    @apply border-b border-amber-200/50;
+  }
+  
+  /* Add button styling for different node types */
+  .tree-node.branch .add-child-btn {
+    @apply bg-blue-200 hover:bg-blue-300 text-blue-700;
+  }
+  
+  .tree-node.department .add-child-btn {
+    @apply bg-emerald-200 hover:bg-emerald-300 text-emerald-700;
+  }
+  
+  .tree-toolbar {
+    @apply absolute top-4 left-4 z-10 flex flex-col gap-2;
+  }
+  
+  .tree-toolbar-group {
+    @apply bg-white/10 backdrop-blur-md rounded-lg p-2 flex gap-2;
+  }
+  
+  .tree-toolbar-button {
+    @apply p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors;
+  }
+  
+  .tree-info-panel {
+    @apply absolute top-4 right-4 z-10 bg-white/10 backdrop-blur-md rounded-lg p-4 text-white max-w-xs;
+  }
+  
+  .tree-connection {
+    @apply drop-shadow-sm;
+  }
+  
+  .tree-connection-path {
+    stroke-dasharray: 0;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  
+  .tree-connection-end {
+    opacity: 0.9;
+  }
+  
+  .tree-connection-start {
+    opacity: 0.7;
+  }
+  
+  .tree-nodes-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .tree-node-wrapper {
+    position: absolute;
+  }
+  
+  .tree-container-visible {
+    overflow: visible !important;
+  }
+  
+  .tree-wrapper-visible {
+    overflow: visible !important;
+  }
+  
+  /* Prevent document-level scrollbars when in tree view */
+  .tree-page-container {
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  
+  /* Base classes for tree elements */
+  .tree-svg-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+  
+  .tree-nodes-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .tree-node-wrapper {
+    position: absolute;
   }
 }

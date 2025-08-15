@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { logger } from '@/lib/logger'
 import { useAppToast } from '@/hooks/useAppToast';
 import Portal from './Portal';
 
@@ -71,7 +72,7 @@ export default function EditBranchModal({ isOpen, onClose, branch, onSave }: Edi
       showSuccess('Branch updated successfully!');
       onClose();
     } catch (error) {
-      console.error('Error updating branch:', error);
+      logger.error('Error updating branch:', error);
       showError('Failed to update branch. Please try again.');
     } finally {
       setIsLoading(false);

@@ -3,13 +3,13 @@ import QRCode from 'qrcode'
 
 export async function POST(request: NextRequest) {
   try {
-    const { organizationId, branchId, organizationName } = await request.json()
+    const { organizationId, branchId, departmentId, organizationName, departmentName } = await request.json()
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 })
     }
 
-    // Construct the customer app URL with organization and branch parameters
+    // Construct the customer app URL with organization, branch, and department parameters
     const baseUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
     
     const qrUrl = new URL(baseUrl)
@@ -17,6 +17,10 @@ export async function POST(request: NextRequest) {
     
     if (branchId) {
       qrUrl.searchParams.set('branch', branchId)
+    }
+    
+    if (departmentId) {
+      qrUrl.searchParams.set('department', departmentId)
     }
 
     // Generate QR code
@@ -29,13 +33,20 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    let description = `QR Code for ${organizationName}`
+    if (departmentId && departmentName) {
+      description += ` - ${departmentName} Department`
+    } else if (branchId) {
+      description += ` - Specific Branch`
+    } else {
+      description += ` - All Branches`
+    }
+
     return NextResponse.json({ 
       success: true, 
       qrCodeDataURL,
       url: qrUrl.toString(),
-      description: branchId 
-        ? `QR Code for ${organizationName} - Specific Branch`
-        : `QR Code for ${organizationName} - All Branches`
+      description
     })
 
   } catch (error) {
