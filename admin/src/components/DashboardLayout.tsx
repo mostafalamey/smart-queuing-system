@@ -11,6 +11,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [mobileLogoError, setMobileLogoError] = useState(false)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20">
@@ -39,13 +40,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-celestial-400 to-french-blue-500 rounded-lg blur-sm opacity-60"></div>
                 <div className="relative w-8 h-8 bg-gradient-to-br from-celestial-500 to-french-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                  <Image
-                    src="/Logo.svg"
-                    alt="Smart Queue Logo"
-                    width={20}
-                    height={20}
-                    className="w-5 h-5 object-contain drop-shadow-sm"
-                  />
+                  {!mobileLogoError ? (
+                    <Image
+                      src="/Logo.png"
+                      alt="Smart Queue Logo"
+                      width={20}
+                      height={20}
+                      className="w-5 h-5 object-contain drop-shadow-sm"
+                      onError={(e) => {
+                        console.error('Mobile logo failed to load:', e);
+                        setMobileLogoError(true);
+                      }}
+                      priority
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-xs">SQ</span>
+                  )}
                 </div>
               </div>
               <span className="font-bold text-gray-900 text-lg bg-gradient-to-r from-celestial-600 to-french-blue-600 bg-clip-text text-transparent">

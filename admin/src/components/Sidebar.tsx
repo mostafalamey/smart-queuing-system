@@ -15,6 +15,7 @@ import {
   GitBranch
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 
 const navigationItems = [
   {
@@ -46,6 +47,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { userProfile, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
+  const [logoError, setLogoError] = useState(false)
 
   const handleEditProfile = () => {
     router.push('/profile')
@@ -69,13 +71,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="flex items-center space-x-3 fade-in">
               <div className="relative w-12 h-12 flex items-center justify-center">
                 <div className="absolute inset-0 bg-white rounded-xl shadow-lg"></div>
-                <Image
-                  src="/Logo.svg"
-                  alt="Smart Queue Logo"
-                  width={48}
-                  height={48}
-                  className="relative w-12 h-12 object-contain p-1"
-                />
+                {!logoError ? (
+                  <Image
+                    src="/Logo.png"
+                    alt="Smart Queue Logo"
+                    width={48}
+                    height={48}
+                    className="relative w-12 h-12 object-contain p-1"
+                    onError={(e) => {
+                      console.error('Logo failed to load:', e);
+                      setLogoError(true);
+                    }}
+                    priority
+                    unoptimized
+                  />
+                ) : (
+                  <div className="relative w-12 h-12 flex items-center justify-center bg-gradient-to-br from-celestial-500 to-french-blue-600 rounded-xl text-white font-bold text-lg shadow-lg">
+                    SQ
+                  </div>
+                )}
               </div>
               <div>
                 <div className="font-bold text-2xl tracking-wide">
