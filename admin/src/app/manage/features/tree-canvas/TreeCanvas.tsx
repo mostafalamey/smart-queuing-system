@@ -22,7 +22,6 @@ interface TreeCanvasProps {
   onTouchStart?: (e: React.TouchEvent) => void
   onTouchMove?: (e: React.TouchEvent) => void | { nodeId: string; position: Position } | null
   onTouchEnd?: (e: React.TouchEvent) => void
-  onNodeTouchStart?: (e: React.TouchEvent, nodeId: string, position: Position) => void
   startNodeDrag?: (nodeId: string) => void
 }
 
@@ -45,7 +44,6 @@ export const TreeCanvas = ({
   onTouchStart,
   onTouchMove,
   onTouchEnd,
-  onNodeTouchStart,
   startNodeDrag
 }: TreeCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -63,166 +61,66 @@ export const TreeCanvas = ({
     return () => canvas.removeEventListener('wheel', handleNativeWheel)
   }, [onWheel])
 
-  // Native touch event handlers to prevent passive event listener issues
+  // Native touch event handlers - simplified for two-finger pan only
   useEffect(() => {
-    const touchCanvas = canvasRef.current
-    if (!touchCanvas) return
-    
-    // Only enable touch handlers on actual touch devices, not desktop mobile simulation
-    const isActualTouchDevice = (() => {
-      // Check if touch is supported
-      const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-      
-      if (!hasTouchSupport) return false
-      
-      // Check user agent for actual mobile/tablet indicators
-      const userAgent = navigator.userAgent.toLowerCase()
-      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)
-      
-      // Additional check: if it's a desktop browser pretending to be mobile, 
-      // it usually has a mouse cursor and large screen
-      const hasMouseCursor = window.matchMedia('(pointer: fine)').matches
-      const isLargeScreen = window.innerWidth > 1024 || window.innerHeight > 768
-      
-      // If it has fine pointer control (mouse) AND large screen, probably desktop simulation
-      if (hasMouseCursor && isLargeScreen && !isMobile) {
-        return false
-      }
-      
-      return true
-    })()
-    
-    if (!isActualTouchDevice) {
-      return
-    }
     const canvas = canvasRef.current
     if (!canvas) return
+    
+    // Check if this is an actual touch device
+    const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    if (!hasTouchSupport) return
 
     const handleNativeTouchStart = (e: TouchEvent) => {
-      // Check if this event was already handled by a node (event bubbling from node)
-      if (e.target && e.target !== touchCanvas && touchCanvas.contains(e.target as unknown as globalThis.Node)) {
-        const targetElement = e.target as HTMLElement
-        if (targetElement.closest('.tree-node-wrapper')) {
-          return // Don't handle canvas touch if it came from a node
-        }
+      // Only handle two-finger touches at canvas level
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const rect = canvas.getBoundingClientRect()
+        const reactEvent = createTouchEventProxy(e, canvas)
+        onTouchStart && onTouchStart(reactEvent)
       }
-      
-      e.preventDefault()
-      
-      // Create a proper React.TouchEvent-like object with explicit touch properties
-      const reactEvent = {
-        touches: e.touches,
-        changedTouches: e.changedTouches,
-        targetTouches: e.targetTouches,
-        currentTarget: touchCanvas,
-        target: e.target,
-        preventDefault: () => e.preventDefault(),
-        stopPropagation: () => e.stopPropagation(),
-        nativeEvent: e,
-        bubbles: e.bubbles,
-        cancelable: e.cancelable,
-        defaultPrevented: e.defaultPrevented,
-        eventPhase: e.eventPhase,
-        isTrusted: e.isTrusted,
-        timeStamp: e.timeStamp,
-        type: e.type,
-        altKey: e.altKey || false,
-        ctrlKey: e.ctrlKey || false,
-        metaKey: e.metaKey || false,
-        shiftKey: e.shiftKey || false,
-        getModifierState: () => false,
-        isDefaultPrevented: () => e.defaultPrevented,
-        isPropagationStopped: () => false,
-        persist: () => {},
-        detail: 0,
-        view: null
-      } as unknown as React.TouchEvent
-      
-      onTouchStart && onTouchStart(reactEvent)
+      // Single finger touches are ignored - let them bubble to nodes for clicks
     }
 
     const handleNativeTouchMove = (e: TouchEvent) => {
-      e.preventDefault()
-      
-      const reactEvent = {
-        touches: e.touches,
-        changedTouches: e.changedTouches,
-        targetTouches: e.targetTouches,
-        currentTarget: touchCanvas,
-        target: e.target,
-        preventDefault: () => e.preventDefault(),
-        stopPropagation: () => e.stopPropagation(),
-        nativeEvent: e,
-        bubbles: e.bubbles,
-        cancelable: e.cancelable,
-        defaultPrevented: e.defaultPrevented,
-        eventPhase: e.eventPhase,
-        isTrusted: e.isTrusted,
-        timeStamp: e.timeStamp,
-        type: e.type,
-        altKey: e.altKey || false,
-        ctrlKey: e.ctrlKey || false,
-        metaKey: e.metaKey || false,
-        shiftKey: e.shiftKey || false,
-        getModifierState: () => false,
-        isDefaultPrevented: () => e.defaultPrevented,
-        isPropagationStopped: () => false,
-        persist: () => {},
-        detail: 0,
-        view: null
-      } as unknown as React.TouchEvent
-      
-      onTouchMove && onTouchMove(reactEvent)
+      // Only handle two-finger gestures
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const rect = canvas.getBoundingClientRect()
+        const reactEvent = createTouchEventProxy(e, canvas)
+        onTouchMove && onTouchMove(reactEvent)
+      }
     }
 
     const handleNativeTouchEnd = (e: TouchEvent) => {
-      e.preventDefault()
-      
-      const reactEvent = {
+      // Handle end of two-finger gestures
+      if (e.touches.length < 2) {
+        const reactEvent = createTouchEventProxy(e, canvas)
+        onTouchEnd && onTouchEnd(reactEvent)
+      }
+    }
+
+    // Helper function to create touch event proxy
+    const createTouchEventProxy = (e: TouchEvent, target: Element) => {
+      return {
         touches: e.touches,
         changedTouches: e.changedTouches,
         targetTouches: e.targetTouches,
-        currentTarget: touchCanvas,
+        currentTarget: target,
         target: e.target,
         preventDefault: () => e.preventDefault(),
         stopPropagation: () => e.stopPropagation(),
-        nativeEvent: e,
-        bubbles: e.bubbles,
-        cancelable: e.cancelable,
-        defaultPrevented: e.defaultPrevented,
-        eventPhase: e.eventPhase,
-        isTrusted: e.isTrusted,
-        timeStamp: e.timeStamp,
-        type: e.type,
-        altKey: e.altKey || false,
-        ctrlKey: e.ctrlKey || false,
-        metaKey: e.metaKey || false,
-        shiftKey: e.shiftKey || false,
-        getModifierState: () => false,
-        isDefaultPrevented: () => e.defaultPrevented,
-        isPropagationStopped: () => false,
-        persist: () => {},
-        detail: 0,
-        view: null
+        nativeEvent: e
       } as unknown as React.TouchEvent
-      
-      onTouchEnd && onTouchEnd(reactEvent)
     }
 
-    if (onTouchStart) {
-      touchCanvas.addEventListener('touchstart', handleNativeTouchStart, { passive: false })
-    }
-    if (onTouchMove) {
-      touchCanvas.addEventListener('touchmove', handleNativeTouchMove, { passive: false })
-    }
-    if (onTouchEnd) {
-      touchCanvas.addEventListener('touchend', handleNativeTouchEnd, { passive: false })
-    }
+    canvas.addEventListener('touchstart', handleNativeTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', handleNativeTouchMove, { passive: false })
+    canvas.addEventListener('touchend', handleNativeTouchEnd, { passive: false })
 
     return () => {
-      touchCanvas.removeEventListener('touchstart', handleNativeTouchStart)
-      touchCanvas.removeEventListener('touchmove', handleNativeTouchMove)
-      touchCanvas.removeEventListener('touchend', handleNativeTouchEnd)
+      canvas.removeEventListener('touchstart', handleNativeTouchStart)
+      canvas.removeEventListener('touchmove', handleNativeTouchMove)
+      canvas.removeEventListener('touchend', handleNativeTouchEnd)
     }
   }, [onTouchStart, onTouchMove, onTouchEnd])
 
@@ -371,127 +269,75 @@ export const TreeCanvas = ({
                     ;(el as any)._touchCleanup()
                   }
                   
-                  // Add touch event listener with proper device detection
-                  if (onNodeTouchStart && !(el as any)._hasTouch) {
-                    // Only enable touch handlers on actual touch devices, not desktop mobile simulation
-                    const isActualTouchDevice = (() => {
-                      // Check if touch is supported
-                      const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-                      
-                      if (!hasTouchSupport) return false
-                      
-                      // Check user agent for actual mobile/tablet indicators
-                      const userAgent = navigator.userAgent.toLowerCase()
-                      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)
-                      
-                      // Additional check: if it's a desktop browser pretending to be mobile, 
-                      // it usually has a mouse cursor and large screen
-                      const hasMouseCursor = window.matchMedia('(pointer: fine)').matches
-                      const isLargeScreen = window.innerWidth > 1024 || window.innerHeight > 768
-                      
-                      // If it has fine pointer control (mouse) AND large screen, probably desktop simulation
-                      if (hasMouseCursor && isLargeScreen && !isMobile) {
-                        return false
-                      }
-                      
-                      return true
-                    })()
+                  // For touch devices, we only add a simple long-press drag handler
+                  // Regular clicks/taps will work through normal browser events
+                  const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+                  
+                  if (hasTouchSupport && !(el as any)._hasTouch) {
+                    let longPressTimer: NodeJS.Timeout | null = null
+                    let touchStartPos = { x: 0, y: 0 }
+                    let hasMovedDuringTouch = false
                     
-                    if (isActualTouchDevice) {
-                      let touchStartTime = 0
-                      let touchStartPos = { x: 0, y: 0 }
-                      let isDragDetected = false
-                      
-                      const handleNodeTouchStart = (e: Event) => {
-                        const touchEvent = e as TouchEvent
+                    const handleNodeTouchStart = (e: TouchEvent) => {
+                      // Only handle single finger touches
+                      if (e.touches.length === 1) {
+                        const touch = e.touches[0]
+                        touchStartPos = { x: touch.clientX, y: touch.clientY }
+                        hasMovedDuringTouch = false
                         
-                        touchStartTime = Date.now()
-                        touchStartPos = { x: touchEvent.touches[0].clientX, y: touchEvent.touches[0].clientY }
-                        isDragDetected = false
-                        
-                        // Don't prevent default yet - let click events work for short taps
-                        touchEvent.stopPropagation()
-                        
-                        const reactEvent = {
-                          touches: touchEvent.touches,
-                          changedTouches: touchEvent.changedTouches,
-                          targetTouches: touchEvent.targetTouches,
-                          currentTarget: el,
-                          target: touchEvent.target,
-                          preventDefault: () => touchEvent.preventDefault(),
-                          stopPropagation: () => touchEvent.stopPropagation(),
-                          nativeEvent: touchEvent,
-                          bubbles: touchEvent.bubbles,
-                          cancelable: touchEvent.cancelable,
-                          defaultPrevented: touchEvent.defaultPrevented,
-                          eventPhase: touchEvent.eventPhase,
-                          isTrusted: touchEvent.isTrusted,
-                          timeStamp: touchEvent.timeStamp,
-                          type: touchEvent.type,
-                          altKey: touchEvent.altKey || false,
-                          ctrlKey: touchEvent.ctrlKey || false,
-                          metaKey: touchEvent.metaKey || false,
-                          shiftKey: touchEvent.shiftKey || false,
-                          getModifierState: () => false,
-                          isDefaultPrevented: () => touchEvent.defaultPrevented,
-                          isPropagationStopped: () => false,
-                          persist: () => {},
-                          detail: 0,
-                          view: null
-                        } as unknown as React.TouchEvent
-                        
-                        onNodeTouchStart(reactEvent, node.id, node.position)
+                        // Start a long press timer for drag initiation
+                        longPressTimer = setTimeout(() => {
+                          if (!hasMovedDuringTouch && startNodeDrag) {
+                            // Long press detected - start drag mode
+                            e.preventDefault() // Now prevent default to start dragging
+                            startNodeDrag(node.id)
+                          }
+                        }, 500) // 500ms long press
                       }
-                      
-                      const handleNodeTouchMove = (e: Event) => {
-                        const touchEvent = e as TouchEvent
-                        if (touchEvent.touches.length === 1) {
-                          const touch = touchEvent.touches[0]
-                          const deltaX = Math.abs(touch.clientX - touchStartPos.x)
-                          const deltaY = Math.abs(touch.clientY - touchStartPos.y)
-                          
-                          // If moved more than 10 pixels, it's a drag
-                          if (deltaX > 10 || deltaY > 10) {
-                            isDragDetected = true
-                            touchEvent.preventDefault() // Now prevent default to enable dragging
-                            touchEvent.stopPropagation()
-                            
-                            // Start the actual drag operation
-                            if (startNodeDrag) {
-                              startNodeDrag(node.id)
-                            }
+                    }
+                    
+                    const handleNodeTouchMove = (e: TouchEvent) => {
+                      if (e.touches.length === 1) {
+                        const touch = e.touches[0]
+                        const deltaX = Math.abs(touch.clientX - touchStartPos.x)
+                        const deltaY = Math.abs(touch.clientY - touchStartPos.y)
+                        
+                        // If moved more than 5 pixels, cancel long press
+                        if (deltaX > 5 || deltaY > 5) {
+                          hasMovedDuringTouch = true
+                          if (longPressTimer) {
+                            clearTimeout(longPressTimer)
+                            longPressTimer = null
                           }
                         }
                       }
-                      
-                      const handleNodeTouchEnd = (e: Event) => {
-                        const touchEvent = e as TouchEvent
-                        const touchDuration = Date.now() - touchStartTime
-                        
-                        // If it was a short tap (less than 200ms) and no significant movement
-                        if (!isDragDetected && touchDuration < 200) {
-                          // Don't prevent default - let the click event fire naturally
-                          return
-                        }
-                        
-                        // For longer touches or drags, prevent click events
-                        if (isDragDetected) {
-                          touchEvent.preventDefault()
-                        }
+                    }
+                    
+                    const handleNodeTouchEnd = (e: TouchEvent) => {
+                      // Clean up long press timer
+                      if (longPressTimer) {
+                        clearTimeout(longPressTimer)
+                        longPressTimer = null
                       }
                       
-                      el.addEventListener('touchstart', handleNodeTouchStart, { passive: false, capture: false })
-                      el.addEventListener('touchmove', handleNodeTouchMove, { passive: false, capture: false })
-                      el.addEventListener('touchend', handleNodeTouchEnd, { passive: false, capture: false })
-                      ;(el as any)._hasTouch = true
-                      
-                      // Store cleanup function
-                      ;(el as any)._touchCleanup = () => {
-                        el.removeEventListener('touchstart', handleNodeTouchStart, { capture: false })
-                        el.removeEventListener('touchmove', handleNodeTouchMove, { capture: false })
-                        el.removeEventListener('touchend', handleNodeTouchEnd, { capture: false })
-                        ;(el as any)._hasTouch = false
+                      // For short taps without movement, let normal click events handle it
+                      // Don't preventDefault here so native click events can fire
+                    }
+                    
+                    el.addEventListener('touchstart', handleNodeTouchStart, { passive: true })
+                    el.addEventListener('touchmove', handleNodeTouchMove, { passive: true })
+                    el.addEventListener('touchend', handleNodeTouchEnd, { passive: true })
+                    ;(el as any)._hasTouch = true
+                    
+                    // Store cleanup function
+                    ;(el as any)._touchCleanup = () => {
+                      if (longPressTimer) {
+                        clearTimeout(longPressTimer)
                       }
+                      el.removeEventListener('touchstart', handleNodeTouchStart)
+                      el.removeEventListener('touchmove', handleNodeTouchMove)
+                      el.removeEventListener('touchend', handleNodeTouchEnd)
+                      ;(el as any)._hasTouch = false
                     }
                   }
                 } else {

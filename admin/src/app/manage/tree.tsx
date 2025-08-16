@@ -175,19 +175,14 @@ export default function ManageTreePage() {
   const handleCanvasTouchMove = useCallback((e: React.TouchEvent) => {
     const canvas = e.currentTarget as HTMLElement
     const rect = canvas.getBoundingClientRect()
-    const result = handleTouchMove(e, rect)
-    if (result && result.nodeId && result.position) {
-      updateNodePosition(result.nodeId, result.position)
-    }
-  }, [handleTouchMove, updateNodePosition])
+    handleTouchMove(e, rect)
+    // Note: The new touch move handler doesn't return node position updates
+    // because we're only using it for two-finger pan/zoom
+  }, [handleTouchMove])
 
   const handleCanvasTouchEnd = useCallback((e: React.TouchEvent) => {
     handleTouchEnd(e)
   }, [handleTouchEnd])
-
-  const handleNodeTouchStartWrapper = useCallback((e: React.TouchEvent, nodeId: string, position: { x: number; y: number }) => {
-    handleNodeTouchStart(e, nodeId, position)
-  }, [handleNodeTouchStart])
 
   const handleSaveLayout = useCallback(() => {
     saveCurrentPositions()
@@ -264,7 +259,6 @@ export default function ManageTreePage() {
         onTouchStart={handleCanvasTouchStart}
         onTouchMove={handleCanvasTouchMove}
         onTouchEnd={handleCanvasTouchEnd}
-        onNodeTouchStart={handleNodeTouchStartWrapper}
         startNodeDrag={startNodeDrag}
       />
 

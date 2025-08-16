@@ -4,7 +4,7 @@
 
 This is a queue management system consisting of:
 
-- **Admin Dashboard** (requires authentication)
+- **Admin App** (requires authentication)
 - **Customer App** (no authentication)
 - **Role-based Access**: Admin, Manager, Employee
 - **Core Features**: Queue handling, QR code generation, WhatsApp notifications
@@ -54,28 +54,6 @@ This is a queue management system consisting of:
 
 ---
 
-## 📂 Suggested Folder Structure
-
-/admin
-/components
-/pages
-/hooks
-/styles
-/customer
-/components
-/pages
-/hooks
-/shared
-/components
-/utils
-/types
-/lib
-supabaseClient.ts
-whatsapp.ts
-qr.ts
-
----
-
 ## ⚙️ Supabase Schema Guidelines
 
 **Tables**:
@@ -83,6 +61,7 @@ qr.ts
 - `organizations` — id, name, logo_url
 - `branches` — id, org_id, name, address
 - `departments` — id, branch_id, name
+- `services` — id, department_id, name, description
 - `members` — id, user_id, org_id, role, branch_id?, department_id?
 - `tickets` — id, department_id, number, status
 - `queue_notifications` — ticket_id, customer_phone, status
@@ -111,6 +90,13 @@ qr.ts
 5. **Testing**  
    - Write Jest tests for critical hooks and API routes.  
    - Mock Supabase calls in tests.
+
+6. **Documentation**  
+   - Keep API documentation up-to-date with Swagger or Postman.  
+   - Document complex components and hooks with examples.
+
+7. **PowerShell Commands**  
+   - When using console commands, always use PowerShell commands.
 
 ---
 

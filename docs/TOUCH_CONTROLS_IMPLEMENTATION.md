@@ -2,88 +2,98 @@
 
 ## Overview
 
-The tree visualization page now supports comprehensive touch controls for iPad and tablet devices, enabling users to interact with the organization structure using touch gestures.
+The tree visualization page now supports optimized touch controls for iPad and tablet devices, with a clear separation between navigation and interaction gestures for optimal user experience.
 
 ## Features Implemented
 
 ### 1. Touch Gestures Support
 
-- **Pan Gesture**: Single finger drag to move around the canvas
-- **Pinch-to-Zoom**: Two finger pinch/spread to zoom in/out
-- **Tap to Select**: Single tap on nodes to select them
-- **Long Press**: Touch and hold to start dragging nodes
-- **Touch Node Interaction**: Direct touch interaction with individual nodes
+- **Two-Finger Pan & Zoom**: Two finger gestures for navigation (pan and pinch-to-zoom)
+- **Single-Finger Taps**: Single finger taps for selecting nodes and clicking buttons
+- **Long Press Drag**: Long press (500ms) on nodes to initiate drag operations
+- **Native Click Events**: Full compatibility with standard browser click events
 
-### 2. Touch Event Handlers
+### 2. Gesture Separation Philosophy
+
+The new implementation follows iOS/iPad native app conventions:
+
+- **Two fingers = Navigation**: Pan and zoom the canvas
+- **One finger = Interaction**: Tap to select, click buttons, long-press to drag
+- **No gesture conflicts**: Clear separation eliminates competing touch interpretations
+
+### 3. Touch Event Architecture
 
 #### Canvas-Level Touch Events
-- `handleTouchStart`: Initiates touch interaction and detects gesture type
-- `handleTouchMove`: Handles pan, zoom, and node dragging during touch movement
-- `handleTouchEnd`: Completes touch interaction and finalizes any ongoing operations
+
+- `handleTouchStart`: Only handles two-finger touches for pan/zoom
+- `handleTouchMove`: Two-finger pan and pinch-to-zoom gestures
+- `handleTouchEnd`: Cleanup for two-finger gesture state
 
 #### Node-Level Touch Events
-- `handleNodeTouchStart`: Initiates node-specific touch interactions
 
-### 3. Touch State Management
+- Simple long-press detection for drag initiation
+- Native browser click events for selection and button interaction
+- No complex touch event wrapping or preventDefault conflicts
 
-The `useTreeInteraction` hook manages touch-specific state:
+### 4. Touch State Management
+
+The `useTreeInteraction` hook manages simplified touch state:
 
 ```typescript
-// Touch state variables
-const [isTouching, setIsTouching] = useState(false)
-const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null)
+// Simplified touch state - only for two-finger gestures
+const [isTwoFingerTouch, setIsTwoFingerTouch] = useState(false)
+const [touchStartDistance, setTouchStartDistance] = useState(0)
 const [touchStartZoom, setTouchStartZoom] = useState(1)
-const [touchStartPan, setTouchStartPan] = useState({ x: 0, y: 0 })
-const [touchStartCenter, setTouchStartCenter] = useState({ x: 0, y: 0 })
+const [touchStartPan, setTouchStartPan] = useState<Position>({ x: 0, y: 0 })
+const [lastTouchCenter, setLastTouchCenter] = useState<Position>({ x: 0, y: 0 })
 ```
 
-### 4. Touch Utility Functions
-
-#### `getTouchCenter(touches: React.TouchList): { x: number; y: number }`
-Calculates the center point between multiple touch points.
-
-#### `getTouchDistance(touches: React.TouchList): number`
-Calculates the distance between two touch points for pinch-to-zoom detection.
-
-### 5. Touch-Optimized CSS
+### 5. CSS Touch Optimization
 
 Enhanced CSS for better touch interaction:
 
 ```css
 .tree-canvas {
-  touch-action: none; /* Prevent default touch behaviors */
-  -webkit-user-select: none; /* Prevent text selection */
-  user-select: none;
+  touch-action: pinch-zoom; /* Allow pinch-zoom but prevent single-finger pan */
+}
+
+.tree-node-wrapper {
+  touch-action: manipulation; /* Enable touch interactions including taps */
 }
 
 .tree-node {
-  min-height: 44px; /* iOS recommended minimum touch target */
+  touch-action: manipulation; /* Allow all touch interactions on nodes */
+  cursor: pointer; /* Make it clear nodes are clickable */
 }
 
 .tree-node button {
-  min-width: 44px; /* Adequate touch targets */
-  min-height: 44px;
-  padding: 12px;
+  touch-action: manipulation; /* Full touch support for buttons */
+  cursor: pointer;
 }
 ```
 
 ## Implementation Architecture
 
-### 1. Modular Structure
+### 1. Simplified Design Principles
 
-The touch implementation follows the existing modular architecture:
+The new implementation follows these key principles:
 
-```
+- **Native behavior**: Use browser's native click events wherever possible
+- **Clear gesture separation**: Two fingers for navigation, one finger for interaction
+- **No event conflicts**: Eliminate competing touch event interpretations
+- **iOS conventions**: Follow established iOS/iPad interaction patterns
+
+```structure
 src/app/manage/
 ├── tree.tsx (Main orchestration)
 ├── features/
 │   ├── shared/
-│   │   ├── useTreeInteraction.ts (Touch event handling)
+│   │   ├── useTreeInteraction.ts (Simplified touch handling)
 │   │   ├── useTreeData.ts
 │   │   ├── useNodeOperations.ts
 │   │   └── types.ts
 │   ├── tree-canvas/
-│   │   └── TreeCanvas.tsx (Touch event wiring)
+│   │   └── TreeCanvas.tsx (Touch event coordination)
 │   ├── tree-controls/
 │   ├── node-modal/
 │   └── node-panel/
@@ -91,157 +101,166 @@ src/app/manage/
 
 ### 2. Event Flow
 
-1. **Touch Start**: User touches the screen
-   - Detects single vs multi-touch
-   - Stores initial touch state
-   - Determines if touching a node or canvas
+1. **Two-Finger Touch Start**: User places two fingers on canvas
+   - Initiates pan/zoom mode
+   - Stores initial touch state for gesture tracking
 
-2. **Touch Move**: User moves finger(s)
-   - Single touch: Pan canvas or drag node
-   - Multi-touch: Pinch-to-zoom
-   - Updates visual feedback in real-time
+2. **Two-Finger Touch Move**: User moves two fingers
+   - Calculates pan and zoom deltas
+   - Updates viewport in real-time
 
-3. **Touch End**: User lifts finger(s)
-   - Finalizes any ongoing operations
-   - Resets touch state
-   - Triggers selection if it was a tap
+3. **Single-Finger Touch**: User taps with one finger
+   - Ignored at canvas level
+   - Handled natively by browser for clicks/taps
+   - Long press (500ms) initiates drag mode for nodes
 
 ### 3. Gesture Detection
 
-#### Pan Gesture (Single Touch)
+#### Two-Finger Pan & Zoom
+
 ```typescript
-if (e.touches.length === 1) {
-  const touch = e.touches[0]
-  const deltaX = touch.clientX - touchStartCenter.x
-  const deltaY = touch.clientY - touchStartCenter.y
+if (touches.length === 2 && isTwoFingerTouch) {
+  const currentDistance = getTouchDistance(touches)
+  const currentCenter = getTouchCenter(touches)
   
-  if (draggedNode) {
-    // Handle node dragging
-  } else {
-    // Handle canvas panning
-  }
+  // Calculate zoom and pan simultaneously
+  const zoomChange = currentDistance / touchStartDistance
+  const newZoom = Math.max(0.3, Math.min(3, touchStartZoom * zoomChange))
+  
+  // Pan towards pinch center
+  const zoomChangeRatio = newZoom / touchStartZoom
+  const newPanX = touchStartPan.x - pinchCenterX * (zoomChangeRatio - 1) + centerDeltaX
+  const newPanY = touchStartPan.y - pinchCenterY * (zoomChangeRatio - 1) + centerDeltaY
 }
 ```
 
-#### Pinch-to-Zoom (Two Touches)
+#### Single-Finger Node Interaction
+
 ```typescript
-if (e.touches.length === 2) {
-  const currentDistance = getTouchDistance(e.touches)
-  const scaleRatio = currentDistance / touchStartDistance
-  const newZoom = Math.max(0.1, Math.min(3, touchStartZoom * scaleRatio))
-  
-  setZoom(newZoom)
-}
+// Simple long-press detection for drag
+const longPressTimer = setTimeout(() => {
+  if (!hasMovedDuringTouch && startNodeDrag) {
+    startNodeDrag(nodeId) // Start drag mode
+  }
+}, 500) // 500ms long press threshold
+
+// Native click events handle taps automatically
 ```
 
 ## Touch Interaction Guidelines
 
-### 1. User Experience Considerations
+### 1. User Experience
 
-- **Touch Targets**: All interactive elements have minimum 44px touch targets
-- **Visual Feedback**: Immediate visual response to touch interactions
-- **Gesture Conflicts**: Prevented browser default behaviors that conflict with app gestures
-- **Performance**: Optimized for smooth 60fps touch interactions
+- **Intuitive Gestures**: Follow established iOS/iPad conventions
+- **No Gesture Conflicts**: Clear separation between navigation and interaction
+- **Immediate Feedback**: Instant visual response to all touch inputs
+- **Consistent Behavior**: Same gestures work across all parts of the app
 
 ### 2. Accessibility
 
-- **Alternative Controls**: Zoom controls remain available for users who prefer buttons
-- **Visual Indicators**: Clear visual feedback for all touch interactions
-- **Error Prevention**: Gesture conflicts minimized through proper touch-action CSS
+- **Touch Targets**: Minimum 44px touch targets for all interactive elements
+- **Visual Feedback**: Clear hover and selected states for all touchable elements
+- **Native Support**: Full compatibility with iOS accessibility features
+- **Alternative Methods**: Zoom controls remain available as backup
 
-### 3. Cross-Device Compatibility
+### 3. Performance
 
-- **iPad/Tablet Optimized**: Primary target for touch interactions
-- **Mobile Phone Support**: Works on smaller screens with appropriate scaling
-- **Desktop Compatibility**: Mouse interactions remain fully functional
+- **Optimized Events**: Passive listeners where possible to improve scroll performance
+- **Efficient Updates**: Minimal DOM updates during gesture tracking
+- **Memory Management**: Proper cleanup of event listeners and timers
 
 ## Testing Touch Controls
 
 ### 1. iPad/Tablet Testing
 
-1. **Pan Testing**:
-   - Single finger drag should move the canvas smoothly
-   - Pan should work in all directions
-   - Canvas should stop moving when finger is lifted
+1. **Two-Finger Navigation**:
+   - Two finger drag should pan the canvas smoothly
+   - Two finger pinch should zoom in/out
+   - Zoom should center on the pinch point
+   - Pan should feel natural and responsive
 
-2. **Zoom Testing**:
-   - Two finger pinch should zoom out
-   - Two finger spread should zoom in
-   - Zoom should be centered on the pinch point
-   - Zoom limits (0.1x to 3x) should be respected
+2. **Single-Finger Interaction**:
+   - Tap nodes to select them (should see selection highlight)
+   - Tap buttons to trigger actions (edit, delete, create)
+   - Long press nodes for 500ms to start dragging
+   - Short taps should never interfere with pan/zoom
 
-3. **Node Interaction Testing**:
-   - Single tap should select a node
-   - Touch and drag should move nodes
-   - Node dragging should not interfere with canvas panning
+3. **UI Element Testing**:
+   - All buttons should respond instantly to taps
+   - Modal dialogs should work perfectly with touch
+   - Toolbar controls should be fully touchable
 
-4. **UI Element Testing**:
-   - All buttons should respond to touch
-   - Modal dialogs should work with touch
-   - Toolbar controls should be touch-friendly
+### 2. Gesture Separation Testing
 
-### 2. Performance Testing
-
-- **Smooth Animations**: Touch interactions should maintain 60fps
-- **Memory Usage**: No memory leaks during extended touch sessions
-- **Battery Impact**: Optimized event handling to minimize battery drain
+- **No Conflicts**: Single finger should never trigger pan
+- **Clear Modes**: Two finger gestures should never trigger clicks
+- **Smooth Transitions**: Moving from two fingers to one should feel natural
 
 ## Browser Compatibility
 
 ### Supported Browsers (Touch)
+
 - ✅ Safari (iOS 12+)
 - ✅ Chrome (Mobile)
 - ✅ Firefox (Mobile)
 - ✅ Edge (Mobile)
 
 ### Touch Event Support
-- ✅ React TouchEvent handling
+
+- ✅ Native browser click events
+- ✅ CSS touch-action property support
 - ✅ Multi-touch gesture detection
-- ✅ Touch pressure sensitivity (where available)
+- ✅ Passive event listener optimization
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Touch Events Not Working**:
-   - Verify `touch-action: none` is applied to `.tree-canvas`
-   - Check that touch event handlers are properly wired
+1. **Clicks Not Working**:
+   - Verify CSS `touch-action: manipulation` is applied to clickable elements
+   - Check that passive event listeners are used where appropriate
+   - Ensure no preventDefault() is called on single-finger touches
 
-2. **Conflicting Gestures**:
-   - Ensure browser default touch behaviors are disabled
-   - Verify `preventDefault()` is called appropriately
+2. **Pan/Zoom Not Working**:
+   - Confirm two-finger gestures are being detected
+   - Check canvas has proper touch event listeners
+   - Verify touch-action CSS allows pinch-zoom
 
 3. **Performance Issues**:
-   - Check for excessive DOM updates during touch moves
-   - Verify touch event throttling if needed
-
-4. **Layout Issues on Touch Devices**:
-   - Test viewport meta tag configuration
-   - Verify CSS touch target sizes
+   - Monitor for excessive DOM updates during gestures
+   - Check event listener cleanup on component unmount
+   - Ensure proper passive event listener usage
 
 ### Debug Tools
 
-- Use browser developer tools on mobile devices
-- Enable touch event simulation in desktop browsers
-- Monitor performance with React DevTools
+- Use Safari Web Inspector on iOS devices for real-time debugging
+- Enable touch event visualization in browser dev tools
+- Monitor touch event frequency in performance tab
 
-## Future Enhancements
+## Key Improvements Over Previous Implementation
 
-### Potential Improvements
+### 1. Eliminated Gesture Conflicts
 
-1. **Haptic Feedback**: Add vibration feedback for touch interactions
-2. **Gesture Customization**: Allow users to customize gesture sensitivity
-3. **Voice Control**: Add voice commands for accessibility
-4. **Advanced Gestures**: Three-finger gestures for advanced operations
+- **Before**: Single finger could trigger both pan and click, causing conflicts
+- **After**: Clear separation - two fingers for navigation, one for interaction
 
-### Performance Optimizations
+### 2. Native Click Support
 
-1. **Touch Event Throttling**: Implement touch event throttling for better performance
-2. **Predictive Touch**: Predict touch movements for smoother interactions
-3. **Hardware Acceleration**: Leverage CSS transforms for smoother animations
+- **Before**: Complex touch event wrapping interfered with browser click events
+- **After**: Let browser handle clicks naturally while controlling only pan/zoom
+
+### 3. Simplified Architecture
+
+- **Before**: Complex state management for competing gesture types
+- **After**: Simple state focused only on two-finger navigation gestures
+
+### 4. Better iOS Compatibility
+
+- **Before**: Fought against iOS native behaviors
+- **After**: Works with iOS conventions for consistent user experience
 
 ## Related Documentation
 
-- [Modular Architecture Guide](./MODULAR_ARCHITECTURE_IMPLEMENTATION.md)
 - [Tree Visualization Guide](./TREE_VISUALIZATION_GUIDE.md)
 - [MVP Testing Guide](./MVP_TESTING_GUIDE.md)
+- [Admin Console Enhancement Summary](./ADMIN_CONSOLE_ENHANCEMENT_SUMMARY.md)

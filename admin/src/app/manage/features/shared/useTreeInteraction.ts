@@ -34,8 +34,8 @@ export const useTreeInteraction = () => {
   const [mouseDownPosition, setMouseDownPosition] = useState<Position>({ x: 0, y: 0 })
   const [hasMouseMoved, setHasMouseMoved] = useState(false)
   
-  // Touch-specific state
-  const [isTouching, setIsTouching] = useState(false)
+  // Touch-specific state - simplified for two-finger pan only
+  const [isTwoFingerTouch, setIsTwoFingerTouch] = useState(false)
   const [touchStartDistance, setTouchStartDistance] = useState(0)
   const [touchStartZoom, setTouchStartZoom] = useState(1)
   const [touchStartPan, setTouchStartPan] = useState<Position>({ x: 0, y: 0 })
@@ -167,62 +167,29 @@ export const useTreeInteraction = () => {
     })
   }, [zoom, pan])
 
-  // Touch event handlers
+  // Touch event handlers - simplified for two-finger pan only
   const handleTouchStart = useCallback((e: React.TouchEvent | TouchEvent, canvasRect: DOMRect) => {
-    e.preventDefault()
     const touches = e.touches
     
-    if (touches.length === 1) {
-      // Single touch - start panning
-      setIsTouching(true)
-      const touch = touches[0]
-      setMouseDownPosition({ x: touch.clientX, y: touch.clientY })
-      setHasMouseMoved(false)
-      setDragStart({
-        x: touch.clientX - pan.x,
-        y: touch.clientY - pan.y
-      })
-    } else if (touches.length === 2) {
-      // Two finger touch - start pinch zoom
-      setIsTouching(true)
+    // Only handle two-finger touches for pan/zoom
+    if (touches.length === 2) {
+      e.preventDefault()
+      setIsTwoFingerTouch(true)
       setTouchStartDistance(getTouchDistance(touches))
       setTouchStartZoom(zoom)
       setTouchStartPan(pan)
       setLastTouchCenter(getTouchCenter(touches))
     }
+    // Single finger touches are ignored at canvas level - let them bubble to nodes for clicks
   }, [pan, zoom, getTouchDistance, getTouchCenter])
 
   const handleTouchMove = useCallback((e: React.TouchEvent | TouchEvent, canvasRect: DOMRect) => {
-    e.preventDefault()
     const touches = e.touches
     
-    if (touches.length === 1 && !draggedNode) {
-      // Single touch panning
-      const touch = touches[0]
+    // Only handle two-finger gestures for pan/zoom
+    if (touches.length === 2 && isTwoFingerTouch) {
+      e.preventDefault()
       
-      // Check if touch has moved significantly
-      if (!hasMouseMoved) {
-        const deltaX = Math.abs(touch.clientX - mouseDownPosition.x)
-        const deltaY = Math.abs(touch.clientY - mouseDownPosition.y)
-        if (deltaX > 5 || deltaY > 5) {
-          setHasMouseMoved(true)
-        }
-      }
-      
-      // Update pan position
-      setPan({
-        x: touch.clientX - dragStart.x,
-        y: touch.clientY - dragStart.y
-      })
-    } else if (touches.length === 1 && draggedNode) {
-      // Single touch node dragging
-      const touch = touches[0]
-      const newX = (touch.clientX - dragStart.x - pan.x) / zoom
-      const newY = (touch.clientY - dragStart.y - pan.y) / zoom
-      
-      return { nodeId: draggedNode, position: { x: newX, y: newY } }
-    } else if (touches.length === 2) {
-      // Two finger pinch zoom
       const currentDistance = getTouchDistance(touches)
       const currentCenter = getTouchCenter(touches)
       
@@ -247,63 +214,35 @@ export const useTreeInteraction = () => {
         
         setZoom(newZoom)
         setPan({ x: newPanX, y: newPanY })
+        
+        // Update the last touch center for the next move event
+        setLastTouchCenter(currentCenter)
       }
     }
     
     return null
-  }, [draggedNode, hasMouseMoved, mouseDownPosition, dragStart, pan, zoom, touchStartDistance, touchStartZoom, touchStartPan, lastTouchCenter, getTouchDistance, getTouchCenter])
+  }, [isTwoFingerTouch, touchStartDistance, touchStartZoom, touchStartPan, lastTouchCenter, getTouchDistance, getTouchCenter])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent | TouchEvent) => {
-    e.preventDefault()
+    const touches = e.touches
     
-    if (e.touches.length === 0) {
-      // All touches ended
-      const wasDragging = hasMouseMoved
-      setIsTouching(false)
-      setDraggedNode(null)
-      setHasMouseMoved(false)
-      setTouchStartDistance(0)
-      setIsDragging(false)
-      return { wasDragging }
-    } else if (e.touches.length === 1) {
-      // Went from two touches to one - reset single touch state
-      const touch = e.touches[0]
-      setMouseDownPosition({ x: touch.clientX, y: touch.clientY })
-      setHasMouseMoved(false)
-      setDragStart({
-        x: touch.clientX - pan.x,
-        y: touch.clientY - pan.y
-      })
+    if (touches.length < 2) {
+      // Reset two-finger gesture state when going below 2 fingers
+      setIsTwoFingerTouch(false)
       setTouchStartDistance(0)
     }
     
     return { wasDragging: false }
-  }, [hasMouseMoved, pan])
+  }, [])
 
+  // Simplified node touch handler - only for drag initiation, not for clicks
   const handleNodeTouchStart = useCallback((e: React.TouchEvent | TouchEvent, nodeId: string, nodePosition: Position) => {
-    e.stopPropagation()
-    
-    // Reset any previous drag state first
-    setDraggedNode(null)
-    setHasMouseMoved(false)
-    setIsDragging(false)
-    
+    // Only handle single finger for potential drag
     if (e.touches.length === 1) {
-      const touch = e.touches[0]
-      
-      // Store initial touch info but don't set drag state immediately
-      // This allows short taps to work as clicks
-      setMouseDownPosition({ x: touch.clientX, y: touch.clientY })
-      setNodeDragStart(nodePosition)
-      setDragStart({
-        x: touch.clientX - nodePosition.x * zoom - pan.x,
-        y: touch.clientY - nodePosition.y * zoom - pan.y
-      })
-      
-      // Only set drag state after a small delay or movement detection
-      // This is handled by the TreeCanvas touch handlers now
+      // For nodes, we'll handle drag initiation in a separate touch move handler
+      // This allows clicks to work normally through the browser's native click events
     }
-  }, [zoom, pan, draggedNode, isDragging, hasMouseMoved])
+  }, [])
 
   const startNodeDrag = useCallback((nodeId: string) => {
     setDraggedNode(nodeId)
@@ -316,7 +255,7 @@ export const useTreeInteraction = () => {
     isDragging,
     draggedNode,
     hasMouseMoved,
-    isTouching,
+    isTwoFingerTouch,
     handleZoomIn,
     handleZoomOut,
     handleResetView,

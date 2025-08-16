@@ -468,9 +468,9 @@
     position: absolute;
   }
 
-  /* Touch-specific improvements */
+  /* Touch-specific improvements - simplified for better compatibility */
   .tree-canvas {
-    touch-action: none; /* Prevent default touch behaviors like scrolling */
+    touch-action: pinch-zoom; /* Allow pinch-zoom but prevent single-finger pan */
     -webkit-user-select: none; /* Prevent text selection during gestures */
     -moz-user-select: none;
     -ms-user-select: none;
@@ -489,16 +489,23 @@
     padding: 12px;
   }
 
-  /* Prevent text selection during touch interactions */
+  /* Allow normal touch interactions on nodes - this is key for clicks to work */
   .tree-node-wrapper {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    touch-action: manipulation; /* Enable touch but prevent default gestures like pinch/zoom on this element */
+    touch-action: manipulation; /* Enable touch interactions including taps */
   }
 
   .tree-node {
-    touch-action: manipulation; /* Allow touch interactions on nodes */
+    touch-action: manipulation; /* Allow all touch interactions on nodes */
+    cursor: pointer; /* Make it clear nodes are clickable */
+  }
+
+  /* Ensure buttons within nodes are fully touchable */
+  .tree-node button {
+    touch-action: manipulation; /* Full touch support for buttons */
+    cursor: pointer;
   }
 }
