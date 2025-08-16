@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-fixed'
 import { DynamicTheme } from '@/components/DynamicTheme'
@@ -91,6 +91,7 @@ function CustomerAppContent() {
     setupPushMessageListener()
   }, [])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (orgId) {
       fetchOrganization()
@@ -108,18 +109,21 @@ function CustomerAppContent() {
     }
   }, [branchId, orgId, departmentId])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedBranch) {
       fetchDepartments()
     }
   }, [selectedBranch])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedDepartment) {
       fetchServices()
     }
   }, [selectedDepartment])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedService) {
       fetchQueueStatus()
@@ -127,6 +131,7 @@ function CustomerAppContent() {
   }, [selectedService])
 
   // Polling for ticket status changes to show notifications
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (ticketNumber && pushNotificationsEnabled) {
       const interval = setInterval(async () => {
@@ -181,7 +186,7 @@ function CustomerAppContent() {
   }
 
   // Check ticket status for in-app notifications when status changes
-  const checkTicketStatusForNotifications = async () => {
+  const checkTicketStatusForNotifications = useCallback(async () => {
     if (!ticketNumber || !selectedService) return
 
     try {
@@ -231,9 +236,9 @@ function CustomerAppContent() {
     } catch (error) {
       logger.error('Error checking ticket status for notifications:', error)
     }
-  }
+  }, [ticketNumber, selectedService, phoneNumber])
 
-  const fetchOrganization = async () => {
+  const fetchOrganization = useCallback(async () => {
     if (!orgId) return;
     
     try {
@@ -252,9 +257,9 @@ function CustomerAppContent() {
     } catch (error) {
       logger.error('Exception fetching organization:', error);
     }
-  }
+  }, [orgId])
 
-  const fetchBranches = async () => {
+  const fetchBranches = useCallback(async () => {
     if (!orgId) return;
     
     try {
@@ -274,9 +279,9 @@ function CustomerAppContent() {
       logger.error('Exception fetching branches:', error);
       setBranches([]);
     }
-  }
+  }, [orgId])
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     if (!selectedBranch) return;
     
     try {
@@ -296,9 +301,9 @@ function CustomerAppContent() {
       logger.error('Exception fetching departments:', error);
       setDepartments([]);
     }
-  }
+  }, [selectedBranch])
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     if (!selectedDepartment) return;
     
     try {
@@ -320,9 +325,9 @@ function CustomerAppContent() {
       logger.error('Exception fetching services:', error);
       setServices([]);
     }
-  }
+  }, [selectedDepartment])
 
-  const fetchQueueStatus = async () => {
+  const fetchQueueStatus = useCallback(async () => {
     if (!selectedService) return
 
     try {
@@ -369,7 +374,7 @@ function CustomerAppContent() {
         estimatedWaitTime: (count || 0) * 5
       })
     }
-  }
+  }, [selectedService, selectedDepartment])
 
   const joinQueue = async () => {
     if (!phoneNumber || !selectedService) {

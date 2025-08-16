@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 // Simple SVG icons for notifications
 const CheckCircleIcon = ({ className }: { className: string }) => (
@@ -43,6 +43,13 @@ export default function PushNotificationPopup({ notification, onClose }: PushNot
   const [isVisible, setIsVisible] = useState(false)
   const [animationClass, setAnimationClass] = useState('')
 
+  const handleClose = useCallback(() => {
+    setIsVisible(false)
+    setTimeout(() => {
+      onClose()
+    }, 300) // Wait for exit animation
+  }, [onClose])
+
   useEffect(() => {
     if (notification) {
       // Set animation based on notification type
@@ -56,16 +63,16 @@ export default function PushNotificationPopup({ notification, onClose }: PushNot
 
       return () => clearTimeout(timer)
     }
-  }, [notification])
+  }, [notification, handleClose])
 
   const getAnimationClass = (type: string) => {
     switch (type) {
       case 'ticket_created':
-        return 'animate-slide-down' // Gentle slide down
+        return 'animate-slide-in-from-top' // Gentle slide down
       case 'almost_your_turn':
-        return 'animate-bounce-in' // Attention-grabbing bounce
+        return 'animate-bounce' // Attention-grabbing bounce
       case 'your_turn':
-        return 'animate-pulse-glow' // Urgent pulsing glow
+        return 'animate-pulse' // Urgent pulsing
       default:
         return 'animate-fade-in' // Simple fade
     }
@@ -95,13 +102,6 @@ export default function PushNotificationPopup({ notification, onClose }: PushNot
       default:
         return 'border-l-gray-500'
     }
-  }
-
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(() => {
-      onClose()
-    }, 300) // Wait for exit animation
   }
 
   if (!notification) return null
@@ -145,7 +145,9 @@ export default function PushNotificationPopup({ notification, onClose }: PushNot
             {/* Progress bar for auto-dismiss */}
             <div className="mt-3 w-full bg-gray-200 rounded-full h-1">
               <div 
-                className={`h-1 rounded-full animate-progress ${
+                className={`h-1 rounded-full transition-all duration-[5000ms] ease-linear ${
+                  isVisible ? 'w-0' : 'w-full'
+                } ${
                   notification.type === 'your_turn' ? 'bg-green-500' :
                   notification.type === 'almost_your_turn' ? 'bg-orange-500' :
                   'bg-blue-500'
@@ -156,102 +158,7 @@ export default function PushNotificationPopup({ notification, onClose }: PushNot
         </div>
       </div>
 
-      {/* Custom styles for animations */}
-      <style jsx>{`
-        @keyframes slide-down {
-          from {
-            transform: translateY(-100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
 
-        @keyframes bounce-in {
-          0% {
-            transform: scale(0.3) translateX(100%);
-            opacity: 0;
-          }
-          50% {
-            transform: scale(1.1) translateX(0);
-            opacity: 1;
-          }
-          70% {
-            transform: scale(0.9) translateX(0);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(1) translateX(0);
-            opacity: 1;
-          }
-        }
-
-        @keyframes pulse-glow {
-          0% {
-            transform: scale(1) translateX(100%);
-            opacity: 0;
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-          }
-          25% {
-            transform: scale(1) translateX(0);
-            opacity: 1;
-            box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
-          }
-          50% {
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-          }
-          75% {
-            box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
-          }
-          100% {
-            transform: scale(1) translateX(0);
-            opacity: 1;
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-          }
-        }
-
-        @keyframes fade-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-
-        @keyframes progress {
-          from {
-            width: 100%;
-          }
-          to {
-            width: 0%;
-          }
-        }
-
-        .animate-slide-down {
-          animation: slide-down 0.5s ease-out;
-        }
-
-        .animate-bounce-in {
-          animation: bounce-in 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-
-        .animate-pulse-glow {
-          animation: pulse-glow 0.8s ease-out;
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-
-        .animate-progress {
-          animation: progress 5s linear;
-        }
-      `}</style>
     </>
   )
 }
