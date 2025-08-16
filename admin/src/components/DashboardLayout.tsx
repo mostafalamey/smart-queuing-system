@@ -40,7 +40,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="absolute inset-0 bg-gradient-to-br from-celestial-400 to-french-blue-500 rounded-lg blur-sm opacity-60"></div>
                 <div className="relative w-8 h-8 bg-gradient-to-br from-celestial-500 to-french-blue-600 rounded-lg flex items-center justify-center shadow-lg">
                   <Image
-                    src="/logo_s.png"
+                    src="/Logo.svg"
                     alt="Smart Queue Logo"
                     width={20}
                     height={20}

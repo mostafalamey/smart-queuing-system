@@ -78,7 +78,7 @@ export const useQueueOperations = () => {
               payload: {
                 title: `🎯 Your Turn! - ${queueData.department.branches.name}`,
                 body: `Ticket ${nextTicket.ticket_number} - Please proceed to ${queueData.department.name}`,
-                icon: organization?.logo_url || '/logo_s.png',
+                icon: organization?.logo_url || '/Logo.svg',
                 requireInteraction: true,
                 vibrate: [300, 100, 300, 100, 300],
                 tag: 'your-turn'
@@ -115,7 +115,7 @@ export const useQueueOperations = () => {
                   payload: {
                     title: `🔔 Almost Your Turn - ${queueData.department.branches.name}`,
                     body: `Ticket ${upcomingTicket.ticket_number} - ${message}\nCurrently serving: ${nextTicket.ticket_number}`,
-                    icon: organization?.logo_url || '/logo_s.png',
+                    icon: organization?.logo_url || '/Logo.svg',
                     requireInteraction: false,
                     vibrate: [200, 100, 200],
                     tag: 'almost-your-turn'

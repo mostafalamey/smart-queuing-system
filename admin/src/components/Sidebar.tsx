@@ -68,17 +68,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="relative flex items-center justify-between p-6 border-b border-white/10 backdrop-blur-sm">
             <div className="flex items-center space-x-3 fade-in">
               <div className="relative w-12 h-12 flex items-center justify-center">
-                <div className="absolute inset-0 bg-white/20 rounded-xl blur-sm"></div>
+                <div className="absolute inset-0 bg-white rounded-xl shadow-lg"></div>
                 <Image
-                  src="/logo_s.png"
+                  src="/Logo.svg"
                   alt="Smart Queue Logo"
                   width={48}
                   height={48}
-                  className="relative w-12 h-12 object-contain drop-shadow-lg"
+                  className="relative w-12 h-12 object-contain p-1"
                 />
               </div>
               <div>
-                <span className="text-white font-bold text-xl tracking-wide">Smart Queue</span>
+                <div className="font-bold text-2xl tracking-wide">
+                  <span className="text-black">Smart</span>
+                  <span className="text-blue-200">Queue</span>
+                </div>
                 <div className="flex items-center space-x-1 mt-0.5">
                   <Sparkles className="w-3 h-3 text-citrine-400" />
                   <span className="text-white/70 text-xs font-medium">Admin Portal</span>
