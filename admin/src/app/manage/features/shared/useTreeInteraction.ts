@@ -167,7 +167,7 @@ export const useTreeInteraction = () => {
     })
   }, [zoom, pan])
 
-  // Touch event handlers - simplified for two-finger pan only
+  // Touch event handlers - improved pan/zoom and node dragging
   const handleTouchStart = useCallback((e: React.TouchEvent | TouchEvent, canvasRect: DOMRect) => {
     const touches = e.touches
     
@@ -186,7 +186,7 @@ export const useTreeInteraction = () => {
   const handleTouchMove = useCallback((e: React.TouchEvent | TouchEvent, canvasRect: DOMRect) => {
     const touches = e.touches
     
-    // Only handle two-finger gestures for pan/zoom
+    // Handle two-finger pan/zoom
     if (touches.length === 2 && isTwoFingerTouch) {
       e.preventDefault()
       
@@ -198,30 +198,52 @@ export const useTreeInteraction = () => {
         const zoomChange = currentDistance / touchStartDistance
         const newZoom = Math.max(0.3, Math.min(3, touchStartZoom * zoomChange))
         
-        // Calculate pan to zoom towards center of pinch
+        // Simplified pan calculation - directly follow center movement
         const centerDeltaX = currentCenter.x - lastTouchCenter.x
         const centerDeltaY = currentCenter.y - lastTouchCenter.y
         
-        const canvasCenterX = canvasRect.left + canvasRect.width / 2
-        const canvasCenterY = canvasRect.top + canvasRect.height / 2
+        // Apply pan movement directly
+        const newPanX = pan.x + centerDeltaX
+        const newPanY = pan.y + centerDeltaY
         
-        const pinchCenterX = currentCenter.x - canvasCenterX
-        const pinchCenterY = currentCenter.y - canvasCenterY
-        
-        const zoomChangeRatio = newZoom / touchStartZoom
-        const newPanX = touchStartPan.x - pinchCenterX * (zoomChangeRatio - 1) + centerDeltaX
-        const newPanY = touchStartPan.y - pinchCenterY * (zoomChangeRatio - 1) + centerDeltaY
+        // For zoom, also account for zoom centering
+        if (Math.abs(zoomChange - 1) > 0.01) {
+          // Zooming - adjust pan to zoom towards pinch center
+          const canvasCenterX = canvasRect.left + canvasRect.width / 2
+          const canvasCenterY = canvasRect.top + canvasRect.height / 2
+          
+          const pinchCenterX = currentCenter.x - canvasCenterX
+          const pinchCenterY = currentCenter.y - canvasCenterY
+          
+          const zoomChangeRatio = newZoom / zoom
+          const zoomPanAdjustX = pinchCenterX * (1 - zoomChangeRatio)
+          const zoomPanAdjustY = pinchCenterY * (1 - zoomChangeRatio)
+          
+          setPan({ x: newPanX + zoomPanAdjustX, y: newPanY + zoomPanAdjustY })
+        } else {
+          // Pure panning
+          setPan({ x: newPanX, y: newPanY })
+        }
         
         setZoom(newZoom)
-        setPan({ x: newPanX, y: newPanY })
-        
-        // Update the last touch center for the next move event
         setLastTouchCenter(currentCenter)
       }
     }
     
+    // Handle single-finger node dragging
+    if (touches.length === 1 && draggedNode) {
+      e.preventDefault()
+      const touch = touches[0]
+      
+      // Calculate new node position accounting for pan and zoom
+      const newX = (touch.clientX - canvasRect.left - canvasRect.width / 2 - pan.x) / zoom
+      const newY = (touch.clientY - canvasRect.top - canvasRect.height / 2 - pan.y) / zoom
+      
+      return { nodeId: draggedNode, position: { x: newX, y: newY } }
+    }
+    
     return null
-  }, [isTwoFingerTouch, touchStartDistance, touchStartZoom, touchStartPan, lastTouchCenter, getTouchDistance, getTouchCenter])
+  }, [isTwoFingerTouch, touchStartDistance, touchStartZoom, touchStartPan, lastTouchCenter, draggedNode, pan, zoom, getTouchDistance, getTouchCenter])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent | TouchEvent) => {
     const touches = e.touches

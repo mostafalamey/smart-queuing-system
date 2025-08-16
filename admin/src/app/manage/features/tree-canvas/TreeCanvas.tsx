@@ -277,6 +277,7 @@ export const TreeCanvas = ({
                     let longPressTimer: NodeJS.Timeout | null = null
                     let touchStartPos = { x: 0, y: 0 }
                     let hasMovedDuringTouch = false
+                    let isDragMode = false
                     
                     const handleNodeTouchStart = (e: TouchEvent) => {
                       // Only handle single finger touches
@@ -284,15 +285,21 @@ export const TreeCanvas = ({
                         const touch = e.touches[0]
                         touchStartPos = { x: touch.clientX, y: touch.clientY }
                         hasMovedDuringTouch = false
+                        isDragMode = false
                         
                         // Start a long press timer for drag initiation
                         longPressTimer = setTimeout(() => {
                           if (!hasMovedDuringTouch && startNodeDrag) {
                             // Long press detected - start drag mode
-                            e.preventDefault() // Now prevent default to start dragging
+                            isDragMode = true
                             startNodeDrag(node.id)
+                            
+                            // Add haptic feedback if available
+                            if (navigator.vibrate) {
+                              navigator.vibrate(50)
+                            }
                           }
-                        }, 500) // 500ms long press
+                        }, 300) // Reduced to 300ms for better responsiveness
                       }
                     }
                     
@@ -302,13 +309,19 @@ export const TreeCanvas = ({
                         const deltaX = Math.abs(touch.clientX - touchStartPos.x)
                         const deltaY = Math.abs(touch.clientY - touchStartPos.y)
                         
-                        // If moved more than 5 pixels, cancel long press
-                        if (deltaX > 5 || deltaY > 5) {
+                        // If moved more than 10 pixels during long press, cancel it
+                        if (!isDragMode && (deltaX > 10 || deltaY > 10)) {
                           hasMovedDuringTouch = true
                           if (longPressTimer) {
                             clearTimeout(longPressTimer)
                             longPressTimer = null
                           }
+                        }
+                        
+                        // If we're in drag mode, prevent default to allow dragging
+                        if (isDragMode) {
+                          e.preventDefault()
+                          e.stopPropagation()
                         }
                       }
                     }
@@ -320,13 +333,16 @@ export const TreeCanvas = ({
                         longPressTimer = null
                       }
                       
+                      // Reset drag mode
+                      isDragMode = false
+                      
                       // For short taps without movement, let normal click events handle it
                       // Don't preventDefault here so native click events can fire
                     }
                     
-                    el.addEventListener('touchstart', handleNodeTouchStart, { passive: true })
-                    el.addEventListener('touchmove', handleNodeTouchMove, { passive: true })
-                    el.addEventListener('touchend', handleNodeTouchEnd, { passive: true })
+                    el.addEventListener('touchstart', handleNodeTouchStart, { passive: false })
+                    el.addEventListener('touchmove', handleNodeTouchMove, { passive: false })
+                    el.addEventListener('touchend', handleNodeTouchEnd, { passive: false })
                     ;(el as any)._hasTouch = true
                     
                     // Store cleanup function
