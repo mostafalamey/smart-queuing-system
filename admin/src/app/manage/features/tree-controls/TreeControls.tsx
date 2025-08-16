@@ -1,4 +1,6 @@
-import { ZoomIn, ZoomOut, Home, Plus, Save } from 'lucide-react'
+import { ZoomIn, ZoomOut, Home, Plus, Save, Lock, Crown } from 'lucide-react'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
+import { useAppToast } from '@/hooks/useAppToast'
 
 interface TreeControlsProps {
   zoom: number
@@ -7,7 +9,7 @@ interface TreeControlsProps {
   onResetView: () => void
   onCreateBranch: () => void
   onSaveLayout?: () => void
-  canCreateBranch?: boolean // Made optional since we always show the button now
+  canCreateBranch?: boolean // Made optional for backward compatibility
 }
 
 export const TreeControls = ({
@@ -17,8 +19,30 @@ export const TreeControls = ({
   onResetView,
   onCreateBranch,
   onSaveLayout,
-  canCreateBranch = true // Default to true
+  canCreateBranch
 }: TreeControlsProps) => {
+  const { planLimits, checkLimits, getLimitMessage } = usePlanLimits()
+  const { showError } = useAppToast()
+  
+  // Use plan limits to determine if branch creation is allowed
+  const limits = checkLimits()
+  const canActuallyCreateBranch = canCreateBranch !== undefined 
+    ? canCreateBranch 
+    : limits.canCreateBranch
+    
+  const limitMessage = getLimitMessage('branch')
+  const isDisabled = !canActuallyCreateBranch
+  
+  // Show upgrade hint for premium features
+  const isPremiumPlan = planLimits?.plan === 'business' || planLimits?.plan === 'enterprise'
+
+  const handleCreateBranch = () => {
+    if (isDisabled) {
+      showError(limitMessage || 'Cannot create more branches with your current plan')
+      return
+    }
+    onCreateBranch()
+  }
   return (
     <>
       {/* Floating Controls */}
@@ -54,15 +78,21 @@ export const TreeControls = ({
           </div>
         </div>
         
-        {/* Always show the Add Branch button */}
+        {/* Add Branch button with plan limits */}
         <button
-          onClick={onCreateBranch}
-          className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-colors text-white shadow-lg backdrop-blur-md"
-          title="Create New Branch"
-          aria-label="Create new branch"
+          onClick={handleCreateBranch}
+          disabled={isDisabled}
+          title={isDisabled ? (limitMessage || 'Upgrade to create more branches') : 'Add Branch'}
+          className={`flex items-center gap-2 p-3 rounded-lg transition-colors shadow-lg backdrop-blur-md ${
+            isDisabled 
+              ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-500/20 hover:bg-blue-500/30 text-white'
+          }`}
+          aria-label={isDisabled ? limitMessage : "Create new branch"}
         >
-          <Plus className="w-4 h-4" />
+          {isDisabled ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           <span className="text-sm font-medium">Add Branch</span>
+          {!isPremiumPlan && <Crown className="w-3 h-3 text-yellow-400" />}
         </button>
 
         {/* Save Layout button */}

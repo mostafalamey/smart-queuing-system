@@ -2,6 +2,8 @@ import { Edit, Trash2, Plus, X, Minus, Maximize2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Node } from '../shared/types'
 import { getNodeIcon, getNodeTypeLabel, canCreateChild } from '../shared/utils'
+import { usePlanLimits } from '../../../../hooks/usePlanLimits'
+import { useAppToast } from '../../../../hooks/useAppToast'
 
 interface NodePanelProps {
   node: Node | null
@@ -18,6 +20,9 @@ export const NodePanel = ({
   onDelete,
   onCreate
 }: NodePanelProps) => {
+  const { checkLimits, getLimitMessage } = usePlanLimits()
+  const { showWarning } = useAppToast()
+  
   const [isMinimized, setIsMinimized] = useState(() => {
     // Load minimized state from localStorage (only on client-side)
     if (typeof window === 'undefined') return false
@@ -161,13 +166,43 @@ export const NodePanel = ({
             </button>
 
             {childType && (
-              <button
-                onClick={() => onCreate(childType as 'department' | 'service', node)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-300 hover:text-blue-200 hover:bg-blue-500/20 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add {getNodeTypeLabel(childType)}
-              </button>
+              (() => {
+                const limits = checkLimits()
+                const canCreate = childType === 'department' ? limits.canCreateDepartment : limits.canCreateService
+                
+                return (
+                  <button
+                    onClick={() => {
+                      if (canCreate) {
+                        onCreate(childType as 'department' | 'service', node)
+                      } else {
+                        // Show toast when clicking disabled button
+                        const message = getLimitMessage(childType as 'department' | 'service')
+                        showWarning(
+                          `${childType === 'department' ? 'Department' : 'Service'} Limit Reached`,
+                          message,
+                          {
+                            label: 'Upgrade Plan',
+                            onClick: () => {
+                              window.location.href = '/manage/organization?tab=plan-billing'
+                            }
+                          }
+                        )
+                      }
+                    }}
+                    disabled={!canCreate}
+                    title={canCreate ? `Add ${childType}` : getLimitMessage(childType as 'department' | 'service')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                      canCreate
+                        ? 'text-blue-300 hover:text-blue-200 hover:bg-blue-500/20'
+                        : 'text-white/40 cursor-not-allowed opacity-25 bg-red-500/20 border-2 border-red-500'
+                    }`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add {getNodeTypeLabel(childType)}
+                  </button>
+                )
+              })()
             )}
 
             <button

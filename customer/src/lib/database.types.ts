@@ -12,6 +12,13 @@ export interface Database {
           primary_color: string | null
           logo_url: string | null
           welcome_message: string | null
+          plan: string | null
+          max_branches: number | null
+          max_departments: number | null
+          max_services: number | null
+          max_staff: number | null
+          ticket_cap: number | null
+          plan_updated_at: string | null
           created_at: string
           updated_at: string
         }

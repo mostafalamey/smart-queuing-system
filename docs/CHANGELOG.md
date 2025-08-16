@@ -1,5 +1,56 @@
 # Smart Queue System - Changelog
 
+## Version 2.2.0 - SaaS Subscription Plan System (August 16, 2025)
+
+### 🏢 Multi-Tenant Subscription Architecture
+
+#### Complete Plan Limit Enforcement System
+
+- **Four Subscription Tiers** - Starter (1/3/10/5), Growth (3/10/30/20), Business (10/50/200/100), Enterprise (unlimited)
+- **Multi-Resource Limits** - Branches, departments, services, staff members, and monthly tickets
+- **Database-Level Enforcement** - PostgreSQL RLS policies prevent limit circumvention
+- **Real-Time Monitoring** - Live usage tracking and percentage calculations
+
+#### Frontend Implementation
+
+- **usePlanLimits Hook** - React hook for plan limit checking and usage monitoring
+- **Button Disabling System** - All creation buttons disabled when limits reached
+- **Native Tooltips** - Hover messages showing upgrade requirements (reverted from custom tooltips)
+- **Toast Notifications** - Click disabled buttons to see upgrade prompts with action buttons
+- **Progress Bar Dashboard** - Visual usage indicators with color-coding (green/yellow/red)
+
+#### Database Architecture
+
+- **organization_plan_info View** - Comprehensive plan and usage data aggregation
+- **Helper Functions** - `check_branch_limit()`, `check_department_limit()`, `check_service_limit()`, `check_staff_limit()`
+- **RLS Policy Integration** - All tables (branches, departments, services, members) enforce limits
+- **Usage Tracking Functions** - `get_organization_usage()` for real-time analytics
+
+#### UI/UX Enhancements
+
+- **Plan Dashboard Component** - Visual overview of current plan usage with progress bars
+- **Multi-Point Enforcement** - TreeControls, TreeCanvas, and NodePanel all respect limits
+- **Upgrade Suggestions** - Automatic prompts when usage exceeds 50%
+- **Visual Indicators** - Lock icons and disabled states for over-limit actions
+
+### 🐛 Bug Fixes
+
+- **Fixed Progress Bar Display** - Corrected parameter mapping in PlanLimitsDashboard (branches→branch, departments→department, services→service)
+- **Resolved Custom Tooltip Issues** - Reverted to native browser tooltips for better positioning and reliability
+- **Clean Build Process** - Removed orphaned imports and ensured both admin and customer apps build successfully
+
+### 🔧 Technical Improvements
+
+- **Production Ready Build** - Both applications compile with zero errors (Admin: 16 routes, Customer: 6 routes)
+- **Type Safety** - Full TypeScript integration with proper type checking for all plan-related functions
+- **Documentation Updates** - Comprehensive SaaS subscription system guide with implementation details
+
+### 📊 Analytics & Monitoring
+
+- **Usage Tracking Queries** - SQL queries to identify upgrade candidates and monitor plan utilization
+- **Real-Time Dashboard** - Live updates of organization limits and current usage
+- **Upgrade Analytics** - Built-in detection of organizations approaching plan limits
+
 ## Version 2.1.0 - Animated Push Notification Popups (August 15, 2025)
 
 ### 🎬 In-App Animated Notification System
@@ -122,7 +173,7 @@
 - **Public Read Access** - Secure viewing of avatars without authentication
 - **Automated Cleanup** - Policies for managing old avatar files
 
-### 🔧 Technical Improvements
+### 🔧 Technical Improvements 101
 
 #### Development Experience
 
@@ -246,7 +297,7 @@
 - Updated MVP_COMPLETION_SUMMARY.md with stability fixes
 - Added comprehensive troubleshooting guide in DEVELOPMENT_GUIDE.md
 
-### 🐛 Bug Fixes
+### 🐛 Bug Fixes 101
 
 - Fixed browser tab inactive connection loss
 - Resolved authentication redirect infinite loops

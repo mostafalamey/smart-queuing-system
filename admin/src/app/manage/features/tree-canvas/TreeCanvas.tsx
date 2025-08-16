@@ -2,6 +2,8 @@ import { useRef, useEffect } from 'react'
 import { Building, Edit, Trash2, Plus } from 'lucide-react'
 import { Node, Connection, Position } from '../shared/types'
 import { getNodeIcon, getNodeDimensions, getNodeStats, canCreateChild } from '../shared/utils'
+import { usePlanLimits } from '../../../../hooks/usePlanLimits'
+import { useAppToast } from '../../../../hooks/useAppToast'
 
 interface TreeCanvasProps {
   nodes: Node[]
@@ -49,6 +51,8 @@ export const TreeCanvas = ({
   startTouchNodeDrag
 }: TreeCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null)
+  const { checkLimits, getLimitMessage } = usePlanLimits()
+  const { showWarning } = useAppToast()
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -416,19 +420,44 @@ export const TreeCanvas = ({
                       {getNodeStats(node)}
                     </span>
                     
-                    {childType && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onNodeCreate(childType as 'department' | 'service', node)
-                        }}
-                        className="p-1 rounded-full hover:bg-blue-50 transition-colors group flex items-center justify-center"
-                        title={`Add ${childType}`}
-                        aria-label={`Add ${childType} to ${node.name}`}
-                      >
-                        <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-600" />
-                      </button>
-                    )}
+                    {childType && (() => {
+                      const limits = checkLimits()
+                      const canCreate = childType === 'department' ? limits.canCreateDepartment : limits.canCreateService
+                      
+                      return (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (canCreate) {
+                              onNodeCreate(childType as 'department' | 'service', node)
+                            } else {
+                              // Show toast when clicking disabled button
+                              const message = getLimitMessage(childType as 'department' | 'service')
+                              showWarning(
+                                `${childType === 'department' ? 'Department' : 'Service'} Limit Reached`,
+                                message,
+                                {
+                                  label: 'Upgrade Plan',
+                                  onClick: () => {
+                                    window.location.href = '/manage/organization?tab=plan-billing'
+                                  }
+                                }
+                              )
+                            }
+                          }}
+                          disabled={!canCreate}
+                          title={canCreate ? `Add ${childType}` : getLimitMessage(childType as 'department' | 'service')}
+                          className={`p-1 rounded-full transition-colors group flex items-center justify-center ${
+                            canCreate 
+                              ? 'hover:bg-blue-50 cursor-pointer' 
+                              : 'cursor-not-allowed opacity-50 bg-red-50'
+                          }`}
+                          aria-label={canCreate ? `Add ${childType} to ${node.name}` : `Cannot add ${childType} - limit reached`}
+                        >
+                          <Plus className={`w-5 h-5 ${canCreate ? 'text-gray-400 group-hover:text-blue-600' : 'text-red-400'}`} />
+                        </button>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>

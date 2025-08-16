@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import { useAppToast } from '@/hooks/useAppToast'
 import { DashboardLayout } from '@/components/DashboardLayout'
+import { PlanLimitsDashboard } from '@/components/PlanLimitsDashboard'
 import { QRCodeData } from './features/shared/types'
 import { useOrganizationData } from './features/shared/useOrganizationData'
 import { useOrganizationOperations } from './features/shared/useOrganizationOperations'
@@ -21,7 +22,7 @@ export default function OrganizationPage() {
   const { showSuccess, showError, showInfo, showWarning } = useAppToast()
   
   // Tab state
-  const [activeTab, setActiveTab] = useState<'details' | 'qr' | 'members'>('details')
+  const [activeTab, setActiveTab] = useState<'details' | 'qr' | 'members' | 'plan'>('details')
   
   // Data hooks
   const {
@@ -169,6 +170,16 @@ export default function OrganizationPage() {
               Organization Details
             </button>
             <button
+              onClick={() => setActiveTab('plan')}
+              className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'plan'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Plan & Billing
+            </button>
+            <button
               onClick={() => setActiveTab('qr')}
               className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'qr'
@@ -203,6 +214,20 @@ export default function OrganizationPage() {
               onLogoUpload={handleLogoUploadFile}
               onRemoveLogo={handleRemoveLogo}
             />
+          )}
+
+          {activeTab === 'plan' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                  Subscription Plan & Usage
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Monitor your current plan usage and upgrade when needed to unlock more features.
+                </p>
+              </div>
+              <PlanLimitsDashboard />
+            </div>
           )}
 
           {activeTab === 'qr' && (
