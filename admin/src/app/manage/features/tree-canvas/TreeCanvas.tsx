@@ -23,6 +23,7 @@ interface TreeCanvasProps {
   onTouchMove?: (e: React.TouchEvent) => void | { nodeId: string; position: Position } | null
   onTouchEnd?: (e: React.TouchEvent) => void
   startNodeDrag?: (nodeId: string) => void
+  startTouchNodeDrag?: (nodeId: string, touchPosition: Position, nodePosition: Position) => void
 }
 
 export const TreeCanvas = ({
@@ -44,7 +45,8 @@ export const TreeCanvas = ({
   onTouchStart,
   onTouchMove,
   onTouchEnd,
-  startNodeDrag
+  startNodeDrag,
+  startTouchNodeDrag
 }: TreeCanvasProps) => {
   const canvasRef = useRef<HTMLDivElement>(null)
 
@@ -269,15 +271,13 @@ export const TreeCanvas = ({
                     ;(el as any)._touchCleanup()
                   }
                   
-                  // For touch devices, we only add a simple long-press drag handler
-                  // Regular clicks/taps will work through normal browser events
+                  // For touch devices, add long-press detection that integrates with canvas touch move
                   const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0
                   
                   if (hasTouchSupport && !(el as any)._hasTouch) {
                     let longPressTimer: NodeJS.Timeout | null = null
                     let touchStartPos = { x: 0, y: 0 }
                     let hasMovedDuringTouch = false
-                    let isDragMode = false
                     
                     const handleNodeTouchStart = (e: TouchEvent) => {
                       // Only handle single finger touches
@@ -285,21 +285,19 @@ export const TreeCanvas = ({
                         const touch = e.touches[0]
                         touchStartPos = { x: touch.clientX, y: touch.clientY }
                         hasMovedDuringTouch = false
-                        isDragMode = false
                         
                         // Start a long press timer for drag initiation
                         longPressTimer = setTimeout(() => {
-                          if (!hasMovedDuringTouch && startNodeDrag) {
-                            // Long press detected - start drag mode
-                            isDragMode = true
-                            startNodeDrag(node.id)
+                          if (!hasMovedDuringTouch && startTouchNodeDrag) {
+                            // Long press detected - start drag mode with proper integration
+                            startTouchNodeDrag(node.id, touchStartPos, node.position)
                             
                             // Add haptic feedback if available
                             if (navigator.vibrate) {
                               navigator.vibrate(50)
                             }
                           }
-                        }, 300) // Reduced to 300ms for better responsiveness
+                        }, 300) // 300ms long press
                       }
                     }
                     
@@ -310,18 +308,12 @@ export const TreeCanvas = ({
                         const deltaY = Math.abs(touch.clientY - touchStartPos.y)
                         
                         // If moved more than 10 pixels during long press, cancel it
-                        if (!isDragMode && (deltaX > 10 || deltaY > 10)) {
+                        if (deltaX > 10 || deltaY > 10) {
                           hasMovedDuringTouch = true
                           if (longPressTimer) {
                             clearTimeout(longPressTimer)
                             longPressTimer = null
                           }
-                        }
-                        
-                        // If we're in drag mode, prevent default to allow dragging
-                        if (isDragMode) {
-                          e.preventDefault()
-                          e.stopPropagation()
                         }
                       }
                     }
@@ -332,9 +324,6 @@ export const TreeCanvas = ({
                         clearTimeout(longPressTimer)
                         longPressTimer = null
                       }
-                      
-                      // Reset drag mode
-                      isDragMode = false
                       
                       // For short taps without movement, let normal click events handle it
                       // Don't preventDefault here so native click events can fire

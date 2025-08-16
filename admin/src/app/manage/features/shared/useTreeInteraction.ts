@@ -40,6 +40,10 @@ export const useTreeInteraction = () => {
   const [touchStartZoom, setTouchStartZoom] = useState(1)
   const [touchStartPan, setTouchStartPan] = useState<Position>({ x: 0, y: 0 })
   const [lastTouchCenter, setLastTouchCenter] = useState<Position>({ x: 0, y: 0 })
+  
+  // Touch node dragging state
+  const [touchNodeDragStart, setTouchNodeDragStart] = useState<Position>({ x: 0, y: 0 })
+  const [isTouchDragging, setIsTouchDragging] = useState(false)
 
   // Save viewport state to localStorage whenever zoom or pan changes (only on client-side)
   const saveViewportState = useCallback((newZoom: number, newPan: Position) => {
@@ -167,6 +171,15 @@ export const useTreeInteraction = () => {
     })
   }, [zoom, pan])
 
+  // Method to start touch node dragging (called from long-press detection)
+  const startTouchNodeDrag = useCallback((nodeId: string, touchPosition: Position, nodePosition: Position) => {
+    setDraggedNode(nodeId)
+    setIsTouchDragging(true)
+    setTouchNodeDragStart(touchPosition)
+    setNodeDragStart(nodePosition)
+    setHasMouseMoved(true) // Mark as moved to prevent click events
+  }, [])
+
   // Touch event handlers - improved pan/zoom and node dragging
   const handleTouchStart = useCallback((e: React.TouchEvent | TouchEvent, canvasRect: DOMRect) => {
     const touches = e.touches
@@ -248,14 +261,24 @@ export const useTreeInteraction = () => {
   const handleTouchEnd = useCallback((e: React.TouchEvent | TouchEvent) => {
     const touches = e.touches
     
+    // Check if we were dragging
+    const wasDragging = isTouchDragging || hasMouseMoved
+    
     if (touches.length < 2) {
       // Reset two-finger gesture state when going below 2 fingers
       setIsTwoFingerTouch(false)
       setTouchStartDistance(0)
     }
     
-    return { wasDragging: false }
-  }, [])
+    // Reset touch dragging state
+    if (touches.length === 0) {
+      setIsTouchDragging(false)
+      setDraggedNode(null)
+      setHasMouseMoved(false)
+    }
+    
+    return { wasDragging }
+  }, [isTouchDragging, hasMouseMoved])
 
   // Simplified node touch handler - only for drag initiation, not for clicks
   const handleNodeTouchStart = useCallback((e: React.TouchEvent | TouchEvent, nodeId: string, nodePosition: Position) => {
@@ -291,6 +314,7 @@ export const useTreeInteraction = () => {
     handleTouchEnd,
     handleNodeTouchStart,
     startNodeDrag,
+    startTouchNodeDrag,
     setZoom,
     setPan,
     setIsDragging,

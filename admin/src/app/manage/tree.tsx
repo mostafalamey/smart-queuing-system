@@ -54,7 +54,8 @@ export default function ManageTreePage() {
     handleTouchMove,
     handleTouchEnd,
     handleNodeTouchStart,
-    startNodeDrag
+    startNodeDrag,
+    startTouchNodeDrag
   } = useTreeInteraction()
   
   const {
@@ -263,6 +264,7 @@ export default function ManageTreePage() {
         onTouchMove={handleCanvasTouchMove}
         onTouchEnd={handleCanvasTouchEnd}
         startNodeDrag={startNodeDrag}
+        startTouchNodeDrag={startTouchNodeDrag}
       />
 
       {/* Node Modal */}
