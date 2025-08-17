@@ -1,11 +1,11 @@
 // Service Worker for Push Notifications and PWA Support
 // Enhanced for iOS Safari PWA compatibility
 
-const CACHE_NAME = 'smart-queue-v2'
+const CACHE_NAME = 'smart-queue-v3'
 const urlsToCache = [
   '/',
   '/favicon.svg',
-  '/logo_s.png',
+  '/Logo.svg',
   '/manifest.json'
 ]
 
