@@ -42,11 +42,16 @@
   - **Database State Tracking** - Proper status management (waiting, serving, completed, cancelled)
   - **Modal Confirmations** - Professional confirmation modals for destructive actions (delete, reset)
 - **Real-time Queue Monitoring** - Live updates with WebSocket subscriptions
-- **Push Notification Management** - Automated customer notifications:
-  - Automatic "Your Turn" notifications when calling next customer
-  - "Almost Your Turn" alerts for upcoming customers
-  - Organization logo integration for branded notifications
-  - Professional notification formatting with rich content
+- **Push Notification Management** - **Privacy-First Notification System**:
+  - **Ticket-ID Based Notifications** - No phone number required for push notifications
+  - **Optional Phone Integration** - Customers choose whether to provide contact info
+  - **Two-Step Setup Flow** - Smart initialization before ticket creation
+  - **Automatic "Your Turn" notifications** when calling next customer
+  - **"Almost Your Turn" alerts** for upcoming customers (1-2 positions ahead)
+  - **Organization logo integration** for branded notifications
+  - **Multi-channel ready** - Prepared for WhatsApp/SMS integration when phone provided
+  - **Robust error handling** with graceful degradation
+  - **Professional notification formatting** with rich content and vibration patterns
 - **Enhanced QR Code System** - Three-tier QR code generation:
   - **General QR Codes** - Links to organization with full selection flow
   - **Branch-Specific QR Codes** - Pre-selects branch for faster access
@@ -58,17 +63,21 @@
 
 ### 📱 **Customer Application**
 
-- **Mobile-First Design** - Optimized for smartphones with dynamic theming
+- **Privacy-First Customer Experience** - Customers can create tickets without sharing phone numbers
 - **Service-Level Selection** - Customers choose specific services within departments
 - **Department Pre-selection** - QR codes can pre-select departments for faster flow
 - **Organization Branding** - Custom themes based on organization settings
 - **Real-time Updates** - Live queue status and position notifications
-- **Push Notifications** - Browser-based notifications with:
-  - Instant ticket creation confirmations
-  - "Your Turn" alerts when being served
-  - "Almost Your Turn" advance warnings
-  - Organization logo branding in notifications
-  - Cross-browser compatibility with graceful fallbacks
+- **Intelligent Push Notifications** - **Advanced Notification System**:
+  - **No Phone Required** - Push notifications work without personal information
+  - **Two-Step Flow** - Notifications enabled before ticket creation
+  - **Ticket-Based Delivery** - Each ticket gets its own notification subscription
+  - **Instant ticket creation confirmations** with personalized content
+  - **"Your Turn" alerts** when customer is being served
+  - **"Almost Your Turn" advance warnings** for upcoming positions
+  - **Organization logo branding** integrated into all notifications
+  - **WhatsApp/SMS Ready** - Phone numbers collected optionally for future integration
+  - **Cross-browser compatibility** with graceful fallbacks for unsupported browsers
 - **Phone Number Integration** - Customer identification and ticket tracking
 - **Multi-language Ready** - Extensible localization framework
 - **Offline Capabilities** - Progressive Web App features

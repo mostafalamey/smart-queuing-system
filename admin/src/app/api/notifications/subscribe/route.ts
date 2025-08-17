@@ -29,7 +29,7 @@ export async function OPTIONS() {
  * Body:
  * {
  *   organizationId: string,
- *   customerPhone: string,
+ *   ticketId: string,
  *   subscription: {
  *     endpoint: string,
  *     keys: {
@@ -44,22 +44,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    const { organizationId, customerPhone, subscription, userAgent } = body
+    const { organizationId, ticketId, subscription, userAgent } = body
 
-    // Validate required fields
-    if (!organizationId || !customerPhone || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+    // Validate required fields (ticket ID instead of phone)
+    if (!organizationId || !ticketId || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400, headers: corsHeaders }
       )
     }
 
-    // Check if subscription already exists
+    // Check if subscription already exists for this ticket
     const { data: existingSubscription, error: selectError } = await supabase
       .from('push_subscriptions')
       .select('id, is_active')
       .eq('organization_id', organizationId)
-      .eq('customer_phone', customerPhone)
+      .eq('ticket_id', ticketId)
       .eq('endpoint', subscription.endpoint)
       .single()
 
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       .from('push_subscriptions')
       .insert({
         organization_id: organizationId,
-        customer_phone: customerPhone,
+        ticket_id: ticketId,
         endpoint: subscription.endpoint,
         p256dh_key: subscription.keys.p256dh,
         auth_key: subscription.keys.auth,
@@ -121,8 +121,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update or create notification preferences
-    await upsertNotificationPreferences(organizationId, customerPhone, true, false)
+    // Get customer phone from ticket for notification preferences (if available)
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .select('customer_phone')
+      .eq('id', ticketId)
+      .single()
+
+    if (ticketError) {
+      console.error('Error fetching ticket data:', ticketError)
+      // Continue without updating preferences if ticket lookup fails
+    } else if (ticketData?.customer_phone) {
+      // Update notification preferences only if phone number exists
+      await upsertNotificationPreferences(organizationId, ticketData.customer_phone, true, false)
+    }
 
     return NextResponse.json({
       success: true,
@@ -149,32 +161,48 @@ export async function POST(request: NextRequest) {
  * Body:
  * {
  *   organizationId: string,
- *   customerPhone: string,
+ *   ticketId: string,
  *   pushDenied: boolean
  * }
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { organizationId, customerPhone, pushDenied } = await request.json()
+    const { organizationId, ticketId, pushDenied } = await request.json()
 
     // Validate required fields
-    if (!organizationId || !customerPhone || typeof pushDenied !== 'boolean') {
+    if (!organizationId || !ticketId || typeof pushDenied !== 'boolean') {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Update notification preferences
-    await upsertNotificationPreferences(organizationId, customerPhone, !pushDenied, pushDenied)
+    // Get ticket data to find customer phone (if exists)
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .select('customer_phone')
+      .eq('id', ticketId)
+      .single()
 
-    // If push was denied, deactivate any existing subscriptions
+    if (ticketError) {
+      return NextResponse.json(
+        { error: 'Ticket not found' },
+        { status: 404 }
+      )
+    }
+
+    // Update preferences only if customer has a phone number
+    if (ticketData?.customer_phone) {
+      await upsertNotificationPreferences(organizationId, ticketData.customer_phone, !pushDenied, pushDenied)
+    }
+
+    // If push was denied, deactivate any existing subscriptions for this ticket
     if (pushDenied) {
       await supabase
         .from('push_subscriptions')
         .update({ is_active: false })
         .eq('organization_id', organizationId)
-        .eq('customer_phone', customerPhone)
+        .eq('ticket_id', ticketId)
     }
 
     return NextResponse.json({
@@ -193,35 +221,53 @@ export async function PUT(request: NextRequest) {
 
 /**
  * Get notification preferences for a customer
- * GET /api/notifications/subscribe?organizationId=xxx&customerPhone=xxx
+ * GET /api/notifications/subscribe?organizationId=xxx&ticketId=xxx
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const organizationId = searchParams.get('organizationId')
-    const customerPhone = searchParams.get('customerPhone')
+    const ticketId = searchParams.get('ticketId')
 
-    if (!organizationId || !customerPhone) {
+    if (!organizationId || !ticketId) {
       return NextResponse.json(
-        { error: 'Missing organizationId or customerPhone' },
+        { error: 'Missing organizationId or ticketId' },
         { status: 400 }
       )
     }
 
-    // Get notification preferences
-    const { data: preferences } = await supabase
-      .from('notification_preferences')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .eq('customer_phone', customerPhone)
+    // Get customer phone from ticket (might be null)
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .select('customer_phone')
+      .eq('id', ticketId)
       .single()
 
-    // Get active subscriptions count
+    if (ticketError) {
+      return NextResponse.json(
+        { error: 'Ticket not found' },
+        { status: 404 }
+      )
+    }
+
+    // If customer has phone, get their preferences
+    let preferences = null
+    if (ticketData?.customer_phone) {
+      const { data } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('customer_phone', ticketData.customer_phone)
+        .single()
+      preferences = data
+    }
+
+    // Get active subscriptions count for this ticket
     const { data: subscriptions, count } = await supabase
       .from('push_subscriptions')
       .select('id', { count: 'exact' })
       .eq('organization_id', organizationId)
-      .eq('customer_phone', customerPhone)
+      .eq('ticket_id', ticketId)
       .eq('is_active', true)
 
     return NextResponse.json({

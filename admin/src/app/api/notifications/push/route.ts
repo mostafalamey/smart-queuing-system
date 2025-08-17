@@ -64,7 +64,8 @@ interface NotificationPayload {
  * Body:
  * {
  *   organizationId: string,
- *   customerPhone: string,
+ *   ticketId: string,
+ *   customerPhone?: string, // Optional for WhatsApp/SMS fallback
  *   payload: NotificationPayload,
  *   notificationType: 'ticket_created' | 'almost_your_turn' | 'your_turn',
  *   ticketNumber?: string
@@ -76,24 +77,25 @@ export async function POST(request: NextRequest) {
     
     const {
       organizationId,
-      customerPhone,
+      ticketId,
+      customerPhone, // Now optional
       payload,
       notificationType,
       ticketNumber
     } = body
 
-    // Validate required fields
-    if (!organizationId || !customerPhone || !payload || !notificationType) {
+    // Validate required fields (ticketId is now required instead of customerPhone)
+    if (!organizationId || !ticketId || !payload || !notificationType) {
       console.error('Push API missing required fields:', {
         organizationId: !!organizationId,
-        customerPhone: !!customerPhone,
+        ticketId: !!ticketId,
         payload: !!payload,
         notificationType: !!notificationType
       })
       return NextResponse.json(
         { error: 'Missing required fields', details: {
           organizationId: !organizationId ? 'missing' : 'present',
-          customerPhone: !customerPhone ? 'missing' : 'present',
+          ticketId: !ticketId ? 'missing' : 'present',
           payload: !payload ? 'missing' : 'present',
           notificationType: !notificationType ? 'missing' : 'present'
         }},
@@ -101,18 +103,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get active push subscriptions for this customer
+    // Get active push subscriptions for this ticket
     const { data: subscriptions, error: subscriptionError } = await supabase
       .from('push_subscriptions')
       .select('*')
       .eq('organization_id', organizationId)
-      .eq('customer_phone', customerPhone)
+      .eq('ticket_id', ticketId)
       .eq('is_active', true)
 
     if (subscriptionError) {
       console.error('Error fetching subscriptions:', subscriptionError)
+      
+      // Check if this is a "table doesn't exist" error (migration not run)
+      if (subscriptionError.code === 'PGRST204' || subscriptionError.message?.includes('does not exist') || subscriptionError.message?.includes('push_subscriptions')) {
+        return NextResponse.json(
+          { 
+            error: 'Database migration required', 
+            details: 'Please run the database migration script: sql/database-push-notifications-ticket-based.sql',
+            migrationRequired: true
+          },
+          { status: 503, headers: corsHeaders }
+        )
+      }
+      
       return NextResponse.json(
-        { error: 'Failed to fetch subscriptions' },
+        { error: 'Failed to fetch subscriptions', details: subscriptionError.message },
         { status: 500, headers: corsHeaders }
       )
     }
@@ -121,7 +136,8 @@ export async function POST(request: NextRequest) {
       // Log that push failed, so we can trigger WhatsApp fallback
       await logNotificationAttempt(
         organizationId,
-        customerPhone,
+        ticketId,
+        customerPhone || null,
         ticketNumber || '',
         notificationType,
         'push',
@@ -195,6 +211,7 @@ export async function POST(request: NextRequest) {
     // Log the notification attempt
     await logNotificationAttempt(
       organizationId,
+      ticketId,
       customerPhone,
       ticketNumber || '',
       notificationType,
@@ -242,7 +259,8 @@ export async function POST(request: NextRequest) {
  */
 async function logNotificationAttempt(
   organizationId: string,
-  customerPhone: string,
+  ticketId: string,
+  customerPhone: string | null, // Now optional
   ticketNumber: string,
   notificationType: string,
   deliveryMethod: string,
@@ -254,7 +272,8 @@ async function logNotificationAttempt(
       .from('notification_logs')
       .insert({
         organization_id: organizationId,
-        customer_phone: customerPhone,
+        ticket_id: ticketId, // Use ticket ID as primary identifier
+        customer_phone: customerPhone, // Optional
         ticket_number: ticketNumber,
         notification_type: notificationType,
         delivery_method: deliveryMethod,

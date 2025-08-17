@@ -218,13 +218,133 @@ class PushNotificationService {
   }
 
   /**
-   * Subscribe to push notifications
+   * Initialize push notifications without ticket ID (called before ticket creation)
+   * Returns the subscription object that can be associated with a ticket later
    */
-  async subscribe(organizationId: string, customerPhone: string): Promise<boolean> {
+  async initializePushNotifications(organizationId: string): Promise<PushSubscription | null> {
+    try {
+      logger.log('Initializing push notifications without ticket ID...')
+      logger.log('- Organization ID:', organizationId)
+      
+      if (!this.serviceWorkerRegistration) {
+        logger.error('Service worker not registered')
+        return null
+      }
+
+      logger.log('Service worker is registered, requesting permission...')
+      
+      // Check permission
+      const permission = await this.requestPermission()
+      logger.log('Permission result:', permission)
+      
+      if (permission !== 'granted') {
+        logger.log('Permission not granted, initialization failed')
+        return null
+      }
+
+      logger.log('Permission granted, creating subscription...')
+
+      // Check if already subscribed
+      let subscription = await this.serviceWorkerRegistration.pushManager.getSubscription()
+      logger.log('Existing subscription:', subscription ? 'Found' : 'None')
+
+      // Always create a fresh subscription to ensure it's valid
+      if (subscription) {
+        try {
+          logger.log('Unsubscribing from existing subscription...')
+          await subscription.unsubscribe()
+          logger.log('Successfully unsubscribed from old subscription')
+        } catch (error) {
+          logger.warn('Error unsubscribing old subscription:', error)
+        }
+      }
+
+      logger.log('Creating new subscription with VAPID key...')
+
+      // Create new subscription
+      subscription = await this.serviceWorkerRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey) as BufferSource
+      })
+
+      logger.log('New subscription created successfully!')
+      logger.log('Subscription endpoint:', subscription.endpoint)
+
+      // Store subscription temporarily in localStorage for later association
+      const subscriptionData = {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
+          auth: this.arrayBufferToBase64(subscription.getKey('auth')!)
+        }
+      }
+      
+      localStorage.setItem('pendingPushSubscription', JSON.stringify({
+        organizationId,
+        subscription: subscriptionData,
+        timestamp: Date.now()
+      }))
+
+      logger.log('Push subscription initialized and stored temporarily')
+      return subscription
+
+    } catch (error) {
+      logger.error('Error initializing push notifications:', error)
+      return null
+    }
+  }
+
+  /**
+   * Associate pending push subscription with a ticket ID
+   */
+  async associateSubscriptionWithTicket(ticketId: string): Promise<boolean> {
+    try {
+      const pendingData = localStorage.getItem('pendingPushSubscription')
+      if (!pendingData) {
+        logger.log('No pending subscription found')
+        return false
+      }
+
+      const { organizationId, subscription: subscriptionData, timestamp } = JSON.parse(pendingData)
+      
+      // Check if the pending subscription is too old (older than 10 minutes)
+      if (Date.now() - timestamp > 10 * 60 * 1000) {
+        logger.log('Pending subscription expired, removing')
+        localStorage.removeItem('pendingPushSubscription')
+        return false
+      }
+
+      logger.log('Associating pending subscription with ticket:', ticketId)
+
+      // Send subscription to server with ticket ID
+      const success = await this.sendSubscriptionToServerWithData(
+        organizationId,
+        ticketId,
+        subscriptionData
+      )
+
+      if (success) {
+        // Remove pending subscription from localStorage
+        localStorage.removeItem('pendingPushSubscription')
+        logger.log('Successfully associated subscription with ticket')
+      }
+
+      return success
+
+    } catch (error) {
+      logger.error('Error associating subscription with ticket:', error)
+      return false
+    }
+  }
+
+  /**
+   * Subscribe to push notifications using ticket ID
+   */
+  async subscribe(organizationId: string, ticketId: string): Promise<boolean> {
     try {
       logger.log('Starting push notification subscription process...')
       logger.log('- Organization ID:', organizationId)
-      logger.log('- Customer Phone:', customerPhone)
+      logger.log('- Ticket ID:', ticketId)
       
       if (!this.serviceWorkerRegistration) {
         logger.error('Service worker not registered')
@@ -277,7 +397,7 @@ class PushNotificationService {
       logger.log('Sending subscription to server...')
       const success = await this.sendSubscriptionToServer(
         organizationId,
-        customerPhone,
+        ticketId,
         subscription
       )
 
@@ -296,17 +416,17 @@ class PushNotificationService {
       }
       
       // Update preferences to indicate push failed
-      await this.updateNotificationPreferences(organizationId, customerPhone, true)
+      await this.updateNotificationPreferences(organizationId, ticketId, true)
       return false
     }
   }
 
   /**
-   * Send subscription data to server
+   * Send subscription data to server using ticket ID
    */
   private async sendSubscriptionToServer(
     organizationId: string,
-    customerPhone: string,
+    ticketId: string,
     subscription: PushSubscription,
     retryCount = 0
   ): Promise<boolean> {
@@ -321,6 +441,25 @@ class PushNotificationService {
         }
       }
 
+      return await this.sendSubscriptionToServerWithData(organizationId, ticketId, subscriptionData, retryCount)
+    } catch (error) {
+      logger.error('Error in sendSubscriptionToServer:', error)
+      return false
+    }
+  }
+
+  /**
+   * Send subscription data to server using prepared subscription data
+   */
+  private async sendSubscriptionToServerWithData(
+    organizationId: string,
+    ticketId: string,
+    subscriptionData: PushSubscriptionData,
+    retryCount = 0
+  ): Promise<boolean> {
+    try {
+      logger.log(`Sending subscription data to server (attempt ${retryCount + 1})...`)
+
       logger.log('Subscription data prepared:', {
         endpoint: subscriptionData.endpoint,
         hasP256dh: !!subscriptionData.keys.p256dh,
@@ -329,7 +468,7 @@ class PushNotificationService {
 
       const requestBody = {
         organizationId,
-        customerPhone,
+        ticketId, // Use ticket ID as primary identifier
         subscription: subscriptionData,
         userAgent: navigator.userAgent
       }
@@ -363,14 +502,14 @@ class PushNotificationService {
       return success
 
     } catch (error) {
-      logger.error(`Error sending subscription to server (attempt ${retryCount + 1}):`, error)
+      logger.error(`Error sending subscription data to server (attempt ${retryCount + 1}):`, error)
       
       // Retry logic: retry up to 2 times with increasing delay
       if (retryCount < 2) {
         const delay = (retryCount + 1) * 1000 // 1s, 2s delays
         logger.log(`Retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
-        return this.sendSubscriptionToServer(organizationId, customerPhone, subscription, retryCount + 1)
+        return this.sendSubscriptionToServerWithData(organizationId, ticketId, subscriptionData, retryCount + 1)
       }
       
       logger.error('All retry attempts failed')
@@ -379,11 +518,11 @@ class PushNotificationService {
   }
 
   /**
-   * Update notification preferences (when push is denied)
+   * Update notification preferences using ticket ID
    */
   private async updateNotificationPreferences(
     organizationId: string,
-    customerPhone: string,
+    ticketId: string,
     pushDenied: boolean
   ): Promise<void> {
     try {
@@ -394,7 +533,7 @@ class PushNotificationService {
         },
         body: JSON.stringify({
           organizationId,
-          customerPhone,
+          ticketId,
           pushDenied
         })
       })
@@ -409,15 +548,15 @@ class PushNotificationService {
   }
 
   /**
-   * Get current notification preferences
+   * Get current notification preferences by ticket ID
    */
   async getNotificationPreferences(
     organizationId: string,
-    customerPhone: string
+    ticketId: string
   ): Promise<any> {
     try {
       const response = await fetch(
-        `${this.adminUrl}/api/notifications/subscribe?organizationId=${organizationId}&customerPhone=${customerPhone}`
+        `${this.adminUrl}/api/notifications/subscribe?organizationId=${organizationId}&ticketId=${ticketId}`
       )
 
       if (response.ok) {

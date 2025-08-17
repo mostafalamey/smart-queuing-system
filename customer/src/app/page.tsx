@@ -70,6 +70,7 @@ function CustomerAppContent() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null)
   const [ticketNumber, setTicketNumber] = useState<string>('')
+  const [ticketId, setTicketId] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false)
   const [pushNotificationsSupported, setPushNotificationsSupported] = useState(false)
@@ -133,14 +134,14 @@ function CustomerAppContent() {
   // Polling for ticket status changes to show notifications
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (ticketNumber && pushNotificationsEnabled) {
+    if (ticketNumber && ticketId && pushNotificationsEnabled) {
       const interval = setInterval(async () => {
         await checkTicketStatusForNotifications()
       }, 30000) // Check every 30 seconds
 
       return () => clearInterval(interval)
     }
-  }, [ticketNumber, pushNotificationsEnabled])
+  }, [ticketNumber, ticketId, pushNotificationsEnabled])
 
   // Initialize browser detection only (no permission request)
   const initializeBrowserDetection = async () => {
@@ -187,15 +188,14 @@ function CustomerAppContent() {
 
   // Check ticket status for in-app notifications when status changes
   const checkTicketStatusForNotifications = useCallback(async () => {
-    if (!ticketNumber || !selectedService) return
+    if (!ticketNumber || !selectedService || !ticketId) return
 
     try {
-      // Get current ticket status
+      // Get current ticket status using ticket ID instead of phone
       const { data: ticket, error } = await supabase
         .from('tickets')
         .select('*')
-        .eq('ticket_number', ticketNumber)
-        .eq('customer_phone', phoneNumber)
+        .eq('id', ticketId)
         .single()
 
       if (error || !ticket) return
@@ -377,7 +377,7 @@ function CustomerAppContent() {
   }, [selectedService, selectedDepartment])
 
   const joinQueue = async () => {
-    if (!phoneNumber || !selectedService) {
+    if (!selectedService) {
       logger.log('joinQueue validation failed:', { phoneNumber, selectedService })
       return
     }
@@ -443,7 +443,7 @@ function CustomerAppContent() {
           service_id: selectedService,
           department_id: service.department_id,
           ticket_number: ticketNumberString,
-          customer_phone: phoneNumber,
+          customer_phone: phoneNumber || null, // Make phone optional
           status: 'waiting'
         })
         .select()
@@ -456,7 +456,20 @@ function CustomerAppContent() {
         throw ticketError
       }
 
+      // Store ticket information
       setTicketNumber(ticketNumberString)
+      setTicketId(newTicket.id)
+      
+      // Associate pending push subscription with the new ticket ID
+      if (pushNotificationsEnabled) {
+        try {
+          await pushNotificationService.associateSubscriptionWithTicket(newTicket.id)
+          logger.log('Push subscription associated with ticket:', newTicket.id)
+        } catch (error) {
+          logger.error('Error associating push subscription with ticket:', error)
+        }
+      }
+      
       setStep(5) // Move to confirmation step
       
       // Show in-app notification for ticket creation
@@ -470,6 +483,11 @@ function CustomerAppContent() {
       // Refresh queue status
       fetchQueueStatus()
 
+      // Show push notification prompt if supported and not enabled
+      if (pushNotificationsSupported && !pushNotificationsEnabled) {
+        setShowPushPrompt(true)
+      }
+
       // Send notifications
       const selectedServiceData = services.find(s => s.id === selectedService)
       const department = departments.find(d => d.id === selectedServiceData?.department_id)
@@ -477,12 +495,13 @@ function CustomerAppContent() {
       if (selectedServiceData && department && organization) {
         let pushSent = false
         
-        // Try push notification if enabled
+        // Try push notification if enabled (using ticket ID)
         if (pushNotificationsEnabled && orgId) {
           try {
             pushSent = await queueNotificationHelper.sendTicketCreatedNotification({
               organizationId: orgId,
-              customerPhone: phoneNumber,
+              ticketId: newTicket.id, // Use ticket ID instead of phone
+              customerPhone: phoneNumber || null, // Make phone optional
               ticketNumber: ticketNumberString,
               departmentName: department.name,
               organizationName: organization.name,
@@ -496,8 +515,8 @@ function CustomerAppContent() {
           }
         }
         
-        // Send WhatsApp notification (either as fallback or primary)
-        if (!pushSent || !pushNotificationsEnabled) {
+        // Send WhatsApp notification only if phone number is provided and (push failed or not enabled)
+        if (phoneNumber && (!pushSent || !pushNotificationsEnabled)) {
           await notificationService.notifyTicketCreated(
             phoneNumber,
             ticketNumberString,
@@ -515,15 +534,9 @@ function CustomerAppContent() {
     }
   }
 
-  // Enable push notifications
+  // Enable push notifications before ticket creation
   const enablePushNotifications = async () => {
     setPushSubscriptionLoading(true)
-
-    if (!phoneNumber) {
-      logger.error('Phone number is required for push notifications')
-      setPushSubscriptionLoading(false)
-      return
-    }
 
     if (!orgId) {
       logger.error('Organization ID is required for push notifications')
@@ -532,7 +545,8 @@ function CustomerAppContent() {
     }
 
     try {
-      logger.log('Attempting to enable push notifications for:', {
+      logger.log('Attempting to enable push notifications (pre-ticket):', {
+        organizationId: orgId,
         platform: browserInfo?.platform,
         browser: browserInfo?.browser,
         supportLevel: browserInfo?.supportLevel
@@ -543,13 +557,13 @@ function CustomerAppContent() {
         await new Promise(resolve => setTimeout(resolve, 100))
       }
 
-      // Ensure this is triggered by user interaction
-      const success = await pushNotificationService.subscribe(orgId, phoneNumber)
+      // Initialize push notifications without ticket ID (will be associated later)
+      const subscription = await pushNotificationService.initializePushNotifications(orgId)
 
-      if (success) {
+      if (subscription) {
         setPushNotificationsEnabled(true)
         setShowPushPrompt(false)
-        logger.log('Push notifications enabled successfully')
+        logger.log('Push notifications initialized successfully (will associate with ticket when created)')
       } else {
         logger.log('Push notification permission denied or failed')
         // Still hide the prompt even if denied, so user can proceed
@@ -568,7 +582,7 @@ function CustomerAppContent() {
   }
 
   const handleContinue = async () => {
-    if (step === 1 && phoneNumber) {
+    if (step === 1) {
       // Initialize push notifications only when user tries to continue after entering phone
       if (pushNotificationsSupported && !pushNotificationsEnabled) {
         // Initialize the push notification service without requesting permission yet
@@ -688,29 +702,31 @@ function CustomerAppContent() {
 
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-gray-900">
-                  Enter Your Phone Number
+                  Contact Information
                 </h4>
                 <p className="text-gray-600">
-                  We'll send your queue updates via {pushNotificationsSupported ? 'notifications and WhatsApp' : 'WhatsApp'}
+                  Phone number is optional. We'll use push notifications for queue updates, with WhatsApp/SMS as fallback if provided.
                 </p>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
+                    Phone Number (Optional)
                   </label>
                   <input
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     className="input-field text-gray-900"
-                    placeholder="+1 234 567 8900"
+                    placeholder="+1 234 567 8900 (optional)"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Leave empty to use push notifications only
+                  </p>
                 </div>
 
                 <button
                   onClick={handleContinue}
-                  disabled={!phoneNumber}
-                  className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50"
+                  className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200"
                 >
                   Continue
                 </button>

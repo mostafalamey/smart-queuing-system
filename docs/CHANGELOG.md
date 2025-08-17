@@ -1,5 +1,104 @@
 # Smart Queue System - Changelog
 
+## Version 2.3.0 - Ticket-Based Push Notifications (August 17, 2025)
+
+### 🔔 Major Push Notification System Enhancement
+
+#### Privacy-First Notification Architecture
+
+- **Ticket-ID Based Identification** - Completely migrated from phone-number-based to ticket-ID-based push notifications
+- **Optional Phone Numbers** - Customers can now create tickets and receive notifications without providing phone numbers
+- **1:1 Ticket Relationship** - Each ticket has its own push subscription for better data integrity
+- **Future WhatsApp/SMS Ready** - Phone numbers collected optionally for future multi-channel integration
+
+#### Two-Step Notification Flow
+
+- **Pre-Ticket Initialization** - Push notifications can be enabled before ticket creation
+- **Temporary Storage** - Smart localStorage system stores pending subscriptions
+- **Automatic Association** - Subscriptions automatically linked to tickets after creation
+- **Graceful Cleanup** - Expired pending subscriptions cleaned up automatically
+
+#### Database Schema Overhaul
+
+```sql
+-- New ticket-based tables
+push_subscriptions: ticket_id (FK) → tickets(id)
+notification_preferences: ticket_id (FK) → tickets(id), customer_phone (OPTIONAL)
+notification_logs: ticket_id (FK) → tickets(id), multi-channel delivery tracking
+```
+
+#### Enhanced API System
+
+- **Updated Push API** - `POST /api/notifications/push` now uses `ticketId` + optional `customerPhone`
+- **Subscription Management** - All endpoints updated to handle ticket-based lookups
+- **Migration Detection** - Automatic fallback during database migration process
+- **Better Error Handling** - Comprehensive error messages and retry logic
+
+#### Customer App Improvements
+
+- **No More Blocking** - Phone number field truly optional, customers can proceed without it
+- **Smooth UX** - Push notification setup doesn't require ticket ID upfront
+- **Intelligent Flow** - System handles notification setup before ticket creation seamlessly
+- **Enhanced Logging** - Detailed logging for troubleshooting notification issues
+
+#### Admin Dashboard Updates
+
+- **Queue Operations** - "Call Next" and "Almost Your Turn" notifications use ticket IDs
+- **Notification APIs** - All admin endpoints updated for ticket-based identification
+- **Backward Compatibility** - Existing functionality maintained during transition
+
+### 🛠 Technical Achievements
+
+#### Database Migration System
+
+- **Two-Phase Migration** - Safe migration process with backup and rollback capabilities
+- **Helper Functions** - `cleanup_expired_push_subscriptions()` and `get_push_subscriptions_by_ticket()`
+- **RLS Policies** - Updated Row Level Security for new table structures
+- **Index Optimization** - Performance indexes for ticket-based queries
+
+#### Service Architecture
+
+- **PushNotificationService** - New methods: `initializePushNotifications()`, `associateSubscriptionWithTicket()`
+- **QueueNotificationHelper** - Updated to use ticket IDs as primary identifier
+- **Error Recovery** - Graceful handling of missing subscriptions and network issues
+
+### 🏆 Benefits Delivered
+
+#### Privacy & User Experience
+
+- **Zero Phone Requirement** - Customers can use system without sharing personal information
+- **Better Data Relationships** - 1:1 ticket-to-subscription instead of phone-based lookup
+- **Cleaner User Flow** - No more "phone number required" blocking ticket creation
+
+#### Technical Improvements
+
+- **Better Architecture** - Ticket-based identification is more logical and maintainable
+- **Future-Proof Design** - Ready for WhatsApp/SMS integration when phone numbers provided
+- **Enhanced Monitoring** - Comprehensive notification delivery tracking
+- **Robust Error Handling** - System works even during migration process
+
+#### Data Integrity
+
+- **Unique Subscriptions** - Each ticket guaranteed its own push subscription
+- **Automatic Cleanup** - Expired subscriptions for completed/cancelled tickets
+- **Foreign Key Constraints** - Proper database relationships ensure data consistency
+
+### 🧪 Testing & Validation
+
+- **Phone Optional Flow** - ✅ Customers can create tickets without phone numbers
+- **Phone Provided Flow** - ✅ Phone numbers stored for future WhatsApp/SMS integration  
+- **Two-Step Process** - ✅ Notifications work before and after ticket creation
+- **Migration Process** - ✅ Database migration tested and validated
+- **Error Scenarios** - ✅ Graceful handling of edge cases and failures
+
+### 📁 Files Modified
+
+- Database: `sql/database-push-notifications-ticket-based.sql`, `sql/database-push-notifications-final-swap.sql`
+- Customer: `customer/src/app/page.tsx`, `customer/src/lib/pushNotifications.ts`, `customer/src/lib/queueNotifications.ts`
+- Admin: `admin/src/app/api/notifications/*`, `admin/src/app/dashboard/features/queue-controls/useQueueOperations.ts`
+
+---
+
 ## Version 2.2.0 - SaaS Subscription Plan System (August 16, 2025)
 
 ### 🏢 Multi-Tenant Subscription Architecture

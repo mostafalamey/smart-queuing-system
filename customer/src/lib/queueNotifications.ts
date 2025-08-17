@@ -6,7 +6,8 @@ import { logger } from './logger'
 
 interface NotificationData {
   organizationId: string
-  customerPhone: string
+  ticketId: string // Primary identifier - required
+  customerPhone?: string | null // Optional for WhatsApp/SMS fallback
   ticketNumber: string
   departmentName: string
   organizationName: string
@@ -188,7 +189,8 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
         },
         body: JSON.stringify({
           organizationId: data.organizationId,
-          customerPhone: data.customerPhone,
+          ticketId: data.ticketId, // Use ticket ID as primary identifier
+          customerPhone: data.customerPhone, // Optional for WhatsApp/SMS fallback
           payload,
           notificationType,
           ticketNumber: data.ticketNumber
@@ -197,6 +199,19 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
 
       if (!response.ok) {
         const errorText = await response.text()
+        
+        // Check if this is a migration required error
+        try {
+          const errorData = JSON.parse(errorText)
+          if (errorData.migrationRequired) {
+            logger.error('Database migration required:', errorData.details)
+            // Don't return false immediately - this is expected until migration runs
+            return false
+          }
+        } catch (e) {
+          // If we can't parse the error, just log it normally
+        }
+        
         logger.error(`Push notification API error (${response.status}):`, errorText)
         return false
       }
@@ -214,10 +229,10 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
   /**
    * Check if customer has active push subscriptions
    */
-  async hasActivePushSubscription(organizationId: string, customerPhone: string): Promise<boolean> {
+  async hasActivePushSubscription(organizationId: string, ticketId: string): Promise<boolean> {
     try {
       const response = await fetch(
-        `${this.adminUrl}/api/notifications/subscribe?organizationId=${organizationId}&customerPhone=${customerPhone}`
+        `${this.adminUrl}/api/notifications/subscribe?organizationId=${organizationId}&ticketId=${ticketId}`
       )
 
       if (response.ok) {
@@ -234,12 +249,12 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
   }
 
   /**
-   * Get notification preferences for a customer
+   * Get notification preferences for a customer by ticket ID
    */
-  async getNotificationPreferences(organizationId: string, customerPhone: string): Promise<any> {
+  async getNotificationPreferences(organizationId: string, ticketId: string): Promise<any> {
     try {
       const response = await fetch(
-        `${this.adminUrl}/api/notifications/subscribe?organizationId=${organizationId}&customerPhone=${customerPhone}`
+        `${this.adminUrl}/api/notifications/subscribe?organizationId=${organizationId}&ticketId=${ticketId}`
       )
 
       if (response.ok) {

@@ -74,7 +74,7 @@ export const useQueueOperations = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               organizationId: userProfile.organization_id,
-              customerPhone: nextTicket.customer_phone,
+              ticketId: nextTicket.id,
               payload: {
                 title: `🎯 Your Turn! - ${queueData.department.branches.name}`,
                 body: `Ticket ${nextTicket.ticket_number} - Please proceed to ${queueData.department.name}`,
@@ -111,7 +111,7 @@ export const useQueueOperations = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   organizationId: userProfile.organization_id,
-                  customerPhone: upcomingTicket.customer_phone,
+                  ticketId: upcomingTicket.id,
                   payload: {
                     title: `🔔 Almost Your Turn - ${queueData.department.branches.name}`,
                     body: `Ticket ${upcomingTicket.ticket_number} - ${message}\nCurrently serving: ${nextTicket.ticket_number}`,
@@ -347,12 +347,14 @@ export const useQueueOperations = () => {
     selectedDepartment: string,
     includeCleanup: boolean,
     fetchQueueData: () => void,
+    setLoading: (loading: boolean) => void,
     setConnectionError: (error: boolean) => void,
     showWarning: (title: string, message: string, action?: any) => void,
     showError: (title: string, message: string, action?: any) => void
   ) => {
     if (!selectedDepartment) return
 
+    setLoading(true)
     try {
       // Reset all tickets to cancelled
       await supabase
@@ -445,12 +447,15 @@ export const useQueueOperations = () => {
             selectedDepartment,
             includeCleanup,
             fetchQueueData,
+            setLoading,
             setConnectionError,
             showWarning,
             showError
           )
         }
       )
+    } finally {
+      setLoading(false)
     }
   }, [])
 

@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [showResetQueueModal, setShowResetQueueModal] = useState(false)
+  const [queueOperationLoading, setQueueOperationLoading] = useState(false)
 
   // Use custom hooks for data management
   const dashboardData = useDashboardData()
@@ -67,7 +68,7 @@ export default function DashboardPage() {
       dashboardData.userProfile,
       dashboardData.organization,
       dashboardData.fetchQueueData,
-      (loading) => {/* setLoading handled in dashboardData */},
+      setQueueOperationLoading,
       (error) => {/* setConnectionError handled in dashboardData */},
       dashboardData.showSuccess,
       dashboardData.showInfo,
@@ -80,7 +81,7 @@ export default function DashboardPage() {
       dashboardData.selectedDepartment,
       dashboardData.queueData,
       dashboardData.fetchQueueData,
-      (loading) => {/* setLoading handled in dashboardData */},
+      setQueueOperationLoading,
       (error) => {/* setConnectionError handled in dashboardData */},
       dashboardData.showWarning,
       dashboardData.showError
@@ -92,7 +93,7 @@ export default function DashboardPage() {
       dashboardData.selectedDepartment,
       dashboardData.queueData,
       dashboardData.fetchQueueData,
-      (loading) => {/* setLoading handled in dashboardData */},
+      setQueueOperationLoading,
       (error) => {/* setConnectionError handled in dashboardData */},
       dashboardData.showSuccess,
       dashboardData.showError
@@ -104,6 +105,7 @@ export default function DashboardPage() {
       dashboardData.selectedDepartment,
       includeCleanup,
       dashboardData.fetchQueueData,
+      setQueueOperationLoading,
       (error) => {/* setConnectionError handled in dashboardData */},
       dashboardData.showWarning,
       dashboardData.showError
@@ -114,7 +116,7 @@ export default function DashboardPage() {
     queueOperations.performCleanup(
       dashboardData.selectedDepartment,
       dashboardData.fetchQueueData,
-      (loading) => {/* setLoading handled in dashboardData */},
+      setQueueOperationLoading,
       dashboardData.showInfo,
       dashboardData.showSuccess,
       dashboardData.showError
@@ -157,7 +159,7 @@ export default function DashboardPage() {
                   departments={dashboardData.departments}
                   services={dashboardData.services}
                   queueData={dashboardData.queueData}
-                  loading={dashboardData.loading}
+                  loading={queueOperationLoading}
                   onSkipTicket={handleSkipTicket}
                   onCompleteTicket={handleCompleteTicket}
                   showWarning={dashboardData.showWarning}
@@ -169,7 +171,7 @@ export default function DashboardPage() {
               <div className="lg:col-span-3">
                 <QueueStatus
                   queueData={dashboardData.queueData}
-                  loading={dashboardData.loading}
+                  loading={queueOperationLoading}
                   onCallNext={handleCallNext}
                   onShowResetModal={() => setShowResetQueueModal(true)}
                 />
