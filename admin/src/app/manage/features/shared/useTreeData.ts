@@ -225,6 +225,20 @@ export const useTreeData = () => {
     })
   }, [saveNodePositions])
 
+  const updateMultipleNodePositions = useCallback((positionUpdates: Record<string, Position>) => {
+    setNodes(prevNodes => {
+      const updatedNodes = prevNodes.map(node => {
+        if (positionUpdates[node.id]) {
+          return { ...node, position: positionUpdates[node.id] }
+        }
+        return node
+      })
+      // Save positions after batch update
+      saveNodePositions(updatedNodes)
+      return updatedNodes
+    })
+  }, [saveNodePositions])
+
   const saveCurrentPositions = useCallback(() => {
     saveNodePositions(nodes)
   }, [nodes, saveNodePositions])
@@ -258,6 +272,20 @@ export const useTreeData = () => {
     )
   }, [])
 
+  const autoRearrangeNodes = useCallback((newPositions: Record<string, Position>) => {
+    setNodes(prevNodes => {
+      const updatedNodes = prevNodes.map(node => {
+        if (newPositions[node.id]) {
+          return { ...node, position: newPositions[node.id] }
+        }
+        return node
+      })
+      // Save positions after rearrangement
+      saveNodePositions(updatedNodes)
+      return updatedNodes
+    })
+  }, [saveNodePositions])
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -269,7 +297,9 @@ export const useTreeData = () => {
     error,
     fetchData,
     updateNodePosition,
+    updateMultipleNodePositions,
     saveCurrentPositions,
+    autoRearrangeNodes,
     addNode,
     updateNode,
     removeNode,

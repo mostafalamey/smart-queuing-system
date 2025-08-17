@@ -93,6 +93,12 @@ export const useTreeInteraction = () => {
     setPan({ x: 0, y: 0 })
   }, [])
 
+  const handleZoomToFitAll = useCallback((zoomLevel: number, panPosition: Position) => {
+    setZoom(zoomLevel)
+    setPan(panPosition)
+    saveViewportState(zoomLevel, panPosition)
+  }, [saveViewportState])
+
   const handleWheel = useCallback((e: WheelEvent, canvasRect: DOMRect) => {
     e.preventDefault()
     
@@ -304,6 +310,7 @@ export const useTreeInteraction = () => {
     handleZoomIn,
     handleZoomOut,
     handleResetView,
+    handleZoomToFitAll,
     handleWheel,
     handleMouseDown,
     handleMouseMove,

@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger'
 import { useAuth } from '@/lib/AuthContext'
 import { useAppToast } from '@/hooks/useAppToast'
 import { Node, NodeFormData } from './features/shared/types'
+import { calculateAutoLayout, calculateChildrenPositions, calculateZoomToFitAll } from './features/shared/utils'
 import { useTreeData } from './features/shared/useTreeData'
 import { useTreeInteraction } from './features/shared/useTreeInteraction'
 import { useNodeOperations } from './features/shared/useNodeOperations'
@@ -24,6 +25,7 @@ export default function ManageTreePage() {
   const [editingNode, setEditingNode] = useState<Node | null>(null)
   const [creatingNodeType, setCreatingNodeType] = useState<'branch' | 'department' | 'service' | null>(null)
   const [parentNodeForCreation, setParentNodeForCreation] = useState<Node | null>(null)
+  const [moveChildrenWithParent, setMoveChildrenWithParent] = useState(false)
   
   // Custom hooks
   const {
@@ -33,7 +35,9 @@ export default function ManageTreePage() {
     error,
     fetchData,
     updateNodePosition,
-    saveCurrentPositions
+    updateMultipleNodePositions,
+    saveCurrentPositions,
+    autoRearrangeNodes
   } = useTreeData()
   
   const {
@@ -45,6 +49,7 @@ export default function ManageTreePage() {
     handleZoomIn,
     handleZoomOut,
     handleResetView,
+    handleZoomToFitAll,
     handleWheel,
     handleMouseDown,
     handleMouseMove,
@@ -86,7 +91,30 @@ export default function ManageTreePage() {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       const result = handleMouseMove(e)
       if (result && result.nodeId && result.position) {
-        updateNodePosition(result.nodeId, result.position)
+        if (moveChildrenWithParent && draggedNode) {
+          // Find the old position of the parent node
+          const parentNode = nodes.find(n => n.id === result.nodeId)
+          if (parentNode) {
+            // Calculate child positions
+            const childPositions = calculateChildrenPositions(
+              result.nodeId,
+              parentNode.position,
+              result.position,
+              nodes
+            )
+            
+            // Update parent position
+            const allPositions = {
+              [result.nodeId]: result.position,
+              ...childPositions
+            }
+            
+            updateMultipleNodePositions(allPositions)
+          }
+        } else {
+          // Just update the single node
+          updateNodePosition(result.nodeId, result.position)
+        }
       }
     }
 
@@ -104,7 +132,7 @@ export default function ManageTreePage() {
       document.removeEventListener('mousemove', handleGlobalMouseMove)
       document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
-  }, [isDragging, draggedNode, handleMouseMove, handleMouseUp, updateNodePosition])
+  }, [isDragging, draggedNode, handleMouseMove, handleMouseUp, updateNodePosition, updateMultipleNodePositions, moveChildrenWithParent, nodes])
 
   // Modal and UI handlers
   const openCreateModal = useCallback((type: 'branch' | 'department' | 'service', parent?: Node) => {
@@ -180,9 +208,32 @@ export default function ManageTreePage() {
     
     // Handle node position updates from touch dragging
     if (result && result.nodeId && result.position) {
-      updateNodePosition(result.nodeId, result.position)
+      if (moveChildrenWithParent && draggedNode) {
+        // Find the old position of the parent node
+        const parentNode = nodes.find(n => n.id === result.nodeId)
+        if (parentNode) {
+          // Calculate child positions
+          const childPositions = calculateChildrenPositions(
+            result.nodeId,
+            parentNode.position,
+            result.position,
+            nodes
+          )
+          
+          // Update parent position
+          const allPositions = {
+            [result.nodeId]: result.position,
+            ...childPositions
+          }
+          
+          updateMultipleNodePositions(allPositions)
+        }
+      } else {
+        // Just update the single node
+        updateNodePosition(result.nodeId, result.position)
+      }
     }
-  }, [handleTouchMove, updateNodePosition])
+  }, [handleTouchMove, updateNodePosition, updateMultipleNodePositions, moveChildrenWithParent, draggedNode, nodes])
 
   const handleCanvasTouchEnd = useCallback((e: React.TouchEvent) => {
     handleTouchEnd(e)
@@ -192,6 +243,41 @@ export default function ManageTreePage() {
     saveCurrentPositions()
     showSuccess('Layout saved! Your node positions and viewport settings will be remembered.')
   }, [saveCurrentPositions, showSuccess])
+
+  const handleAutoRearrange = useCallback(() => {
+    if (nodes.length === 0) {
+      return
+    }
+    
+    const newPositions = calculateAutoLayout(nodes)
+    autoRearrangeNodes(newPositions)
+    showSuccess('Nodes automatically rearranged in hierarchical layout!')
+  }, [nodes, autoRearrangeNodes, showSuccess])
+
+  const toggleMoveChildrenWithParent = useCallback(() => {
+    setMoveChildrenWithParent(prev => !prev)
+  }, [])
+
+  const handleZoomExtents = useCallback(() => {
+    if (nodes.length === 0) {
+      return
+    }
+
+    // Get canvas element dimensions
+    const canvasElement = document.querySelector('.tree-canvas') as HTMLElement
+    let viewportWidth = window.innerWidth
+    let viewportHeight = window.innerHeight
+    
+    if (canvasElement) {
+      const rect = canvasElement.getBoundingClientRect()
+      viewportWidth = rect.width
+      viewportHeight = rect.height
+    }
+    
+    const { zoom: newZoom, pan: newPan } = calculateZoomToFitAll(nodes, viewportWidth, viewportHeight)
+    handleZoomToFitAll(newZoom, newPan)
+    showSuccess('Zoomed to fit all nodes!')
+  }, [nodes, handleZoomToFitAll, showSuccess])
 
   // Loading state
   if (loading) {
@@ -230,8 +316,12 @@ export default function ManageTreePage() {
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetView={handleResetView}
+        onZoomExtents={handleZoomExtents}
         onCreateBranch={() => openCreateModal('branch')}
         onSaveLayout={handleSaveLayout}
+        onAutoRearrange={handleAutoRearrange}
+        moveChildrenWithParent={moveChildrenWithParent}
+        onToggleMoveChildren={toggleMoveChildrenWithParent}
       />
 
       {/* Node Panel */}

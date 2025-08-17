@@ -1,5 +1,54 @@
 # Smart Queue System - Changelog
 
+## Version 2.4.0 - Advanced Tree Management Features (August 18, 2025)
+
+### 🌳 Enhanced Tree Management Interface
+
+#### Auto Layout & Organization System
+
+- **Auto Arrange Button** - One-click hierarchical layout optimization with bottom-up width calculations
+- **Smart Positioning Algorithm** - Automatically positions branches, departments, and services in proper hierarchy
+- **Optimal Spacing** - Calculates ideal spacing based on actual node dimensions and content
+- **Purple Layout Grid Icon** - Professional UI with clear visual feedback and success notifications
+
+#### Parent-Child Movement System
+
+- **Move Children Toggle** - Orange/gray toggle button to enable/disable children movement with parents
+- **Recursive Positioning** - Automatically moves all descendants while maintaining relative positions
+- **GitBranch Icon** - Intuitive branching icon that changes color based on active state
+- **Hierarchical Integrity** - Preserves organizational structure during drag operations
+
+#### Intelligent Viewport Management
+
+- **Zoom to Fit All** - Smart algorithm to fit all nodes in viewport with optimal zoom and centering
+- **Canvas-Aware Calculations** - Accounts for actual canvas dimensions and UI element offsets (320px sidebar)
+- **Maximize Icon Button** - Professional maximize icon for instant full organizational overview
+- **Transform Origin Fixes** - Added `transform-origin: 0 0` to CSS for consistent positioning
+
+#### Professional Toolbar Redesign
+
+- **Horizontal Layout** - Streamlined top-right toolbar with space-efficient horizontal arrangement
+- **Icon-Only Buttons** - Clean, professional design with Lucide React icons
+- **Rich Tooltips** - Descriptive tooltips explaining both action and functionality for each button
+- **Color-Coded Functions** - Green for save, purple for arrange, orange for toggle operations
+- **Enhanced Accessibility** - Comprehensive aria-labels and keyboard navigation support
+
+### 🛠 Technical Implementation
+
+- **Simplified Math** - Replaced complex offset calculations with clean, reliable transform equations
+- **Modular Functions** - Clean separation between layout calculation and UI interaction
+- **Performance Optimized** - Efficient bounds calculation and viewport detection
+- **CSS Transform Fixes** - Proper transform-origin configuration for consistent behavior
+
+### 🎨 User Experience Improvements
+
+- **One-Click Organization** - Auto arrange for instant hierarchy optimization
+- **Intelligent Movement** - Toggle between individual and group node movement
+- **Complete Overview** - Zoom to fit all for full organizational visibility
+- **Professional Design** - Consistent glassmorphism theme with improved icon usage
+
+---
+
 ## Version 2.3.0 - Ticket-Based Push Notifications (August 17, 2025)
 
 ### 🔔 Major Push Notification System Enhancement
