@@ -8,6 +8,7 @@ import { PlanLimitsDashboard } from '@/components/PlanLimitsDashboard'
 import { QRCodeData } from './features/shared/types'
 import { useOrganizationData } from './features/shared/useOrganizationData'
 import { useOrganizationOperations } from './features/shared/useOrganizationOperations'
+import { useMemberOperations } from './features/shared/useMemberOperations'
 import { OrganizationHeader } from './features/organization-header/OrganizationHeader'
 import { OrganizationDetails } from './features/organization-details/OrganizationDetails'
 import { QRManagement } from './features/qr-management/QRManagement'
@@ -23,6 +24,12 @@ export default function OrganizationPage() {
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'details' | 'qr' | 'members' | 'plan'>('details')
+  
+  // Member invitation state
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'employee'>('employee')
+  const [inviting, setInviting] = useState(false)
   
   // Data hooks
   const {
@@ -66,6 +73,17 @@ export default function OrganizationPage() {
     removeLogo
   } = useOrganizationOperations()
 
+  // Member operations hook
+  const {
+    updateMemberRole,
+    removeMember,
+    inviteMember,
+    resendInvitation,
+    bulkInviteMembers,
+    isUpdatingRole,
+    isRemovingMember
+  } = useMemberOperations()
+
   // Handlers
   const handleUpdateOrganization = async (e: React.FormEvent) => {
     await updateOrganization(
@@ -106,6 +124,64 @@ export default function OrganizationPage() {
       setUploading,
       setOrgForm,
       fetchOrganization,
+      showSuccess,
+      showError
+    )
+  }
+
+  // Member management handlers
+  const handleInviteMember = () => {
+    setShowInviteModal(true)
+  }
+
+  const handleSubmitInvite = async () => {
+    if (!inviteEmail.trim() || !userProfile?.organization_id || !organization?.name) {
+      showError('Invalid Data', 'Missing required information for invitation')
+      return
+    }
+
+    await inviteMember(
+      inviteEmail.trim(),
+      inviteRole,
+      userProfile.organization_id,
+      organization.name,
+      setInviting,
+      showSuccess,
+      showError,
+      () => {
+        setShowInviteModal(false)
+        setInviteEmail('')
+        setInviteRole('employee')
+        // Don't refresh the page immediately - let user see the success message
+        // The members list will be updated on next page load
+      }
+    )
+  }
+
+  const handleUpdateMemberRole = async (memberId: string, newRole: string) => {
+    // Validate role
+    if (!['admin', 'manager', 'employee'].includes(newRole)) {
+      showError('Invalid Role', 'The selected role is not valid')
+      return
+    }
+
+    await updateMemberRole(
+      memberId,
+      newRole as 'admin' | 'manager' | 'employee',
+      setMembers,
+      showSuccess,
+      showError
+    )
+  }
+
+  const handleRemoveMember = async (memberId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (!member) return
+
+    await removeMember(
+      memberId,
+      member.name || member.email,
+      setMembers,
       showSuccess,
       showError
     )
@@ -259,20 +335,25 @@ export default function OrganizationPage() {
             <MemberManagement 
               members={members}
               branches={branches}
-              onUpdateMemberRole={() => {}}
-              onUpdateMemberBranch={() => {}}
-              onRemoveMember={() => {}}
-              onInviteMember={() => {}}
-              showInviteModal={false}
-              setShowInviteModal={() => {}}
-              inviteEmail=""
-              setInviteEmail={() => {}}
-              inviteRole="viewer"
-              setInviteRole={() => {}}
-              testMode={false}
-              setTestMode={() => {}}
-              inviting={false}
-              onSubmitInvite={() => {}}
+              onUpdateMemberRole={handleUpdateMemberRole}
+              onUpdateMemberBranch={(memberId: string, branchId: string | null) => {
+                // TODO: Implement branch assignment
+                showInfo('Coming Soon', 'Branch assignment feature will be available in the next update')
+              }}
+              onRemoveMember={handleRemoveMember}
+              onInviteMember={handleInviteMember}
+              showInviteModal={showInviteModal}
+              setShowInviteModal={setShowInviteModal}
+              inviteEmail={inviteEmail}
+              setInviteEmail={setInviteEmail}
+              inviteRole={inviteRole}
+              setInviteRole={(role: string) => {
+                if (['admin', 'manager', 'employee'].includes(role)) {
+                  setInviteRole(role as 'admin' | 'manager' | 'employee')
+                }
+              }}
+              inviting={inviting}
+              onSubmitInvite={handleSubmitInvite}
             />
           )}
         </div>

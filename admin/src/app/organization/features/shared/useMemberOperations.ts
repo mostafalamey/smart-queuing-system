@@ -18,7 +18,7 @@ export const useMemberOperations = () => {
     
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from('members')
         .update({ role: newRole })
         .eq('id', memberId)
 
@@ -58,7 +58,7 @@ export const useMemberOperations = () => {
     try {
       // First, set organization_id to null
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from('members')
         .update({ 
           organization_id: null,
           role: null
@@ -100,32 +100,29 @@ export const useMemberOperations = () => {
     setIsLoading(true)
     
     try {
-      // First check if user already exists
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id, organization_id')
-        .eq('email', email)
-        .single()
+      // Skip member existence check for now (handled by API)
+      // The API will handle checking for existing members using service role
+      logger.info('Sending invitation without client-side member check')
 
-      if (existingProfile?.organization_id) {
-        showError(
-          'User Already in Organization',
-          'This user is already a member of an organization.'
-        )
-        return
-      }
-
-      // Send invitation
-      const { error } = await supabase.functions.invoke('send-invitation', {
-        body: {
+      // Use the server-side API route for invitations
+      const response = await fetch('/api/invite-member', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           email,
           role,
           organizationId,
           organizationName
-        }
+        })
       })
 
-      if (error) throw error
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send invitation')
+      }
 
       showSuccess(
         'Invitation Sent Successfully!',
@@ -154,16 +151,25 @@ export const useMemberOperations = () => {
     showError: (title: string, message: string) => void
   ) => {
     try {
-      const { error } = await supabase.functions.invoke('send-invitation', {
-        body: {
+      // Use the server-side API route for resending invitations
+      const response = await fetch('/api/invite-member', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           email,
           role,
           organizationId,
           organizationName
-        }
+        })
       })
 
-      if (error) throw error
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to resend invitation')
+      }
 
       showSuccess(
         'Invitation Resent!',
@@ -197,14 +203,14 @@ export const useMemberOperations = () => {
       
       for (const invitation of invitations) {
         try {
-          // Check if user already exists
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('id, organization_id')
+          // Check if user already exists in members table
+          const { data: existingMember } = await supabase
+            .from('members')
+            .select('id, organization_id, email')
             .eq('email', invitation.email)
             .single()
 
-          if (existingProfile?.organization_id) {
+          if (existingMember?.organization_id) {
             results.push({
               email: invitation.email,
               success: false,
@@ -213,20 +219,26 @@ export const useMemberOperations = () => {
             continue
           }
 
-          // Send invitation
-          const { error } = await supabase.functions.invoke('send-invitation', {
-            body: {
+          // Send invitation via API route
+          const response = await fetch('/api/invite-member', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
               email: invitation.email,
               role: invitation.role,
               organizationId,
               organizationName
-            }
+            })
           })
 
+          const result = await response.json()
+          
           results.push({
             email: invitation.email,
-            success: !error,
-            reason: error?.message
+            success: response.ok,
+            reason: response.ok ? null : (result.error || 'Failed to send')
           })
         } catch (error) {
           results.push({

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Building2, Users, CheckCircle, X } from 'lucide-react'
+import { Building2, CheckCircle, X, Loader2 } from 'lucide-react'
 
 function AcceptInvitationContent() {
   const router = useRouter()
@@ -20,240 +20,244 @@ function AcceptInvitationContent() {
   })
 
   useEffect(() => {
-    // Use a flag to prevent issues
-    let isMounted = true;
-    
-    const initializeInvitation = async () => {
-      if (!isMounted) return;
-      // Debug log removed
-      await handleInvitationAcceptance()
-    }
-    
-    initializeInvitation()
-    
-    // Safety timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      // Don't timeout for test tokens
-      const urlParams = new URLSearchParams(window.location.search)
-      const token = urlParams.get('token')
-      
-      if (loading && isMounted && token !== 'test') {
-        // Debug log removed
-        setLoading(false)
-        setError('Loading timeout - please check console for errors')
-      }
-    }, 10000) // 10 second timeout
-    
-    return () => {
-      isMounted = false;
-      clearTimeout(timeout)
-    }
-  }, []) // Remove searchParams dependency to prevent re-execution
+    handleInvitationAcceptance()
+  }, [])
 
   const handleInvitationAcceptance = async () => {
-    // Debug log removed
     setLoading(true)
     
     try {
-      // Debug log removed
+      console.log('=== SUPABASE NATIVE INVITATION HANDLING ===')
       
-      // Get the token from URL (sent by Supabase in the invitation email)
-      const token = searchParams.get('token')
-      const tokenHash = searchParams.get('token_hash')
-      const type = searchParams.get('type')
-
-      // Handle test token FIRST (before trying to get user session)
-      const invitationToken = token || tokenHash
-      if (type === 'invite' && invitationToken === 'test') {
-        // Debug log removed
-        setInvitationData({
-          email: 'test@example.com',
-          organizationName: 'Test Organization',
-          role: 'employee',
-          organizationId: 'test-org-id'
-        })
-        setLoading(false)
-        return
-      }
-
-      // For real tokens, check if user is already authenticated
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      // Get URL parameters for our custom invitation data
+      const org = searchParams.get('org')
+      const role = searchParams.get('role') as 'admin' | 'manager' | 'employee'
+      const orgName = searchParams.get('orgName')
       
-      // Debug log removed
-      // Debug log removed
+      // Check for Supabase authentication parameters
+      let access_token = searchParams.get('access_token')
+      let refresh_token = searchParams.get('refresh_token')
       
-      if (user && user.user_metadata && user.user_metadata.invitation_type === 'member') {
-        // User is already verified through invitation, get data from user metadata
-        const metadata = user.user_metadata
-        // Debug log removed
+      // Check for errors and tokens in hash fragment
+      let authError = null
+      let authErrorCode = null
+      let authErrorDescription = null
+      
+      if (typeof window !== 'undefined') {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
         
-        setInvitationData({
-          email: user.email || '',
-          organizationName: metadata.organization_name || 'Organization',
-          role: metadata.role || 'employee',
-          organizationId: metadata.organization_id || ''
-        })
-        setLoading(false)
-        return
-      }
-
-      // If no authenticated user with invitation metadata, try manual token verification
-      if (type === 'invite' && invitationToken) {
-        // Debug log removed
-        
-        // Verify the invitation token with Supabase
-        const { data, error } = await supabase.auth.verifyOtp({
-          token_hash: invitationToken,
-          type: 'invite'
-        })
-
-        if (error) {
-          throw error
+        if (!access_token) {
+          access_token = hashParams.get('access_token')
+          refresh_token = hashParams.get('refresh_token')
         }
+        
+        authError = hashParams.get('error')
+        authErrorCode = hashParams.get('error_code')
+        authErrorDescription = hashParams.get('error_description')
+        
+        console.log('Hash Parameters:', Object.fromEntries(hashParams))
+      }
+      
+      console.log('URL Parameters:', { org, role, orgName, access_token: !!access_token, refresh_token: !!refresh_token })
+      
+      // Handle authentication errors (expired invitations, etc.)
+      if (authError) {
+        console.error('Authentication error:', { authError, authErrorCode, authErrorDescription })
+        
+        if (authErrorCode === 'otp_expired') {
+          setError('This invitation link has expired. Please request a new invitation from your administrator.')
+        } else {
+          setError(`Authentication error: ${authErrorDescription || authError}`)
+        }
+        
+        setLoading(false)
+        return
+      }
 
-        if (data.user) {
-          // Get invitation metadata
-          const metadata = data.user.user_metadata
-          setInvitationData({
-            email: data.user.email,
-            organizationName: metadata.organization_name,
-            role: metadata.role,
-            organizationId: metadata.organization_id
+      // Check if this is a Supabase invitation acceptance flow
+      if (org && role && orgName) {
+        console.log('Processing Supabase native invitation...')
+        
+        // Handle auth tokens from Supabase redirect
+        if (access_token) {
+          console.log('Setting session from access token...')
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token: refresh_token || ''
           })
-        }
-      } else {
-        // If no token but user is authenticated, check if they have an invitation metadata
-        if (user) {
-          // Debug log removed
           
-          // Try to find pending member record
-          const { data: memberData, error: memberError } = await supabase
-            .from('members')
-            .select('*, organizations(name)')
-            .eq('email', user.email)
-            .eq('is_active', false)
-            .single()
-          
-          if (memberData && !memberError) {
-            // Debug log removed
-            setInvitationData({
-              email: user.email || '',
-              organizationName: memberData.organizations?.name || 'Organization',
-              role: memberData.role || 'employee',
-              organizationId: memberData.organization_id || ''
-            })
+          if (error) {
+            console.error('Error setting session:', error)
+            setError('Authentication failed. Please try the invitation link again.')
             setLoading(false)
             return
           }
         }
         
-        throw new Error('Invalid invitation link')
+        // Get the current session
+        const { data: { session } } = await supabase.auth.getSession()
+        const userEmail = session?.user?.email || ''
+        
+        console.log('User email from session:', userEmail)
+        
+        if (!userEmail) {
+          setError('Could not determine user email. Please try the invitation link again.')
+          setLoading(false)
+          return
+        }
+        
+        setInvitationData({
+          organization_id: org,
+          role: role,
+          organization_name: decodeURIComponent(orgName),
+          email: userEmail,
+          type: 'supabase_native'
+        })
+        
+        setLoading(false)
+        return
       }
-    } catch (error: any) {
-      // Debug log removed
-      setError(error.message || 'Invalid or expired invitation link')
-    } finally {
+
+      // If no valid invitation parameters
+      setError('Invalid invitation link')
+      setLoading(false)
+      
+    } catch (err: any) {
+      console.error('Error handling invitation:', err)
+      setError('Failed to process invitation')
       setLoading(false)
     }
   }
 
-  const completeRegistration = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
-
     setLoading(true)
     setError('')
 
     try {
-      // Handle test token differently
-      const urlParams = new URLSearchParams(window.location.search)
-      const token = urlParams.get('token')
-      
-      if (token === 'test') {
-        // For test token, just simulate success
-        // Debug log removed
-        setSuccess(true)
-        
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 2000)
+      // Validation
+      if (!formData.name || !formData.password || !formData.confirmPassword) {
+        setError('Please fill in all fields')
+        setLoading(false)
         return
       }
 
-      // For real tokens, update the user's password and name
-      const { error: updateError } = await supabase.auth.updateUser({
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match')
+        setLoading(false)
+        return
+      }
+
+      if (formData.password.length < 8) {
+        setError('Password must be at least 8 characters long')
+        setLoading(false)
+        return
+      }
+
+      console.log('=== ACCEPTING SUPABASE INVITATION ===')
+
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.user) {
+        setError('Authentication session not found. Please try the invitation link again.')
+        setLoading(false)
+        return
+      }
+
+      // Update user password and metadata
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
         password: formData.password,
         data: {
-          name: formData.name
+          name: formData.name,
+          role: invitationData.role,
+          organization_id: invitationData.organization_id,
+          organization_name: invitationData.organization_name
         }
       })
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Auth update error:', updateError)
+        setError(`Failed to set password: ${updateError.message}`)
+        setLoading(false)
+        return
+      }
 
-      // Activate the member record
-      const { error: memberError } = await supabase
+      console.log('User password set successfully:', updateData.user?.id)
+
+      // Create member record
+      const { data: memberData, error: memberError } = await supabase
         .from('members')
-        .update({
+        .insert({
+          auth_user_id: session.user.id,
+          email: invitationData.email,
           name: formData.name,
-          is_active: true,
-          updated_at: new Date().toISOString()
+          role: invitationData.role,
+          organization_id: invitationData.organization_id,
+          is_active: true
         })
-        .eq('email', invitationData.email)
-        .eq('organization_id', invitationData.organizationId)
+        .select()
 
       if (memberError) {
-        // Debug log removed
-        // Continue anyway - user account is created
+        console.error('Member creation error:', memberError)
+        setError(`Failed to create member profile: ${memberError.message}`)
+        setLoading(false)
+        return
       }
+
+      console.log('Member record created successfully:', memberData)
 
       setSuccess(true)
       
-      // Redirect to dashboard after a short delay
+      // Give time for the database to settle and then redirect with a full reload
+      console.log('Account setup complete, redirecting...')
+      
       setTimeout(() => {
-        router.push('/dashboard')
-      }, 2000)
+        // Use window.location instead of router.push to trigger a full page reload
+        // This ensures the AuthContext reinitializes and fetches the new member profile
+        window.location.href = '/dashboard'
+      }, 2500)
 
-    } catch (error: any) {
-      // Debug log removed
-      setError(error.message || 'Failed to complete registration')
-    } finally {
+    } catch (err: any) {
+      console.error('Invitation acceptance error:', err)
+      setError('An unexpected error occurred')
       setLoading(false)
     }
   }
 
-  if (loading) {
+  // Loading state
+  if (loading && !invitationData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verifying invitation...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Processing invitation...</p>
         </div>
       </div>
     )
   }
 
-  if (error) {
+  // Error state
+  if (error && !invitationData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <X className="w-6 h-6 text-red-600" />
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Invalid Invitation</h1>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+          <X className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Invalid Invitation</h1>
           <p className="text-gray-600 mb-4">{error}</p>
+          {error.includes('expired') && (
+            <div className="text-sm text-red-600 bg-red-50 rounded p-3 mb-4">
+              <p className="font-medium mb-1">What to do next:</p>
+              <ul className="list-disc list-inside text-left space-y-1">
+                <li>Contact your administrator to send a new invitation</li>
+                <li>Check if you have a newer invitation email</li>
+                <li>Make sure you're using the most recent invitation link</li>
+              </ul>
+            </div>
+          )}
           <button
             onClick={() => router.push('/login')}
-            className="btn-primary"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Go to Login
           </button>
@@ -262,34 +266,51 @@ function AcceptInvitationContent() {
     )
   }
 
+  // Success state
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-6 h-6 text-green-600" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h1>
+          <p className="text-gray-600 mb-4">
+            Your account has been created successfully. Preparing your dashboard...
+          </p>
+          <div className="text-sm text-gray-500">
+            You'll be redirected in a moment.
           </div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Welcome to the Team!</h1>
-          <p className="text-gray-600 mb-4">Your account has been created successfully. Redirecting to dashboard...</p>
         </div>
       </div>
     )
   }
 
+  // Main invitation form
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users className="w-6 h-6 text-blue-600" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Complete Your Registration</h1>
-          <p className="text-gray-600 mt-2">
-            You've been invited to join <strong>{invitationData?.organizationName}</strong> as a <strong>{invitationData?.role}</strong>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Join {invitationData?.organization_name}</h1>
+          <p className="text-gray-600">
+            You've been invited to join as a <span className="font-medium text-blue-600">{invitationData?.role}</span>
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            {invitationData?.email}
           </p>
         </div>
 
-        <form onSubmit={completeRegistration} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex">
+                <X className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Full Name
@@ -298,22 +319,9 @@ function AcceptInvitationContent() {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input-field"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
               placeholder="Enter your full name"
               required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={invitationData?.email || ''}
-              className="input-field bg-gray-50"
-              disabled
-              aria-label="Your email address"
             />
           </div>
 
@@ -325,11 +333,12 @@ function AcceptInvitationContent() {
               type="password"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="input-field"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
               placeholder="Create a password"
+              minLength={8}
               required
-              minLength={6}
             />
+            <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters</p>
           </div>
 
           <div>
@@ -340,25 +349,26 @@ function AcceptInvitationContent() {
               type="password"
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              className="input-field"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
               placeholder="Confirm your password"
+              minLength={8}
               required
-              minLength={6}
             />
           </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full btn-primary disabled:opacity-50"
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            {loading ? 'Creating Account...' : 'Complete Registration'}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Setting up your account...
+              </>
+            ) : (
+              'Complete Setup'
+            )}
           </button>
         </form>
       </div>
@@ -366,11 +376,13 @@ function AcceptInvitationContent() {
   )
 }
 
-export default function AcceptInvitationPage() {
+export default function AcceptInvitation() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="text-white">Loading...</div>
-    </div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    }>
       <AcceptInvitationContent />
     </Suspense>
   )

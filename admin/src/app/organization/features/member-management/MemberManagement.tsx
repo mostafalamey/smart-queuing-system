@@ -15,8 +15,6 @@ interface MemberManagementProps {
   setInviteEmail: (email: string) => void
   inviteRole: string
   setInviteRole: (role: string) => void
-  testMode: boolean
-  setTestMode: (test: boolean) => void
   inviting: boolean
   onSubmitInvite: () => void
 }
@@ -34,8 +32,6 @@ export const MemberManagement = ({
   setInviteEmail,
   inviteRole,
   setInviteRole,
-  testMode,
-  setTestMode,
   inviting,
   onSubmitInvite
 }: MemberManagementProps) => {
@@ -189,20 +185,6 @@ export const MemberManagement = ({
                   <option value="admin">Admin</option>
                 </select>
               </div>
-            </div>
-            
-            <div className="mt-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={testMode}
-                  onChange={(e) => setTestMode(e.target.checked)}
-                  className="mr-2"
-                />
-                <span className="text-sm text-gray-600">
-                  Test mode (skip email sending, avoid rate limits)
-                </span>
-              </label>
             </div>
             
             <div className="flex space-x-3 mt-6">

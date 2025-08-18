@@ -128,24 +128,28 @@ admin/src/app/manage/features/
 ### 7. **Advanced Layout & Navigation Features** ⚡ *(NEW - August 2025)*
 
 **Auto Arrange System**:
+
 - **Hierarchical Layout Algorithm**: Automatically arranges nodes in proper parent-child hierarchy
 - **Bottom-up Width Calculation**: Optimizes spacing based on actual node dimensions
 - **Smart Positioning**: Calculates optimal positions for branches, departments, and services
 - **One-Click Organization**: Purple "Auto Arrange" button for instant layout optimization
 
 **Move Children with Parent**:
+
 - **Parent-Child Movement**: Toggle feature to move children nodes with their parent
 - **Recursive Positioning**: Maintains relative positions of all descendants
 - **Visual Feedback**: Orange/gray toggle with GitBranch icon for clear state indication
 - **Hierarchical Integrity**: Preserves organizational structure during drag operations
 
 **Zoom to Fit All Nodes**:
+
 - **Smart Viewport Fitting**: Automatically calculates optimal zoom and pan to show all nodes
 - **Canvas-Aware Positioning**: Accounts for actual canvas dimensions and UI element offsets
 - **Intelligent Bounds Calculation**: Finds content boundaries with proper padding
 - **One-Click Navigation**: Maximize icon button for instant overview of entire structure
 
 **Enhanced Control Toolbar**:
+
 - **Horizontal Layout**: Streamlined top-right toolbar with icon-only buttons
 - **Rich Tooltips**: Descriptive tooltips explaining functionality for each control
 - **Professional Icons**: Lucide React icons for zoom, reset, arrange, and navigation

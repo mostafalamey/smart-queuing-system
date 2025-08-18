@@ -1,4 +1,4 @@
-// Server-side API route for sending invitations
+// Server-side API route for sending invitations using Supabase Native Auth
 // This will be at /api/invite-member
 
 import { createClient } from '@supabase/supabase-js'
@@ -9,61 +9,163 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // This is the key that enables admin functions
 )
 
+interface InvitationRequest {
+  email: string
+  role: 'admin' | 'manager' | 'employee'
+  organizationId: string
+  organizationName: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { email, role, organizationId, organizationName, testMode } = await request.json()
+    const { email, role, organizationId, organizationName }: InvitationRequest = await request.json()
 
-    let invitationData = null
+    console.log('=== SUPABASE NATIVE INVITATION REQUEST ===')
 
-    if (testMode) {
-      // Test mode - skip email sending, just create member record
-      // Debug log removed
-      invitationData = { user: { email } } // Mock user data
-    } else {
-      // Normal mode - send invitation email
-      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: {
-          organization_id: organizationId,
-          role: role,
-          organization_name: organizationName,
-          invitation_type: 'member' // Distinguish from organization creation
-        },
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/accept-invitation`
-      })
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 })
-      }
-
-      invitationData = data
+    // Validate required fields
+    if (!email || !role || !organizationId || !organizationName) {
+      return NextResponse.json(
+        { error: 'Missing required fields: email, role, organizationId, organizationName' },
+        { status: 400 }
+      )
     }
 
-    // Create pending member record
-    const { error: memberError } = await supabaseAdmin
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      )
+    }
+
+    // Validate role
+    const validRoles = ['admin', 'manager', 'employee']
+    if (!validRoles.includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role. Must be admin, manager, or employee' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user already exists in members table
+    const { data: existingMember } = await supabaseAdmin
       .from('members')
-      .insert([
-        {
-          email: email,
-          name: email.split('@')[0],
-          role: role,
-          organization_id: organizationId,
-          is_active: false,
-          auth_user_id: invitationData.user?.id || null
-        }
-      ])
+      .select('id, email, organization_id, is_active')
+      .eq('email', email)
+      .single()
 
-    if (memberError) {
-      // Debug log removed
-      // Continue anyway - the auth invitation was successful
+    if (existingMember) {
+      if (existingMember.organization_id === organizationId) {
+        return NextResponse.json(
+          { error: 'User is already a member of this organization' },
+          { status: 400 }
+        )
+      } else if (existingMember.organization_id) {
+        return NextResponse.json(
+          { error: 'User is already a member of another organization' },
+          { status: 400 }
+        )
+      }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      user: invitationData.user,
-      testMode: testMode || false 
+    // Send invitation using Supabase native auth admin function
+    console.log('Sending Supabase native invitation...')
+    
+    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/accept-invitation?org=${organizationId}&role=${role}&orgName=${encodeURIComponent(organizationName)}`
+    
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: redirectTo,
+      data: {
+        role: role,
+        organization_id: organizationId,
+        organization_name: organizationName,
+        invited_by: 'admin', // You can pass the current user's info here
+        invitation_type: 'organization_member'
+      }
     })
+
+    if (inviteError) {
+      console.error('Supabase invitation error:', inviteError)
+      
+      // Handle rate limit errors specifically
+      if (inviteError.message?.includes('rate limit') || inviteError.message?.includes('429')) {
+        return NextResponse.json(
+          { 
+            error: 'Rate limit exceeded. Please try again later or contact support to increase limits.',
+            details: inviteError.message
+          },
+          { status: 429 }
+        )
+      }
+      
+      return NextResponse.json(
+        { 
+          error: `Failed to send invitation: ${inviteError.message}`,
+          details: inviteError
+        },
+        { status: 400 }
+      )
+    }
+
+    console.log('✅ Supabase invitation sent successfully:', inviteData)
+
+    // Create or update member record
+    const memberData = {
+      email: email,
+      name: email.split('@')[0], // Default name from email
+      role: role,
+      organization_id: organizationId,
+      is_active: false, // Will be activated when user accepts invitation
+      auth_user_id: null, // Will be set when user signs up
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    if (existingMember) {
+      // Update existing member record
+      const { error: updateError } = await supabaseAdmin
+        .from('members')
+        .update(memberData)
+        .eq('email', email)
+      
+      if (updateError) {
+        console.error('Member update error:', updateError)
+      } else {
+        console.log('Member record updated successfully')
+      }
+    } else {
+      // Create new member record
+      console.log('Creating new member record:', memberData)
+      const { error: insertError } = await supabaseAdmin
+        .from('members')
+        .insert([memberData])
+      
+      if (insertError) {
+        console.error('Member creation error:', insertError)
+        // Continue anyway - the invitation was sent successfully
+      } else {
+        console.log('Member record created successfully')
+      }
+    }
+
+    console.log('Native Supabase invitation process completed successfully')
+    return NextResponse.json({ 
+      success: true,
+      message: `Invitation sent successfully to ${email} using Supabase Auth`,
+      inviteData: {
+        user: inviteData.user,
+        email_sent: true
+      },
+      redirectTo: redirectTo
+    })
+    
   } catch (error) {
-    // Debug log removed
-    return NextResponse.json({ error: 'Failed to send invitation' }, { status: 500 })
+    console.error('Invitation API error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error while sending invitation' },
+      { status: 500 }
+    )
   }
 }

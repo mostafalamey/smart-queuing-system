@@ -16,6 +16,7 @@
         "@types/qrcode": "^1.5.5",
         "clsx": "^2.1.0",
         "date-fns": "^3.6.0",
+        "dotenv": "^17.2.1",
         "framer-motion": "^12.23.12",
         "lucide-react": "^0.263.1",
         "next": "14.2.5",

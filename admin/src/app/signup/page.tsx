@@ -21,21 +21,43 @@ function SignupContent() {
   })
 
   useEffect(() => {
-    // Check if this is an invitation link
+    // Check if this is an invitation link - handle multiple URL formats
     const token = searchParams.get('token')
     const type = searchParams.get('type')
     const tokenHash = searchParams.get('token_hash')
+    const access_token = searchParams.get('access_token')
+    const refresh_token = searchParams.get('refresh_token')
     
+    console.log('Signup page - URL parameters:', { token, type, tokenHash, access_token, refresh_token })
+    
+    // Handle Supabase invitation with access/refresh tokens
+    if (access_token && refresh_token) {
+      console.log('Redirecting to accept-invitation with access/refresh tokens')
+      const currentUrl = new URL(window.location.href)
+      router.push(`/accept-invitation${currentUrl.search}`)
+      return
+    }
+    
+    // Handle invitation with token and type
     if (type === 'invite' && token) {
-      // Redirect to invitation acceptance page
+      console.log('Redirecting to accept-invitation with token and type')
       router.push(`/accept-invitation?token=${token}&type=${type}`)
       return
     }
     
-    // Check for Supabase's default invitation format
-    if (tokenHash && !type) {
-      // Debug log removed
+    // Handle Supabase's default invitation format with token_hash
+    if (tokenHash) {
+      console.log('Redirecting to accept-invitation with token_hash')
       router.push(`/accept-invitation?token_hash=${tokenHash}&type=invite`)
+      return
+    }
+    
+    // Handle any URL that looks like an invitation (has confirmation-related parameters)
+    const confirmationParams = ['token', 'token_hash', 'access_token', 'refresh_token']
+    if (confirmationParams.some(param => searchParams.get(param))) {
+      console.log('Redirecting to accept-invitation with all parameters')
+      const currentUrl = new URL(window.location.href)
+      router.push(`/accept-invitation${currentUrl.search}`)
       return
     }
   }, [searchParams, router])
