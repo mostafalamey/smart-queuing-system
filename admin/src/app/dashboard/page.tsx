@@ -112,17 +112,6 @@ export default function DashboardPage() {
     )
   }
 
-  const handlePerformCleanup = () => {
-    queueOperations.performCleanup(
-      dashboardData.selectedDepartment,
-      dashboardData.fetchQueueData,
-      setQueueOperationLoading,
-      dashboardData.showInfo,
-      dashboardData.showSuccess,
-      dashboardData.showError
-    )
-  }
-
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6" suppressHydrationWarning={true}>
@@ -132,8 +121,6 @@ export default function DashboardPage() {
           loading={dashboardData.loading}
           selectedDepartment={dashboardData.selectedDepartment}
           onRefresh={dashboardData.handleRefresh}
-          onCleanup={handlePerformCleanup}
-          showWarning={dashboardData.showWarning}
         />
 
         {/* Connection Error Banner */}

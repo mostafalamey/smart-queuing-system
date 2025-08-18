@@ -1,22 +1,17 @@
 import { RefreshCw } from 'lucide-react'
-import { ToastConfirmation } from '@/lib/ticketCleanup'
 
 interface DashboardHeaderProps {
   lastCleanupTime: Date | null
   loading: boolean
   selectedDepartment: string
   onRefresh: () => void
-  onCleanup: () => void
-  showWarning: (title: string, message: string, action?: { label: string; onClick: () => void }) => void
 }
 
 export const DashboardHeader = ({
   lastCleanupTime,
   loading,
   selectedDepartment,
-  onRefresh,
-  onCleanup,
-  showWarning
+  onRefresh
 }: DashboardHeaderProps) => {
   return (
     <div className="relative overflow-hidden bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
@@ -47,24 +42,16 @@ export const DashboardHeader = ({
             </div>
           </button>
           
-          <button
-            onClick={() => {
-              ToastConfirmation.confirmCleanup(
-                () => onCleanup(),
-                showWarning
-              )
-            }}
-            disabled={loading || !selectedDepartment}
-            className="group relative overflow-hidden bg-purple-500/80 hover:bg-purple-600/90 backdrop-blur-sm text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-300 disabled:opacity-50 border border-purple-400/30"
-          >
-            <div className="absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
-            <div className="relative flex items-center space-x-1 sm:space-x-2">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          {/* Automated Cleanup Status */}
+          <div className="bg-green-500/20 backdrop-blur-sm text-white px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl border border-green-400/30">
+            <div className="flex items-center space-x-1 sm:space-x-2">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="hidden sm:inline">Cleanup</span>
+              <span className="hidden sm:inline text-sm font-medium">Auto-Cleanup Active</span>
+              <span className="sm:hidden text-xs">Auto</span>
             </div>
-          </button>
+          </div>
         </div>
       </div>
     </div>
