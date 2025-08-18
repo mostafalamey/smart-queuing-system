@@ -1,0 +1,41 @@
+name: Database Cleanup
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:     # Manual trigger button
+
+jobs:
+  cleanup-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Database Cleanup
+        run: |
+          echo "Starting database cleanup..."
+          
+          response=$(curl -s -w "%{http_code}" -X POST \
+            "${{ secrets.SUPABASE_FUNCTION_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"adminKey": "${{ secrets.CLEANUP_ADMIN_KEY }}"}')
+          
+          http_code="${response: -3}"
+          response_body="${response%???}"
+          
+          echo "HTTP Status Code: $http_code"
+          echo "Response: $response_body"
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Database cleanup completed successfully!"
+          else
+            echo "❌ Database cleanup failed with status code $http_code"
+            echo "Response: $response_body"
+            exit 1
+          fi
+
+      - name: Notify on Success
+        if: success()
+        run: echo "🎉 Daily database cleanup completed successfully!"
+
+      - name: Notify on Failure  
+        if: failure()
+        run: echo "🚨 Database cleanup failed! Check the logs above."
