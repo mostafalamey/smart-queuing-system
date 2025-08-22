@@ -96,18 +96,54 @@ export const useDashboardData = () => {
         .eq("branch_id", selectedBranch);
 
       setDepartments(data || []);
+
+      // Smart department selection based on user assignments
       if (data && data.length > 0) {
-        setSelectedDepartment(data[0].id);
+        if (assignedDepartmentIds && assignedDepartmentIds.length > 0) {
+          // For users with specific department assignments, select the first assigned department
+          const firstAssignedDept = data.find((dept) =>
+            assignedDepartmentIds.includes(dept.id)
+          );
+          if (firstAssignedDept) {
+            logger.info(
+              "Auto-selecting assigned department:",
+              firstAssignedDept.name
+            );
+            setSelectedDepartment(firstAssignedDept.id);
+          } else {
+            logger.error(
+              "None of assigned departments found in branch departments!"
+            );
+          }
+        } else {
+          // For users without specific assignments (admins/managers), select first available
+          setSelectedDepartment(data[0].id);
+        }
       }
     } catch (error) {
       logger.error("Error fetching departments:", error);
       setDepartments([]);
       setConnectionError(true);
     }
-  }, [selectedBranch]);
+  }, [selectedBranch, assignedDepartmentIds]);
 
   const fetchServices = useCallback(async () => {
     if (!selectedDepartment) return;
+
+    // For employees with specific department assignments, ensure we're only fetching
+    // services for departments they're assigned to
+    if (assignedDepartmentIds && assignedDepartmentIds.length > 0) {
+      if (!assignedDepartmentIds.includes(selectedDepartment)) {
+        logger.warn(
+          "Attempting to fetch services for non-assigned department",
+          {
+            selectedDepartment,
+            assignedDepartmentIds,
+          }
+        );
+        return;
+      }
+    }
 
     try {
       const { data } = await supabase
@@ -139,7 +175,7 @@ export const useDashboardData = () => {
       logger.error("Error fetching services:", error);
       setServices([]);
     }
-  }, [selectedDepartment]);
+  }, [selectedDepartment, assignedDepartmentIds]);
 
   const fetchQueueData = useCallback(async () => {
     if (!selectedDepartment || isFetchingRef.current) return;
@@ -275,31 +311,35 @@ export const useDashboardData = () => {
     }
   }, [shouldAutoSelectBranch, assignedBranchId, branches, selectedBranch]);
 
-  // Auto-select department for employees who are assigned to specific departments
+  // Fallback auto-select department if initial selection was incorrect
   useEffect(() => {
     if (
       shouldAutoSelectDepartment &&
       assignedDepartmentIds?.length &&
-      departments.length > 0
+      departments.length > 0 &&
+      selectedDepartment
     ) {
-      // For employees, select the first assigned department (override any existing selection)
-      const firstAssignedDeptId = assignedDepartmentIds[0];
-      const assignedDepartment = departments.find(
-        (dept) => dept.id === firstAssignedDeptId
-      );
+      // Check if current selection is valid for this user
+      if (!assignedDepartmentIds.includes(selectedDepartment)) {
+        logger.warn(
+          "Current department selection not in user assignments, correcting...",
+          {
+            currentSelection: selectedDepartment,
+            assignedDepartments: assignedDepartmentIds,
+          }
+        );
 
-      // Only auto-select if the current selection doesn't match the assigned department
-      if (selectedDepartment !== firstAssignedDeptId) {
+        const firstAssignedDeptId = assignedDepartmentIds[0];
+        const assignedDepartment = departments.find(
+          (dept) => dept.id === firstAssignedDeptId
+        );
+
         if (assignedDepartment) {
           logger.info(
-            "Auto-selecting assigned department:",
+            "Correcting department selection to assigned department:",
             assignedDepartment.name
           );
           setSelectedDepartment(firstAssignedDeptId);
-        } else {
-          logger.error(
-            "Assigned department not found in available departments!"
-          );
         }
       }
     }

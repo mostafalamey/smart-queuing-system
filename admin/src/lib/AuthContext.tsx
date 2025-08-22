@@ -9,6 +9,7 @@ import { Database } from "./database.types";
 import { SessionRecovery } from "./sessionRecovery";
 import { CacheDetection } from "./cacheDetection";
 import { AuthLoadingOverlay } from "../components/AuthLoadingOverlay";
+import { useMemberStatusMonitor } from "../hooks/useMemberStatusMonitor";
 
 // Helper function to parse PostgreSQL array format to JavaScript array
 const parseDepartmentIds = (
@@ -605,6 +606,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsSigningOut(false);
     }
   };
+
+  // Set up member status monitoring to automatically log out users when deactivated/deleted
+  useMemberStatusMonitor(user, userProfile, signOut);
 
   const value = {
     user,

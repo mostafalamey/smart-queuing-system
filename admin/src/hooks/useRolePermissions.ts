@@ -58,8 +58,8 @@ export const useRolePermissions = (): RolePermissions & {
   const { userProfile, loading } = useAuth();
 
   const permissions = useMemo((): RolePermissions => {
-    if (!userProfile?.role) {
-      // Default restrictive permissions for unauthenticated users
+    if (!userProfile?.role || !userProfile?.is_active) {
+      // Default restrictive permissions for unauthenticated or inactive users
       return {
         canAccessDashboard: false,
         canAccessOrganization: false,

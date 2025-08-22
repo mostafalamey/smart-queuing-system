@@ -1,5 +1,64 @@
 # Smart Queue System - Changelog
 
+## Version 2.6.0 - Real-Time Member Management & Enhanced Security (August 23, 2025)
+
+### 🔄 Enterprise-Grade Real-Time Member Management System
+
+#### Automatic Member Security Enforcement
+
+- **Instant Member Signout** - Deactivated members are automatically signed out within 2 seconds
+- **Real-Time Status Monitoring** - `useMemberStatusMonitor` hook for personal status tracking
+- **AuthContext Integration** - Seamless integration with authentication system for automatic monitoring
+- **Professional Warning System** - Toast notifications before account termination
+- **Multi-Tab Synchronization** - Status changes sync across all open browser tabs instantly
+
+#### Live Member Table Updates
+
+- **Real-Time Member List Updates** - Active members table updates instantly for INSERT/UPDATE/DELETE operations
+- **Deactivated Members Real-Time Sync** - Live updates for inactive member management sections
+- **Cross-Component Synchronization** - All member management components update simultaneously
+- **Smart State Management** - Efficient React state updates with PostgreSQL array parsing
+- **Organization-Filtered Subscriptions** - Tenant isolation with performance optimization
+
+#### Enhanced Member Deletion System
+
+- **Comprehensive Cleanup Process** - Complete removal including authentication records and avatar files
+- **Server-Side API Route** - New `/api/delete-member` route with service role privileges
+- **Supabase Storage Integration** - Automatic avatar file cleanup from storage buckets
+- **Three-Step Deletion Process** - Avatar cleanup → Auth user deletion → Member record removal
+- **Detailed Success Feedback** - Toast notifications showing exactly what was cleaned up
+
+#### Professional Member Operations
+
+- **Toast Confirmation System** - Elegant toast notifications replace browser alert dialogs
+- **Assignment Preservation Logic** - Branch/department assignments preserved during deactivation/reactivation
+- **Enhanced Invitation Flow** - Mandatory branch/department pre-assignment during member invitations
+- **Smart Service Selection Fix** - Resolved race conditions in department service loading
+- **Comprehensive Error Handling** - Graceful degradation with detailed logging
+
+#### Advanced Member Analytics
+
+- **Onboarding System Integration** - Utilizes onboarding_completed, onboarding_skipped, onboarding_completed_at columns
+- **Real-Time Analytics Updates** - Live member analytics with onboarding status monitoring
+- **Enhanced Reporting Dashboard** - Comprehensive member lifecycle tracking and statistics
+- **Onboarding Completion Tracking** - Analytics for member onboarding patterns and completion rates
+
+### 🛡️ Security & Performance Enhancements
+
+- **Immediate Access Revocation** - Deactivated users lose access within 2 seconds
+- **Clean Session Management** - Proper session cleanup and state reset on signout
+- **Service Role Authentication** - Secure API operations requiring admin privileges
+- **Memory Management** - Proper Supabase channel cleanup preventing memory leaks
+- **Production-Ready Error Handling** - Comprehensive error logging without application crashes
+
+### 📊 Real-Time Subscription Architecture
+
+- **Filtered Database Subscriptions** - Organization-specific realtime subscriptions
+- **Channel Management** - Unique channel names for debugging and monitoring
+- **Event-Specific Handling** - Targeted responses for INSERT/UPDATE/DELETE events
+- **Efficient Network Usage** - Minimal bandwidth with smart state updates
+- **Automatic Reconnection** - Built-in resilience for network interruptions
+
 ## Version 2.5.0 - Phase 2: Role-Specific Experience & Avatar System (August 22, 2025)
 
 ### 🎭 Comprehensive Role-Based Experience Implementation

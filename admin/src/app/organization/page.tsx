@@ -9,6 +9,7 @@ import { RoleRestrictedAccess } from "@/components/RoleRestrictedAccess";
 import { useAppToast } from "@/hooks/useAppToast";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PlanLimitsDashboard } from "@/components/PlanLimitsDashboard";
+import { supabase } from "@/lib/supabase";
 import { QRCodeData } from "./features/shared/types";
 import { useOrganizationData } from "./features/shared/useOrganizationData";
 import { useOrganizationOperations } from "./features/shared/useOrganizationOperations";
@@ -17,6 +18,8 @@ import { OrganizationHeader } from "./features/organization-header/OrganizationH
 import { OrganizationDetails } from "./features/organization-details/OrganizationDetails";
 import { QRManagement } from "./features/qr-management/QRManagement";
 import { MemberManagement } from "./features/member-management/MemberManagement";
+import { InvitationManagement } from "./features/invitation-management/InvitationManagement";
+import { MemberAnalytics } from "./features/member-analytics/MemberAnalytics";
 import { logger } from "@/lib/logger";
 
 // Force dynamic rendering for client-side features
@@ -31,7 +34,7 @@ export default function OrganizationPage() {
 
   // Tab state - use stable default, update later with useEffect
   const [activeTab, setActiveTab] = useState<
-    "details" | "qr" | "members" | "plan"
+    "details" | "qr" | "members" | "plan" | "invitations" | "analytics"
   >("qr");
 
   // Member invitation state
@@ -40,6 +43,8 @@ export default function OrganizationPage() {
   const [inviteRole, setInviteRole] = useState<
     "admin" | "manager" | "employee"
   >("employee");
+  const [inviteBranchId, setInviteBranchId] = useState<string>("");
+  const [inviteDepartmentIds, setInviteDepartmentIds] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
 
   // Data hooks - MUST be called unconditionally
@@ -180,6 +185,21 @@ export default function OrganizationPage() {
       return;
     }
 
+    // Validate that branch is selected for all roles
+    if (!inviteBranchId) {
+      showError("Branch Required", "Please select a branch for the member");
+      return;
+    }
+
+    // Validate that departments are selected for employees
+    if (inviteRole === "employee" && inviteDepartmentIds.length === 0) {
+      showError(
+        "Department Required",
+        "Please select at least one department for the employee"
+      );
+      return;
+    }
+
     await inviteMember(
       inviteEmail.trim(),
       inviteRole,
@@ -192,9 +212,13 @@ export default function OrganizationPage() {
         setShowInviteModal(false);
         setInviteEmail("");
         setInviteRole("employee");
+        setInviteBranchId("");
+        setInviteDepartmentIds([]);
         // Don't refresh the page immediately - let user see the success message
         // The members list will be updated on next page load
-      }
+      },
+      inviteBranchId,
+      inviteDepartmentIds
     );
   };
 
@@ -223,8 +247,68 @@ export default function OrganizationPage() {
       member.name || member.email,
       setMembers,
       showSuccess,
-      showError
+      showError,
+      "deactivate"
     );
+  };
+
+  const handleDeactivateMember = async (memberId: string) => {
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return;
+
+    await removeMember(
+      memberId,
+      member.name || member.email,
+      setMembers,
+      showSuccess,
+      showError,
+      "deactivate"
+    );
+  };
+
+  const handlePermanentDeleteMember = async (memberId: string) => {
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return;
+
+    await removeMember(
+      memberId,
+      member.name || member.email,
+      setMembers,
+      showSuccess,
+      showError,
+      "permanent"
+    );
+  };
+
+  const handleReactivateMember = async (memberId: string) => {
+    // For now, we'll need to get member details from the deactivated list
+    // The MemberManagement component will handle this internally
+    // This is a placeholder - the actual reactivation will be handled by the component
+    try {
+      const { error } = await supabase
+        .from("members")
+        .update({
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", memberId);
+
+      if (error) throw error;
+
+      showSuccess(
+        "Member Reactivated!",
+        "Member has been successfully reactivated with their previous branch and department assignments restored."
+      );
+
+      // Refresh members list
+      await fetchOrganization();
+    } catch (error) {
+      console.error("Error reactivating member:", error);
+      showError(
+        "Reactivation Failed",
+        "Unable to reactivate member. Please try again."
+      );
+    }
   };
 
   if (authLoading || loading) {
@@ -332,6 +416,30 @@ export default function OrganizationPage() {
                       Member Management
                     </button>
                   )}
+                  {allowedTabs.includes("invitations") && (
+                    <button
+                      onClick={() => setActiveTab("invitations")}
+                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === "invitations"
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      Invitations
+                    </button>
+                  )}
+                  {allowedTabs.includes("analytics") && (
+                    <button
+                      onClick={() => setActiveTab("analytics")}
+                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === "analytics"
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      Analytics
+                    </button>
+                  )}
                 </>
               );
             })()}
@@ -423,7 +531,10 @@ export default function OrganizationPage() {
                   showError
                 );
               }}
-              onRemoveMember={handleRemoveMember}
+              onDeactivateMember={handleDeactivateMember}
+              onPermanentDeleteMember={handlePermanentDeleteMember}
+              onReactivateMember={handleReactivateMember}
+              processing={Object.values(isRemovingMember).some(Boolean)}
               onInviteMember={handleInviteMember}
               showInviteModal={showInviteModal}
               setShowInviteModal={setShowInviteModal}
@@ -435,6 +546,10 @@ export default function OrganizationPage() {
                   setInviteRole(role as "admin" | "manager" | "employee");
                 }
               }}
+              inviteBranchId={inviteBranchId}
+              setInviteBranchId={setInviteBranchId}
+              inviteDepartmentIds={inviteDepartmentIds}
+              setInviteDepartmentIds={setInviteDepartmentIds}
               inviting={inviting}
               onSubmitInvite={handleSubmitInvite}
               // Role permissions
@@ -448,6 +563,25 @@ export default function OrganizationPage() {
               }
               userAssignedBranchId={rolePermissions.assignedBranchId}
               userAssignedDepartmentIds={rolePermissions.assignedDepartmentIds}
+              showWarning={showWarning}
+            />
+          )}
+
+          {activeTab === "invitations" && organization && userRole && (
+            <InvitationManagement
+              organizationId={organization.id}
+              organizationName={organization.name}
+              currentUserRole={userRole}
+              showSuccess={showSuccess}
+              showError={showError}
+              showInfo={showInfo}
+            />
+          )}
+
+          {activeTab === "analytics" && organization && userRole && (
+            <MemberAnalytics
+              organizationId={organization.id}
+              currentUserRole={userRole}
             />
           )}
         </div>

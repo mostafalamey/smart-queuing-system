@@ -61,34 +61,84 @@ export const useMemberOperations = () => {
       memberName: string,
       setMembers: React.Dispatch<React.SetStateAction<Member[]>>,
       showSuccess: (title: string, message: string) => void,
-      showError: (title: string, message: string) => void
+      showError: (title: string, message: string) => void,
+      removalType: "deactivate" | "permanent" = "deactivate"
     ) => {
       setIsRemovingMember((prev) => ({ ...prev, [memberId]: true }));
 
       try {
-        // First, set organization_id to null
-        const { error: updateError } = await supabase
-          .from("members")
-          .update({
-            organization_id: null,
-            role: null,
-          })
-          .eq("id", memberId);
+        if (removalType === "permanent") {
+          // Use server-side API for permanent deletion with admin privileges
+          const response = await fetch("/api/delete-member", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              memberId,
+              memberName,
+            }),
+          });
 
-        if (updateError) throw updateError;
+          const result = await response.json();
 
-        // Remove from local state
-        setMembers((prev) => prev.filter((member) => member.id !== memberId));
+          if (!response.ok) {
+            throw new Error(
+              result.error || "Failed to permanently delete member"
+            );
+          }
 
-        showSuccess(
-          "Member Removed Successfully!",
-          `${memberName} has been removed from the organization.`
-        );
+          // Remove from local state
+          setMembers((prev) => prev.filter((member) => member.id !== memberId));
 
-        logger.info("Member removed from organization:", {
-          memberId,
-          memberName,
-        });
+          // Show detailed success message
+          const cleanupDetails = [];
+          if (result.avatarDeleted) cleanupDetails.push("avatar files");
+          if (result.authUserDeleted)
+            cleanupDetails.push("authentication account");
+
+          const cleanupText =
+            cleanupDetails.length > 0
+              ? ` including ${cleanupDetails.join(" and ")}`
+              : "";
+
+          showSuccess(
+            "Member Completely Removed!",
+            `${result.memberName} has been permanently removed from the organization${cleanupText}. They can be re-invited with a fresh account.`
+          );
+
+          logger.info("Member permanently removed with full cleanup:", {
+            memberId,
+            memberName: result.memberName,
+            email: result.email,
+            avatarDeleted: result.avatarDeleted,
+            authUserDeleted: result.authUserDeleted,
+          });
+        } else {
+          // Soft deletion - deactivate but keep record and assignments
+          const { error: updateError } = await supabase
+            .from("members")
+            .update({
+              is_active: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", memberId);
+
+          if (updateError) throw updateError;
+
+          // Remove from local state
+          setMembers((prev) => prev.filter((member) => member.id !== memberId));
+
+          showSuccess(
+            "Member Deactivated!",
+            `${memberName} has been deactivated. Their branch and department assignments are preserved for easy reactivation.`
+          );
+
+          logger.info("Member deactivated from organization:", {
+            memberId,
+            memberName,
+          });
+        }
       } catch (error) {
         logger.error("Error removing member:", error);
         showError(
@@ -97,6 +147,53 @@ export const useMemberOperations = () => {
         );
       } finally {
         setIsRemovingMember((prev) => ({ ...prev, [memberId]: false }));
+      }
+    },
+    []
+  );
+
+  const reactivateMember = useCallback(
+    async (
+      memberId: string,
+      memberName: string,
+      newRole: "admin" | "manager" | "employee",
+      setMembers: React.Dispatch<React.SetStateAction<Member[]>>,
+      showSuccess: (title: string, message: string) => void,
+      showError: (title: string, message: string) => void,
+      refreshMembers: () => void
+    ) => {
+      try {
+        // Reactivate the member with new role
+        const { error: updateError } = await supabase
+          .from("members")
+          .update({
+            is_active: true,
+            role: newRole,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", memberId);
+
+        if (updateError) throw updateError;
+
+        showSuccess(
+          "Member Reactivated!",
+          `${memberName} has been reactivated as ${newRole}.`
+        );
+
+        // Refresh the members list to show the reactivated member
+        refreshMembers();
+
+        logger.info("Member reactivated:", {
+          memberId,
+          memberName,
+          newRole,
+        });
+      } catch (error) {
+        logger.error("Error reactivating member:", error);
+        showError(
+          "Reactivation Failed",
+          "Unable to reactivate member. Please try again."
+        );
       }
     },
     []
@@ -111,7 +208,9 @@ export const useMemberOperations = () => {
       setIsLoading: React.Dispatch<React.SetStateAction<boolean>>,
       showSuccess: (title: string, message: string) => void,
       showError: (title: string, message: string) => void,
-      onClose: () => void
+      onClose: () => void,
+      branchId?: string,
+      departmentIds?: string[]
     ) => {
       setIsLoading(true);
 
@@ -131,6 +230,9 @@ export const useMemberOperations = () => {
             role,
             organizationId,
             organizationName,
+            branchId: branchId || null,
+            departmentIds:
+              departmentIds && departmentIds.length > 0 ? departmentIds : null,
           }),
         });
 
@@ -418,6 +520,7 @@ export const useMemberOperations = () => {
     updateMemberBranch,
     updateMemberDepartments,
     removeMember,
+    reactivateMember,
     inviteMember,
     resendInvitation,
     bulkInviteMembers,

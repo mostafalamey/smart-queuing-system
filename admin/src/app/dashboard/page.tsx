@@ -5,6 +5,8 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 import ResetQueueModal from "@/components/ResetQueueModal";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { MemberWelcomeFlow } from "@/app/organization/features/member-onboarding/MemberWelcomeFlow";
 
 // Feature components
 import { DashboardHeader } from "./features/dashboard-header";
@@ -26,6 +28,14 @@ export default function DashboardPage() {
   // Use custom hooks for data management
   const dashboardData = useDashboardData();
   const queueOperations = useQueueOperations();
+
+  // Onboarding functionality
+  const {
+    needsOnboarding,
+    loading: onboardingLoading,
+    markOnboardingComplete,
+    skipOnboarding,
+  } = useOnboarding(dashboardData.userProfile);
 
   // Real-time subscriptions
   useRealtimeSubscriptions(
@@ -194,6 +204,16 @@ export default function DashboardPage() {
             : dashboardData.queueData?.department?.name || "queue"
         }
       />
+
+      {/* Member Onboarding Flow */}
+      {needsOnboarding && !onboardingLoading && dashboardData.userProfile && (
+        <MemberWelcomeFlow
+          userProfile={dashboardData.userProfile}
+          organization={dashboardData.organization}
+          onComplete={markOnboardingComplete}
+          onSkip={skipOnboarding}
+        />
+      )}
     </DashboardLayout>
   );
 }

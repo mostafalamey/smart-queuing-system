@@ -24,6 +24,9 @@ export interface Member {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+  onboarding_completed?: boolean | null;
+  onboarding_skipped?: boolean | null;
+  onboarding_completed_at?: string | null;
   organizations?: Organization;
 }
 

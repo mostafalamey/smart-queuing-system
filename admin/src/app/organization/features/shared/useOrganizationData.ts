@@ -730,6 +730,60 @@ export const useOrganizationData = () => {
     }
   }, [userProfile?.organization_id, fetchOrganization, fetchMembers]);
 
+  // Realtime subscription for members table
+  useEffect(() => {
+    if (!userProfile?.organization_id) return;
+
+    const channel = supabase
+      .channel("members-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to all changes (INSERT, UPDATE, DELETE)
+          schema: "public",
+          table: "members",
+          filter: `organization_id=eq.${userProfile.organization_id}`,
+        },
+        (payload) => {
+          console.log("Members table change detected:", payload);
+
+          if (payload.eventType === "INSERT") {
+            const newMember = {
+              ...payload.new,
+              department_ids: payload.new.department_ids
+                ? parseDepartmentIds(payload.new.department_ids)
+                : null,
+            } as Member;
+
+            setMembers((prev) => [...prev, newMember]);
+          } else if (payload.eventType === "UPDATE") {
+            const updatedMember = {
+              ...payload.new,
+              department_ids: payload.new.department_ids
+                ? parseDepartmentIds(payload.new.department_ids)
+                : null,
+            } as Member;
+
+            setMembers((prev) =>
+              prev.map((member) =>
+                member.id === updatedMember.id ? updatedMember : member
+              )
+            );
+          } else if (payload.eventType === "DELETE") {
+            setMembers((prev) =>
+              prev.filter((member) => member.id !== payload.old.id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userProfile?.organization_id]);
+
   // Separate effect for branches and departments that depends on organization being loaded
   useEffect(() => {
     if (userProfile?.organization_id && organization?.name) {
