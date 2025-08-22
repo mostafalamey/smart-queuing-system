@@ -23,7 +23,7 @@
 ### 🔐 **Admin Dashboard**
 
 - **Enterprise Authentication** - Bulletproof session management with tab switching support
-- **Beautiful Loading Overlays** - Professional auth feedback with animated progress indicators  
+- **Beautiful Loading Overlays** - Professional auth feedback with animated progress indicators
 - **Organization Management** - Multi-tenant architecture with custom branding
 - **Service-Level Queuing** - Hierarchical organization → branch → department → service structure
 - **Interactive Tree Management** - Advanced visual tree interface with:
@@ -45,6 +45,17 @@
   - **Complete Ticket Workflow** - Skip, complete, or call next customer
   - **Database State Tracking** - Proper status management (waiting, serving, completed, cancelled)
   - **Modal Confirmations** - Professional confirmation modals for destructive actions (delete, reset)
+- **Role-Specific Experience System** - **Phase 2: Comprehensive Role-Based Interface** ✨
+  - **Three-Tier Role Architecture** - Admin, Manager, Employee with tailored experiences
+  - **Admin Global Management** - Complete organization oversight with member management
+  - **Manager Branch Control** - Branch-specific access with employee assignment capabilities
+  - **Employee Auto-Selection** - Intelligent department selection and streamlined interface
+  - **Avatar Integration** - Supabase Storage avatars with role-based gradient fallbacks
+  - **Single Department Assignment** - Clean UI restricting employees to one department
+  - **Professional Member Interface** - Avatar display with role-specific color schemes
+  - **Granular Permissions** - Fine-tuned access controls for each role level
+  - **Self-Protection Logic** - Users cannot modify their own critical permissions
+  - **Production Code Quality** - Debug-free, optimized implementation
 - **Real-time Queue Monitoring** - Live updates with WebSocket subscriptions
 - **Push Notification Management** - **Privacy-First Notification System**:
   - **Ticket-ID Based Notifications** - No phone number required for push notifications
@@ -106,14 +117,14 @@
 
 ## 🏗️ **Tech Stack**
 
-| Category | Technology |
-|----------|------------|
-| **Frontend** | Next.js 14.2.5, React 18, TypeScript |
-| **Styling** | Tailwind CSS, Lucide React Icons |
-| **Backend** | Supabase (PostgreSQL, Auth, Real-time) |
-| **Notifications** | Web Push API, VAPID, Service Workers |
-| **Deployment** | Vercel (Production Ready) |
-| **Development** | Hot Reload, TypeScript, ESLint |
+| Category          | Technology                             |
+| ----------------- | -------------------------------------- |
+| **Frontend**      | Next.js 14.2.5, React 18, TypeScript   |
+| **Styling**       | Tailwind CSS, Lucide React Icons       |
+| **Backend**       | Supabase (PostgreSQL, Auth, Real-time) |
+| **Notifications** | Web Push API, VAPID, Service Workers   |
+| **Deployment**    | Vercel (Production Ready)              |
+| **Development**   | Hot Reload, TypeScript, ESLint         |
 
 ---
 
@@ -142,10 +153,12 @@ This project is **production-ready** with complete Vercel configuration included
 1. **Fork the repository** to your GitHub account
 
 1. **Create two Vercel projects:**
+
    - **Admin Dashboard**: Root directory `admin`
    - **Customer Application**: Root directory `customer`
 
 1. **Configure environment variables** for both projects:
+
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_ADMIN_URL` (for customer app)
@@ -165,7 +178,7 @@ This project is **production-ready** with complete Vercel configuration included
 smart-queuing-system/
 ├── admin/                  # Admin Dashboard (Next.js)
 │   ├── src/app/           # App Router pages
-│   ├── src/components/    # Reusable components  
+│   ├── src/components/    # Reusable components
 │   ├── src/lib/          # Utilities and configurations
 │   └── package.json      # Admin dependencies
 ├── customer/              # Customer App (Next.js)
@@ -210,14 +223,14 @@ npm run install:all      # Install all dependencies
 
 ## 📚 **Documentation**
 
-| Document | Description |
-|----------|-------------|
+| Document                                                           | Description                                   |
+| ------------------------------------------------------------------ | --------------------------------------------- |
 | [SERVICE_LEVEL_QUEUING_GUIDE.md](./SERVICE_LEVEL_QUEUING_GUIDE.md) | Service-level queuing and Tree View interface |
-| [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) | Complete development setup |
-| [VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md) | Production deployment |
-| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Database schema and setup |
-| [MVP_TESTING_GUIDE.md](./MVP_TESTING_GUIDE.md) | Testing procedures |
-| [PROFILE_FEATURE_GUIDE.md](./PROFILE_FEATURE_GUIDE.md) | Profile system documentation |
+| [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md)                     | Complete development setup                    |
+| [VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md)         | Production deployment                         |
+| [DATABASE_SETUP.md](./DATABASE_SETUP.md)                           | Database schema and setup                     |
+| [MVP_TESTING_GUIDE.md](./MVP_TESTING_GUIDE.md)                     | Testing procedures                            |
+| [PROFILE_FEATURE_GUIDE.md](./PROFILE_FEATURE_GUIDE.md)             | Profile system documentation                  |
 
 ---
 
@@ -226,7 +239,7 @@ npm run install:all      # Install all dependencies
 ✅ **DEPLOYED & OPERATIONAL**
 
 - [x] **Enterprise Authentication System** - Bulletproof session management with tab switching support
-- [x] **Professional Loading Overlays** - Beautiful auth feedback with progress indicators  
+- [x] **Professional Loading Overlays** - Beautiful auth feedback with progress indicators
 - [x] **Service-Level Queuing System** - Complete hierarchical queue management
 - [x] **Tree View Management Interface** - Visual organizational structure management
 - [x] **Enhanced QR Code System** - General, branch-specific, and department-specific codes

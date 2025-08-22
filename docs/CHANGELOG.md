@@ -1,5 +1,71 @@
 # Smart Queue System - Changelog
 
+## Version 2.5.0 - Phase 2: Role-Specific Experience & Avatar System (August 22, 2025)
+
+### 🎭 Comprehensive Role-Based Experience Implementation
+
+#### Advanced Role Permission System
+
+- **Three-Tier Role Structure** - Admin, Manager, Employee with granular permission controls
+- **Department-Based Auto-Selection** - Employees automatically see only their assigned department services
+- **Branch-Specific Manager Controls** - Managers restricted to their assigned branch operations
+- **Admin Global Access** - Full system access with organization-wide permissions
+- **Dynamic Navigation Filtering** - Role-appropriate menu items and page restrictions
+
+#### Smart Employee Experience
+
+- **Auto-Selection Logic** - Single-department employees automatically select their department
+- **Override Capability** - Auto-selection can be overridden when needed for flexibility
+- **Streamlined Interface** - Simplified queue controls showing only relevant department services
+- **Department Badge Display** - Clean department name display for easy identification
+
+#### Enhanced Member Management Interface
+
+- **Single Department Assignment** - Frontend restriction to one department per user for clarity
+- **Role-Specific Dropdowns** - Branch/department assignment only for appropriate roles
+- **Admin Protection Logic** - Prevents admin self-removal and inappropriate role assignments
+- **Intuitive Dropdown Controls** - Consistent UI patterns matching branch assignment interface
+
+#### Avatar & Personalization System
+
+- **Supabase Storage Integration** - Proper avatar_url field usage from member profiles
+- **Role-Based Fallback Avatars** - Beautiful gradient backgrounds with user initials:
+  - **Admin**: Purple to indigo gradient
+  - **Manager**: Blue to cyan gradient
+  - **Employee**: Green to teal gradient
+- **Graceful Error Handling** - Automatic fallback when avatar images fail to load
+- **Professional Avatar Display** - 32px rounded avatars with border styling
+
+#### Code Quality & Performance
+
+- **PostgreSQL Array Handling** - Proper department_ids parsing between database and frontend
+- **Production Code Cleanup** - Removed all debug logging and development artifacts
+- **TypeScript Interface Updates** - Enhanced Member type with avatar_url field
+- **Streamlined Component Logic** - Simplified dashboard data management and role permissions
+
+### 🛡️ Security & Access Control Improvements
+
+- **Role-Based Page Access** - Proper middleware and permission checks
+- **Organization Isolation** - Enhanced tenant isolation with role-appropriate data access
+- **Member Assignment Restrictions** - Managers can only assign within their scope
+- **Self-Protection Logic** - Users cannot modify their own critical permissions
+
+### 🎨 User Interface Enhancements
+
+- **Consistent Role Colors** - Color-coded elements throughout the interface
+- **Professional Member List** - Avatar display with clean typography and spacing
+- **Intuitive Controls** - Role-appropriate form controls and restrictions
+- **Mobile-Responsive Design** - All new components work seamlessly across devices
+
+### 📊 Dashboard Experience Optimization
+
+- **Employee Auto-Selection** - Automatic department selection for single-department employees
+- **Manager Scope Filtering** - Branch-specific queue management for managers
+- **Admin Global View** - Complete organization oversight capabilities
+- **Real-Time Permission Updates** - Dynamic UI updates based on role changes
+
+---
+
 ## Version 2.4.1 - Development Cleanup & Native Invitation System (August 18, 2025)
 
 ### 🧹 Major Codebase Cleanup
@@ -174,7 +240,7 @@ notification_logs: ticket_id (FK) → tickets(id), multi-channel delivery tracki
 ### 🧪 Testing & Validation
 
 - **Phone Optional Flow** - ✅ Customers can create tickets without phone numbers
-- **Phone Provided Flow** - ✅ Phone numbers stored for future WhatsApp/SMS integration  
+- **Phone Provided Flow** - ✅ Phone numbers stored for future WhatsApp/SMS integration
 - **Two-Step Process** - ✅ Notifications work before and after ticket creation
 - **Migration Process** - ✅ Database migration tested and validated
 - **Error Scenarios** - ✅ Graceful handling of edge cases and failures

@@ -97,36 +97,58 @@
 #### PHASE 2: User Experience Enhancements (Medium Priority)
 
 1. Invitation Management Dashboard
-    - Pending invitations view - Show all pending invites with status
-    - Resend invitation feature - Allow admins to resend failed invitations
-    - Bulk invitation import - CSV upload for multiple invitations
-    - Invitation analytics - Track acceptance rates and timing
+
+   - Pending invitations view - Show all pending invites with status
+   - Resend invitation feature - Allow admins to resend failed invitations
+   - Invitation analytics - Track acceptance rates and timing
 
 2. Onboarding Improvements
-    - Welcome flow - Guided setup for new members
-    - Role-specific dashboards - Tailored experience by role
-    - Organization introduction - Show company info to new members
-    - Training resources - Built-in help and documentation
+
+   - Welcome flow - Guided setup for new members
+   - Role-specific dashboards - Tailored experience by role
+   - Organization introduction - Show company info to new members
+   - Training resources - Built-in help and documentation
 
 3. Member Lifecycle Management
-    - Member deactivation - Soft delete with data retention
-    - Role change notifications - Alert users when roles are modified
-    - Access audit trail - Track member actions and role changes
-    - Automatic cleanup - Remove expired/unused invitations
+   - Member deactivation - Soft delete with data retention
+   - Role change notifications - Alert users when roles are modified
+   - Access audit trail - Track member actions and role changes
+   - Automatic cleanup - Remove expired/unused invitations
+
+#### Roles
+
+- Admin:
+
+  - Can see and edit everything.
+
+- Manager:
+
+  - Is assigned to a specific Branch.
+  - Can only see his branch data.
+  - In the Dashboard page he won't see the branch selector and has his branch selected by default.
+  - In the Organization tab, he can not edit organization details, he can not see the plan tab, he can not refresh the Qr codes in the qr codes management tab, he can not invite members nor edit nor delete himself nor the admins in the memebers list. In the Tree view he can not add or delete branches, he can add edit and delete departements and services.
+
+- Employee:
+
+  - Is assigned to a specific departmenet.
+  - Can only see the dashboard tab in the entire app.
+  - He worn't see the departmenet selector and has his department selected by default.
+  - He can't see the reset queue button.
 
 #### PHASE 3: Advanced Features (Lower Priority)
 
 1. Security Enhancements
-    - Two-factor authentication - Optional 2FA for sensitive roles
-    - Session monitoring - Track concurrent sessions
-    - Suspicious activity detection - Alert on unusual login patterns
-    - API rate limiting - Prevent invitation spam
+
+   - Two-factor authentication - Optional 2FA for sensitive roles
+   - Session monitoring - Track concurrent sessions
+   - Suspicious activity detection - Alert on unusual login patterns
+   - API rate limiting - Prevent invitation spam
 
 2. Integration Improvements
-    - SSO integration - Google Workspace, Microsoft 365 support
-    - LDAP/Active Directory - Enterprise directory integration
-    - Webhook system - Notify external systems of member changes
-    - API documentation - Complete member management API docs
+   - SSO integration - Google Workspace, Microsoft 365 support
+   - LDAP/Active Directory - Enterprise directory integration
+   - Webhook system - Notify external systems of member changes
+   - API documentation - Complete member management API docs
 
 ### 📋 Implementation Priority Matrix
 

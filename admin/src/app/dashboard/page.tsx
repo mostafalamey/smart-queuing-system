@@ -1,44 +1,45 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { DashboardLayout } from '@/components/DashboardLayout'
-import { useAuth } from '@/lib/AuthContext'
-import { useRouter } from 'next/navigation'
-import ResetQueueModal from '@/components/ResetQueueModal'
+import { useState, useEffect } from "react";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { useAuth } from "@/lib/AuthContext";
+import { useRouter } from "next/navigation";
+import ResetQueueModal from "@/components/ResetQueueModal";
 
 // Feature components
-import { DashboardHeader } from './features/dashboard-header'
-import { QueueManager } from './features/queue-management'
-import { QueueStatus } from './features/queue-status'
-import { useQueueOperations } from './features/queue-controls'
-import { 
-  useDashboardData, 
-  useRealtimeSubscriptions, 
-  ConnectionErrorBanner 
-} from './features/shared'
+import { DashboardHeader } from "./features/dashboard-header";
+import { QueueManager } from "./features/queue-management";
+import { QueueStatus } from "./features/queue-status";
+import { useQueueOperations } from "./features/queue-controls";
+import {
+  useDashboardData,
+  useRealtimeSubscriptions,
+  ConnectionErrorBanner,
+} from "./features/shared";
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const [showResetQueueModal, setShowResetQueueModal] = useState(false)
-  const [queueOperationLoading, setQueueOperationLoading] = useState(false)
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [showResetQueueModal, setShowResetQueueModal] = useState(false);
+  const [queueOperationLoading, setQueueOperationLoading] = useState(false);
 
   // Use custom hooks for data management
-  const dashboardData = useDashboardData()
-  const queueOperations = useQueueOperations()
+  const dashboardData = useDashboardData();
+  const queueOperations = useQueueOperations();
 
   // Real-time subscriptions
   useRealtimeSubscriptions(
     dashboardData.selectedDepartment,
     dashboardData.fetchQueueData,
     dashboardData.isFetchingRef
-  )
+  );
 
-  // Redirect if not authenticated
-  if (!authLoading && !user && dashboardData.mounted) {
-    router.replace('/login')
-    return null
-  }
+  // Redirect if not authenticated (using useEffect to avoid setState during render)
+  useEffect(() => {
+    if (!authLoading && !user && dashboardData.mounted) {
+      router.replace("/login");
+    }
+  }, [authLoading, user, dashboardData.mounted, router]);
 
   // Show loading if auth is still loading or component not mounted
   if (authLoading || !dashboardData.mounted) {
@@ -51,12 +52,12 @@ export default function DashboardPage() {
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Don't render if user is not authenticated
   if (!user) {
-    return null
+    return null;
   }
 
   // Handle queue operations with proper parameters
@@ -69,12 +70,14 @@ export default function DashboardPage() {
       dashboardData.organization,
       dashboardData.fetchQueueData,
       setQueueOperationLoading,
-      (error) => {/* setConnectionError handled in dashboardData */},
+      (error) => {
+        /* setConnectionError handled in dashboardData */
+      },
       dashboardData.showSuccess,
       dashboardData.showInfo,
       dashboardData.showError
-    )
-  }
+    );
+  };
 
   const handleSkipTicket = () => {
     queueOperations.skipCurrentTicket(
@@ -82,11 +85,13 @@ export default function DashboardPage() {
       dashboardData.queueData,
       dashboardData.fetchQueueData,
       setQueueOperationLoading,
-      (error) => {/* setConnectionError handled in dashboardData */},
+      (error) => {
+        /* setConnectionError handled in dashboardData */
+      },
       dashboardData.showWarning,
       dashboardData.showError
-    )
-  }
+    );
+  };
 
   const handleCompleteTicket = () => {
     queueOperations.completeCurrentTicket(
@@ -94,11 +99,13 @@ export default function DashboardPage() {
       dashboardData.queueData,
       dashboardData.fetchQueueData,
       setQueueOperationLoading,
-      (error) => {/* setConnectionError handled in dashboardData */},
+      (error) => {
+        /* setConnectionError handled in dashboardData */
+      },
       dashboardData.showSuccess,
       dashboardData.showError
-    )
-  }
+    );
+  };
 
   const handleResetQueue = (includeCleanup: boolean) => {
     queueOperations.resetQueue(
@@ -106,11 +113,13 @@ export default function DashboardPage() {
       includeCleanup,
       dashboardData.fetchQueueData,
       setQueueOperationLoading,
-      (error) => {/* setConnectionError handled in dashboardData */},
+      (error) => {
+        /* setConnectionError handled in dashboardData */
+      },
       dashboardData.showWarning,
       dashboardData.showError
-    )
-  }
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -151,6 +160,10 @@ export default function DashboardPage() {
                   onCompleteTicket={handleCompleteTicket}
                   showWarning={dashboardData.showWarning}
                   showInfo={dashboardData.showInfo}
+                  canSelectBranch={dashboardData.canSelectBranch}
+                  canSelectDepartment={dashboardData.canSelectDepartment}
+                  currentUserRole={dashboardData.userRole}
+                  assignedDepartmentName={dashboardData.getAssignedDepartmentName()}
                 />
               </div>
 
@@ -161,6 +174,7 @@ export default function DashboardPage() {
                   loading={queueOperationLoading}
                   onCallNext={handleCallNext}
                   onShowResetModal={() => setShowResetQueueModal(true)}
+                  canResetQueue={dashboardData.canResetQueue}
                 />
               </div>
             </div>
@@ -175,14 +189,14 @@ export default function DashboardPage() {
         onResetOnly={() => handleResetQueue(false)}
         onResetWithCleanup={() => handleResetQueue(true)}
         queueName={
-          dashboardData.queueData?.service 
-            ? `${dashboardData.queueData.service.name} (${dashboardData.queueData.department?.name})` 
-            : dashboardData.queueData?.department?.name || 'queue'
+          dashboardData.queueData?.service
+            ? `${dashboardData.queueData.service.name} (${dashboardData.queueData.department?.name})`
+            : dashboardData.queueData?.department?.name || "queue"
         }
       />
     </DashboardLayout>
-  )
+  );
 }
 
 // Force dynamic rendering for this page
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";

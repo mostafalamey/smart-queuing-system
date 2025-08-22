@@ -1,27 +1,29 @@
-import { Phone, Users } from 'lucide-react'
-import { QueueData } from '../shared/types'
+import { Phone, Users } from "lucide-react";
+import { QueueData } from "../shared/types";
 
 interface QueueStatusProps {
-  queueData: QueueData | null
-  loading: boolean
-  onCallNext: () => void
-  onShowResetModal: () => void
+  queueData: QueueData | null;
+  loading: boolean;
+  onCallNext: () => void;
+  onShowResetModal: () => void;
+  canResetQueue?: boolean;
 }
 
 export const QueueStatus = ({
   queueData,
   loading,
   onCallNext,
-  onShowResetModal
+  onShowResetModal,
+  canResetQueue = true,
 }: QueueStatusProps) => {
-  if (!queueData) return null
+  if (!queueData) return null;
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-celestial-500 to-french-600 rounded-2xl p-8 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 group h-full">
       {/* Animated Background Elements */}
       <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform duration-500"></div>
       <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8 group-hover:scale-110 transition-transform duration-500"></div>
-      
+
       <div className="relative h-full flex flex-col">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
@@ -31,8 +33,12 @@ export const QueueStatus = ({
         </div>
         <div className="flex-1 flex flex-col justify-center">
           <div className="text-center mb-8">
-            <div className="text-9xl font-black mb-3 text-white drop-shadow-lg leading-none">{queueData.waitingCount || 0}</div>
-            <div className="text-celestial-100 text-2xl font-bold">Customers Waiting</div>
+            <div className="text-9xl font-black mb-3 text-white drop-shadow-lg leading-none">
+              {queueData.waitingCount || 0}
+            </div>
+            <div className="text-celestial-100 text-2xl font-bold">
+              Customers Waiting
+            </div>
           </div>
           <div className="space-y-4">
             {/* Enhanced Call Next Button - Main Action - Significantly Larger */}
@@ -44,22 +50,26 @@ export const QueueStatus = ({
               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
               <div className="relative flex items-center justify-center">
                 <Phone className="w-10 h-10 mr-4 group-hover/btn:rotate-12 transition-transform duration-200" />
-                <span className="text-2xl font-extrabold">{loading ? 'Calling...' : 'Call Next Customer'}</span>
+                <span className="text-2xl font-extrabold">
+                  {loading ? "Calling..." : "Call Next Customer"}
+                </span>
               </div>
             </button>
             {/* Secondary Action Buttons */}
-            <div className="grid grid-cols-1 gap-3">
-              <button
-                onClick={onShowResetModal}
-                className="w-full relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group/btn"
-              >
-                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
-                <span className="relative">Reset Queue</span>
-              </button>
-            </div>
+            {canResetQueue && (
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  onClick={onShowResetModal}
+                  className="w-full relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group/btn"
+                >
+                  <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200"></div>
+                  <span className="relative">Reset Queue</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

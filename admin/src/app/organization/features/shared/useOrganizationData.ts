@@ -1,214 +1,266 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import { logger } from '@/lib/logger'
-import { useAuth } from '@/lib/AuthContext'
-import { useAppToast } from '@/hooks/useAppToast'
-import { Organization, Member, Branch, Department, OrganizationForm, QRCodeData } from './types'
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
+import { useAuth } from "@/lib/AuthContext";
+import { useAppToast } from "@/hooks/useAppToast";
+
+// Helper function to parse PostgreSQL array format to JavaScript array
+const parseDepartmentIds = (
+  departmentIdsString: string | string[] | null
+): string[] | null => {
+  if (!departmentIdsString) return null;
+
+  // If it's already an array, return it as-is
+  if (Array.isArray(departmentIdsString)) {
+    return departmentIdsString;
+  }
+
+  // Handle PostgreSQL array format: {id1,id2,id3} -> ["id1", "id2", "id3"]
+  if (
+    departmentIdsString.startsWith("{") &&
+    departmentIdsString.endsWith("}")
+  ) {
+    const content = departmentIdsString.slice(1, -1); // Remove { }
+    return content ? content.split(",").map((id) => id.trim()) : [];
+  }
+
+  // Handle comma-separated format: "id1,id2,id3" -> ["id1", "id2", "id3"]
+  if (departmentIdsString.includes(",")) {
+    return departmentIdsString.split(",").map((id) => id.trim());
+  }
+
+  // Handle single ID: "id1" -> ["id1"]
+  return departmentIdsString ? [departmentIdsString.trim()] : [];
+};
+
+import {
+  Organization,
+  Member,
+  Branch,
+  Department,
+  OrganizationForm,
+  QRCodeData,
+} from "./types";
 
 export const useOrganizationData = () => {
-  const { userProfile } = useAuth()
-  const { showSuccess, showError, showWarning, showInfo } = useAppToast()
-  
+  const { userProfile } = useAuth();
+  const { showSuccess, showError, showWarning, showInfo } = useAppToast();
+
   // State
-  const [organization, setOrganization] = useState<Organization | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [qrCodeUrl, setQrCodeUrl] = useState('')
-  const [branchQrCodes, setBranchQrCodes] = useState<QRCodeData>({})
-  const [departmentQrCodes, setDepartmentQrCodes] = useState<QRCodeData>({})
-  const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [qrGenerating, setQrGenerating] = useState(false)
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [branchQrCodes, setBranchQrCodes] = useState<QRCodeData>({});
+  const [departmentQrCodes, setDepartmentQrCodes] = useState<QRCodeData>({});
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [qrGenerating, setQrGenerating] = useState(false);
 
   const [orgForm, setOrgForm] = useState<OrganizationForm>({
-    name: '',
-    contact_email: '',
-    phone: '',
-    website: '',
-    address: '',
-    primary_color: '#3b82f6',
-    welcome_message: '',
-    logo_url: ''
-  })
+    name: "",
+    contact_email: "",
+    phone: "",
+    website: "",
+    address: "",
+    primary_color: "#3b82f6",
+    welcome_message: "",
+    logo_url: "",
+  });
 
   // Fetch functions
   const fetchOrganization = useCallback(async () => {
     if (!userProfile?.organization_id) return;
-    
+
     const { data } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', userProfile.organization_id)
-      .single()
-    
+      .from("organizations")
+      .select("*")
+      .eq("id", userProfile.organization_id)
+      .single();
+
     if (data) {
-      setOrganization(data)
+      setOrganization(data);
       setOrgForm({
-        name: data.name || '',
-        contact_email: data.contact_email || '',
-        phone: data.phone || '',
-        website: data.website || '',
-        address: data.address || '',
-        primary_color: data.primary_color || '#3b82f6',
-        welcome_message: data.welcome_message || '',
-        logo_url: data.logo_url || ''
-      })
-      
+        name: data.name || "",
+        contact_email: data.contact_email || "",
+        phone: data.phone || "",
+        website: data.website || "",
+        address: data.address || "",
+        primary_color: data.primary_color || "#3b82f6",
+        welcome_message: data.welcome_message || "",
+        logo_url: data.logo_url || "",
+      });
+
       // Generate organization QR code inline
       if (data.name && !qrGenerating) {
         try {
-          setQrGenerating(true)
-          const response = await fetch('/api/generate-qr', {
-            method: 'POST',
+          setQrGenerating(true);
+          const response = await fetch("/api/generate-qr", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json'
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               organizationId: userProfile.organization_id,
-              organizationName: data.name
-            })
-          })
+              organizationName: data.name,
+            }),
+          });
 
-          const qrData = await response.json()
+          const qrData = await response.json();
           if (qrData.success) {
-            setQrCodeUrl(qrData.qrCodeDataURL)
+            setQrCodeUrl(qrData.qrCodeDataURL);
           }
         } catch (error) {
-          logger.error('Error generating organization QR code:', error)
+          logger.error("Error generating organization QR code:", error);
         } finally {
-          setQrGenerating(false)
+          setQrGenerating(false);
         }
       }
     }
-  }, [userProfile?.organization_id])
+  }, [userProfile?.organization_id]);
 
   const fetchMembers = useCallback(async () => {
     if (!userProfile?.organization_id) return;
-    
+
     const { data } = await supabase
-      .from('members')
-      .select(`
+      .from("members")
+      .select(
+        `
         *,
         organizations(*)
-      `)
-      .eq('organization_id', userProfile.organization_id)
-    
-    setMembers(data || [])
-  }, [userProfile?.organization_id])
+      `
+      )
+      .eq("organization_id", userProfile.organization_id);
+
+    // Parse department_ids from PostgreSQL array format to JavaScript array
+    const parsedMembers = (data || []).map((member) => ({
+      ...member,
+      department_ids: member.department_ids
+        ? parseDepartmentIds(member.department_ids)
+        : null,
+    }));
+
+    setMembers(parsedMembers);
+  }, [userProfile?.organization_id]);
 
   const fetchBranches = useCallback(async () => {
     if (!userProfile?.organization_id) return;
-    
-    logger.info('fetchBranches called for organization:', userProfile.organization_id);
-    
+
     const { data } = await supabase
-      .from('branches')
-      .select('*')
-      .eq('organization_id', userProfile.organization_id)
-      .order('name')
-    
-    logger.info('fetchBranches result:', { count: data?.length || 0 });
-    setBranches(data || [])
-    
+      .from("branches")
+      .select("*")
+      .eq("organization_id", userProfile.organization_id)
+      .order("name");
+
+    setBranches(data || []);
+
     // Generate QR codes for each branch (like original version)
     if (data && data.length > 0 && organization?.name) {
-      const qrCodes: QRCodeData = {}
+      const qrCodes: QRCodeData = {};
       for (const branch of data) {
         try {
-          const response = await fetch('/api/generate-qr', {
-            method: 'POST',
+          const response = await fetch("/api/generate-qr", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json'
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               organizationId: userProfile.organization_id,
               branchId: branch.id,
-              organizationName: organization.name
-            })
-          })
+              organizationName: organization.name,
+            }),
+          });
 
-          const qrData = await response.json()
+          const qrData = await response.json();
           if (qrData.success) {
-            qrCodes[branch.id] = qrData.qrCodeDataURL
+            qrCodes[branch.id] = qrData.qrCodeDataURL;
           }
         } catch (error) {
-          logger.error('Error generating branch QR code:', error)
+          logger.error("Error generating branch QR code:", error);
         }
       }
-      setBranchQrCodes(qrCodes)
+      setBranchQrCodes(qrCodes);
     }
-  }, [userProfile?.organization_id, organization?.name])
+  }, [userProfile?.organization_id, organization?.name]);
 
   const generateQRCode = async () => {
     if (!userProfile?.organization_id || !organization?.name || qrGenerating) {
       return;
     }
-    
+
     setQrGenerating(true);
-    
+
     try {
-      const response = await fetch('/api/generate-qr', {
-        method: 'POST',
+      const response = await fetch("/api/generate-qr", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           organizationId: userProfile.organization_id,
-          organizationName: organization.name
-        })
-      })
+          organizationName: organization.name,
+        }),
+      });
 
-      const data = await response.json()
+      const data = await response.json();
       if (data.success) {
-        setQrCodeUrl(data.qrCodeDataURL)
+        setQrCodeUrl(data.qrCodeDataURL);
       }
     } catch (error) {
-      logger.error('Error generating organization QR code:', error)
+      logger.error("Error generating organization QR code:", error);
     } finally {
       setQrGenerating(false);
     }
-  }
+  };
 
   // QR Code Action Functions
   const downloadQR = () => {
-    const link = document.createElement('a')
-    link.download = `${organization?.name || 'organization'}-qr-code.png`
-    link.href = qrCodeUrl
-    link.click()
-  }
+    const link = document.createElement("a");
+    link.download = `${organization?.name || "organization"}-qr-code.png`;
+    link.href = qrCodeUrl;
+    link.click();
+  };
 
   const copyQRUrl = async () => {
     if (!userProfile?.organization_id) return;
-    
-    const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
-    const url = `${customerUrl}?org=${userProfile.organization_id}`
-    await navigator.clipboard.writeText(url)
-    
+
+    const customerUrl =
+      process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3002";
+    const url = `${customerUrl}?org=${userProfile.organization_id}`;
+    await navigator.clipboard.writeText(url);
+
     showSuccess(
-      'URL Copied!',
-      'Customer queue URL has been copied to your clipboard.',
+      "URL Copied!",
+      "Customer queue URL has been copied to your clipboard.",
       {
-        label: 'Test URL',
-        onClick: () => window.open(url, '_blank')
+        label: "Test URL",
+        onClick: () => window.open(url, "_blank"),
       }
-    )
-  }
+    );
+  };
 
   const printQR = () => {
     if (!qrCodeUrl) {
-      showError('Print Failed', 'QR code not available. Please generate it first.')
-      return
+      showError(
+        "Print Failed",
+        "QR code not available. Please generate it first."
+      );
+      return;
     }
 
-    const printWindow = window.open('', '_blank')
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      showError('Print Failed', 'Unable to open print window. Please check your browser settings.')
-      return
+      showError(
+        "Print Failed",
+        "Unable to open print window. Please check your browser settings."
+      );
+      return;
     }
 
-    const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
-    const url = `${customerUrl}?org=${userProfile?.organization_id}`
+    const customerUrl =
+      process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3002";
+    const url = `${customerUrl}?org=${userProfile?.organization_id}`;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -268,8 +320,12 @@ export const useOrganizationData = () => {
         </head>
         <body>
           <div class="qr-container">
-            ${organization?.logo_url ? `<img src="${organization.logo_url}" alt="Logo" style="max-width: 100px; margin-bottom: 20px;" />` : ''}
-            <div class="org-name">${organization?.name || 'Organization'}</div>
+            ${
+              organization?.logo_url
+                ? `<img src="${organization.logo_url}" alt="Logo" style="max-width: 100px; margin-bottom: 20px;" />`
+                : ""
+            }
+            <div class="org-name">${organization?.name || "Organization"}</div>
             <div class="subtitle">General Access Queue</div>
             <img src="${qrCodeUrl}" alt="Organization QR Code" class="qr-code" />
             <div class="instructions">
@@ -279,77 +335,90 @@ export const useOrganizationData = () => {
           </div>
         </body>
       </html>
-    `)
-    
-    printWindow.document.close()
-    printWindow.focus()
-    
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
     // Wait for image to load before printing
     setTimeout(() => {
-      printWindow.print()
-      printWindow.close()
-    }, 1000)
+      printWindow.print();
+      printWindow.close();
+    }, 1000);
 
     showSuccess(
-      'Print Dialog Opened!',
-      'Organization QR code is ready for printing.'
-    )
-  }
+      "Print Dialog Opened!",
+      "Organization QR code is ready for printing."
+    );
+  };
 
   const downloadBranchQR = (branchId: string, branchName: string) => {
-    const qrCode = branchQrCodes[branchId]
+    const qrCode = branchQrCodes[branchId];
     if (!qrCode) {
-      showError('Download Failed', 'QR code not available. Please generate it first.')
-      return
+      showError(
+        "Download Failed",
+        "QR code not available. Please generate it first."
+      );
+      return;
     }
-    
-    const link = document.createElement('a')
-    link.download = `${branchName}-qr-code.png`
-    link.href = qrCode
-    link.click()
-    
+
+    const link = document.createElement("a");
+    link.download = `${branchName}-qr-code.png`;
+    link.href = qrCode;
+    link.click();
+
     showSuccess(
-      'QR Code Downloaded!',
+      "QR Code Downloaded!",
       `${branchName} QR code has been saved to your device.`
-    )
-  }
+    );
+  };
 
   const copyBranchQRUrl = async (branchId: string, branchName?: string) => {
     if (!userProfile?.organization_id) return;
-    
+
     try {
-      const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
-      const url = `${customerUrl}?org=${userProfile.organization_id}&branch=${branchId}`
-      await navigator.clipboard.writeText(url)
-      
+      const customerUrl =
+        process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3002";
+      const url = `${customerUrl}?org=${userProfile.organization_id}&branch=${branchId}`;
+      await navigator.clipboard.writeText(url);
+
       showSuccess(
-        'Branch URL Copied!',
-        `${branchName || 'Branch'} queue URL has been copied to your clipboard.`,
+        "Branch URL Copied!",
+        `${
+          branchName || "Branch"
+        } queue URL has been copied to your clipboard.`,
         {
-          label: 'Try URL',
-          onClick: () => window.open(url, '_blank')
+          label: "Try URL",
+          onClick: () => window.open(url, "_blank"),
         }
-      )
+      );
     } catch (error) {
-      showError('Copy Failed', 'Unable to copy URL to clipboard.')
+      showError("Copy Failed", "Unable to copy URL to clipboard.");
     }
-  }
+  };
 
   const printBranchQR = (branchId: string, branchName: string) => {
-    const qrCode = branchQrCodes[branchId]
+    const qrCode = branchQrCodes[branchId];
     if (!qrCode) {
-      showError('Print Failed', 'QR code not available. Please generate it first.')
-      return
+      showError(
+        "Print Failed",
+        "QR code not available. Please generate it first."
+      );
+      return;
     }
 
-    const printWindow = window.open('', '_blank')
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      showError('Print Failed', 'Unable to open print window. Please check your browser settings.')
-      return
+      showError(
+        "Print Failed",
+        "Unable to open print window. Please check your browser settings."
+      );
+      return;
     }
 
-    const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
-    const url = `${customerUrl}?org=${userProfile?.organization_id}&branch=${branchId}`
+    const customerUrl =
+      process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3002";
+    const url = `${customerUrl}?org=${userProfile?.organization_id}&branch=${branchId}`;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -409,7 +478,7 @@ export const useOrganizationData = () => {
         </head>
         <body>
           <div class="qr-container">
-            <div class="org-name">${organization?.name || 'Organization'}</div>
+            <div class="org-name">${organization?.name || "Organization"}</div>
             <div class="branch-name">${branchName} Branch</div>
             <img src="${qrCode}" alt="QR Code for ${branchName}" class="qr-code" />
             <div class="instructions">
@@ -419,77 +488,101 @@ export const useOrganizationData = () => {
           </div>
         </body>
       </html>
-    `)
-    
-    printWindow.document.close()
-    printWindow.focus()
-    
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
     // Wait for image to load before printing
     setTimeout(() => {
-      printWindow.print()
-      printWindow.close()
-    }, 1000)
+      printWindow.print();
+      printWindow.close();
+    }, 1000);
 
     showSuccess(
-      'Print Dialog Opened!',
+      "Print Dialog Opened!",
       `${branchName} QR code is ready for printing.`
-    )
-  }
+    );
+  };
 
-  const downloadDepartmentQR = (departmentId: string, departmentName: string) => {
-    const qrCode = departmentQrCodes[departmentId]
+  const downloadDepartmentQR = (
+    departmentId: string,
+    departmentName: string
+  ) => {
+    const qrCode = departmentQrCodes[departmentId];
     if (!qrCode) {
-      showError('Download Failed', 'QR code not available. Please generate it first.')
-      return
+      showError(
+        "Download Failed",
+        "QR code not available. Please generate it first."
+      );
+      return;
     }
-    
-    const link = document.createElement('a')
-    link.download = `${departmentName}-qr-code.png`
-    link.href = qrCode
-    link.click()
-    
+
+    const link = document.createElement("a");
+    link.download = `${departmentName}-qr-code.png`;
+    link.href = qrCode;
+    link.click();
+
     showSuccess(
-      'QR Code Downloaded!',
+      "QR Code Downloaded!",
       `${departmentName} QR code has been saved to your device.`
-    )
-  }
+    );
+  };
 
-  const copyDepartmentQRUrl = async (departmentId: string, departmentName?: string, branchId?: string) => {
+  const copyDepartmentQRUrl = async (
+    departmentId: string,
+    departmentName?: string,
+    branchId?: string
+  ) => {
     if (!userProfile?.organization_id) return;
-    
+
     try {
-      const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
-      const url = `${customerUrl}?org=${userProfile.organization_id}&branch=${branchId}&department=${departmentId}`
-      await navigator.clipboard.writeText(url)
-      
+      const customerUrl =
+        process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3002";
+      const url = `${customerUrl}?org=${userProfile.organization_id}&branch=${branchId}&department=${departmentId}`;
+      await navigator.clipboard.writeText(url);
+
       showSuccess(
-        'Department URL Copied!',
-        `${departmentName || 'Department'} queue URL has been copied to your clipboard.`,
+        "Department URL Copied!",
+        `${
+          departmentName || "Department"
+        } queue URL has been copied to your clipboard.`,
         {
-          label: 'Try URL',
-          onClick: () => window.open(url, '_blank')
+          label: "Try URL",
+          onClick: () => window.open(url, "_blank"),
         }
-      )
+      );
     } catch (error) {
-      showError('Copy Failed', 'Unable to copy URL to clipboard.')
+      showError("Copy Failed", "Unable to copy URL to clipboard.");
     }
-  }
+  };
 
-  const printDepartmentQR = (departmentId: string, departmentName: string, branchId: string) => {
-    const qrCode = departmentQrCodes[departmentId]
+  const printDepartmentQR = (
+    departmentId: string,
+    departmentName: string,
+    branchId: string
+  ) => {
+    const qrCode = departmentQrCodes[departmentId];
     if (!qrCode) {
-      showError('Print Failed', 'QR code not available. Please generate it first.')
-      return
+      showError(
+        "Print Failed",
+        "QR code not available. Please generate it first."
+      );
+      return;
     }
 
-    const printWindow = window.open('', '_blank')
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      showError('Print Failed', 'Unable to open print window. Please check your browser settings.')
-      return
+      showError(
+        "Print Failed",
+        "Unable to open print window. Please check your browser settings."
+      );
+      return;
     }
 
-    const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'
-    const url = `${customerUrl}?org=${userProfile?.organization_id}&branch=${branchId}&department=${departmentId}`
+    const customerUrl =
+      process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3002";
+    const url = `${customerUrl}?org=${userProfile?.organization_id}&branch=${branchId}&department=${departmentId}`;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -535,8 +628,12 @@ export const useOrganizationData = () => {
         </head>
         <body>
           <div class="qr-container">
-            ${organization?.logo_url ? `<img src="${organization.logo_url}" alt="Logo" class="logo" />` : ''}
-            <h1>${organization?.name || 'Organization'}</h1>
+            ${
+              organization?.logo_url
+                ? `<img src="${organization.logo_url}" alt="Logo" class="logo" />`
+                : ""
+            }
+            <h1>${organization?.name || "Organization"}</h1>
             <h2>${departmentName} Department</h2>
             <div class="qr-code">
               <img src="${qrCode}" alt="Department QR Code" style="max-width: 250px;" />
@@ -552,91 +649,99 @@ export const useOrganizationData = () => {
           </div>
         </body>
       </html>
-    `)
+    `);
 
-    printWindow.document.close()
-    printWindow.focus()
+    printWindow.document.close();
+    printWindow.focus();
     setTimeout(() => {
-      printWindow.print()
-    }, 250)
-    
+      printWindow.print();
+    }, 250);
+
     showInfo(
-      'Print Dialog Opened',
+      "Print Dialog Opened",
       `${departmentName} department QR code is ready to print.`
-    )
-  }
+    );
+  };
 
   const fetchDepartments = useCallback(async () => {
     if (!userProfile?.organization_id) return;
-    
+
     const { data } = await supabase
-      .from('departments')
-      .select(`
+      .from("departments")
+      .select(
+        `
         *,
         branches:branch_id (
           id,
           name
         )
-      `)
-      .order('name')
-    
+      `
+      )
+      .order("name");
+
     // Filter departments that belong to branches of this organization
     const { data: orgBranches } = await supabase
-      .from('branches')
-      .select('id')
-      .eq('organization_id', userProfile.organization_id)
-    
-    const orgBranchIds = orgBranches?.map(b => b.id) || []
-    const orgDepartments = data?.filter(dept => orgBranchIds.includes(dept.branch_id)) || []
-    
-    setDepartments(orgDepartments)
-    
+      .from("branches")
+      .select("id")
+      .eq("organization_id", userProfile.organization_id);
+
+    const orgBranchIds = orgBranches?.map((b) => b.id) || [];
+    const orgDepartments =
+      data?.filter((dept) => orgBranchIds.includes(dept.branch_id)) || [];
+
+    setDepartments(orgDepartments);
+
     // Generate QR codes for each department (like original version)
     if (orgDepartments && orgDepartments.length > 0 && organization?.name) {
-      const qrCodes: QRCodeData = {}
+      const qrCodes: QRCodeData = {};
       for (const department of orgDepartments) {
         try {
-          const response = await fetch('/api/generate-qr', {
-            method: 'POST',
+          const response = await fetch("/api/generate-qr", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json'
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               organizationId: userProfile.organization_id,
               branchId: department.branch_id,
               departmentId: department.id,
               organizationName: organization.name,
-              departmentName: department.name
-            })
-          })
+              departmentName: department.name,
+            }),
+          });
 
-          const qrData = await response.json()
+          const qrData = await response.json();
           if (qrData.success) {
-            qrCodes[department.id] = qrData.qrCodeDataURL
+            qrCodes[department.id] = qrData.qrCodeDataURL;
           }
         } catch (error) {
-          logger.error('Error generating department QR code:', error)
+          logger.error("Error generating department QR code:", error);
         }
       }
-      setDepartmentQrCodes(qrCodes)
+      setDepartmentQrCodes(qrCodes);
     }
-  }, [userProfile?.organization_id, organization?.name])
+  }, [userProfile?.organization_id, organization?.name]);
 
   // Effects
   useEffect(() => {
     if (userProfile?.organization_id) {
-      fetchOrganization()
-      fetchMembers()
+      fetchOrganization();
+      fetchMembers();
     }
-  }, [userProfile?.organization_id, fetchOrganization, fetchMembers])
+  }, [userProfile?.organization_id, fetchOrganization, fetchMembers]);
 
   // Separate effect for branches and departments that depends on organization being loaded
   useEffect(() => {
     if (userProfile?.organization_id && organization?.name) {
-      fetchBranches()
-      fetchDepartments()
+      fetchBranches();
+      fetchDepartments();
     }
-  }, [userProfile?.organization_id, organization?.name, fetchBranches, fetchDepartments])
+  }, [
+    userProfile?.organization_id,
+    organization?.name,
+    fetchBranches,
+    fetchDepartments,
+  ]);
 
   return {
     // State
@@ -662,14 +767,14 @@ export const useOrganizationData = () => {
     setQrGenerating,
     orgForm,
     setOrgForm,
-    
+
     // Functions
     fetchOrganization,
     fetchMembers,
     fetchBranches,
     fetchDepartments,
     generateQRCode,
-    
+
     // QR Code Action Functions
     downloadQR,
     copyQRUrl,
@@ -680,14 +785,14 @@ export const useOrganizationData = () => {
     downloadDepartmentQR,
     copyDepartmentQRUrl,
     printDepartmentQR,
-    
+
     // Toast functions
     showSuccess,
     showError,
     showWarning,
     showInfo,
-    
+
     // Auth
-    userProfile
-  }
-}
+    userProfile,
+  };
+};
