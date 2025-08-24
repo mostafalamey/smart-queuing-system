@@ -239,7 +239,7 @@ export const DeactivatedMembers: React.FC<DeactivatedMembersProps> = ({
 
   if (!canManageInactiveMembers) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card rounded-lg border p-8 text-center">
         <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Access Restricted
@@ -253,7 +253,7 @@ export const DeactivatedMembers: React.FC<DeactivatedMembersProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card rounded-lg border p-8 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-500">Loading inactive members...</p>
       </div>
@@ -307,7 +307,7 @@ export const DeactivatedMembers: React.FC<DeactivatedMembersProps> = ({
 
       {/* Members List */}
       {deactivatedMembers.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+        <div className="analytics-card rounded-lg border p-8 text-center">
           <Users className="w-12 h-12 text-green-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No Inactive Members
@@ -317,7 +317,7 @@ export const DeactivatedMembers: React.FC<DeactivatedMembersProps> = ({
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="analytics-card rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">

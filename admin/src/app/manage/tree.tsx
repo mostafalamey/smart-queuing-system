@@ -442,6 +442,8 @@ export default function ManageTreePage() {
         onTouchEnd={handleCanvasTouchEnd}
         startNodeDrag={startNodeDrag}
         startTouchNodeDrag={startTouchNodeDrag}
+        canCreateDepartment={permissions.canCreateDepartment}
+        canCreateService={permissions.canCreateService}
       />
 
       {/* Node Modal */}

@@ -575,7 +575,7 @@ export const MemberManagement = ({
 
       {/* Deactivated Members Section */}
       {canDeleteMembers && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
+        <div className="analytics-card border border-gray-200 mt-6">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -729,7 +729,7 @@ export const MemberManagement = ({
       {/* Invite Member Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="analytics-card p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">Invite New Member</h3>
 
             <div className="space-y-4">

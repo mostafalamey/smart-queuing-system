@@ -1,50 +1,66 @@
-import { useToast } from '@/contexts/ToastContext'
+import { useToast } from "@/contexts/ToastContext";
 
 export const useAppToast = () => {
-  const { addToast } = useToast()
+  const { addToast } = useToast();
 
-  const showSuccess = (title: string, message?: string, action?: { label: string; onClick: () => void }) => {
+  const showSuccess = (
+    title: string,
+    message?: string,
+    action?: { label: string; onClick: () => void }
+  ) => {
     addToast({
-      type: 'success',
+      type: "success",
       title,
       message,
       action,
-      duration: 5000
-    })
-  }
+      duration: 5000,
+    });
+  };
 
-  const showError = (title: string, message?: string, action?: { label: string; onClick: () => void }) => {
+  const showError = (
+    title: string,
+    message?: string,
+    action?: { label: string; onClick: () => void }
+  ) => {
     addToast({
-      type: 'error',
+      type: "error",
       title,
       message,
       action,
-      duration: 7000 // Longer duration for errors
-    })
-  }
+      duration: 7000, // Longer duration for errors
+    });
+  };
 
-  const showWarning = (title: string, message?: string, action?: { label: string; onClick: () => void }) => {
+  const showWarning = (
+    title: string,
+    message?: string,
+    action?: { label: string; onClick: () => void }
+  ) => {
     addToast({
-      type: 'warning',
+      type: "warning",
       title,
       message,
       action,
-      duration: 6000
-    })
-  }
+      duration: action ? 0 : 6000, // Persistent if there's an action button
+    });
+  };
 
-  const showInfo = (title: string, message?: string, action?: { label: string; onClick: () => void }) => {
+  const showInfo = (
+    title: string,
+    message?: string,
+    action?: { label: string; onClick: () => void }
+  ) => {
     addToast({
-      type: 'info',
+      type: "info",
       title,
       message,
       action,
-      duration: 5000
-    })
-  }
+      duration: 5000,
+    });
+  };
 
   const showPersistent = (
-    type: 'success' | 'error' | 'warning' | 'info',
+    type: "success" | "error" | "warning" | "info",
     title: string,
     message?: string,
     action?: { label: string; onClick: () => void }
@@ -54,15 +70,34 @@ export const useAppToast = () => {
       title,
       message,
       action,
-      duration: 0 // Won't auto-dismiss
-    })
-  }
+      duration: 0, // Won't auto-dismiss
+    });
+  };
+
+  const showConfirmation = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    onCancel?: () => void
+  ) => {
+    addToast({
+      type: "warning",
+      title,
+      message,
+      action: {
+        label: "Delete",
+        onClick: onConfirm,
+      },
+      duration: 0, // Won't auto-dismiss until user acts
+    });
+  };
 
   return {
     showSuccess,
     showError,
     showWarning,
     showInfo,
-    showPersistent
-  }
-}
+    showPersistent,
+    showConfirmation,
+  };
+};

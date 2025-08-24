@@ -15,6 +15,7 @@ import {
   X,
   Sparkles,
   GitBranch,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -33,6 +34,13 @@ const navigationItems = [
     icon: Building2,
     color: "text-yellowgreen-400",
     route: "organization",
+  },
+  {
+    name: "Analytics",
+    href: "/analytics",
+    icon: BarChart3,
+    color: "text-citrine-400",
+    route: "analytics",
   },
   {
     name: "Tree View",

@@ -61,6 +61,8 @@ BEGIN
     AND updated_at < cleanup_cutoff;
     
     -- Clean up notification logs if requested
+    -- IMPORTANT: We only clean notification_logs (push history), 
+    -- NEVER notification_preferences (user device subscriptions)
     IF cleanup_notifications THEN
         -- Delete successful notifications older than retention period
         DELETE FROM notification_logs 

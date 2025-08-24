@@ -1,28 +1,50 @@
-import { useState } from 'react'
-import { QrCode, Download, Share, Copy, RefreshCw, Building2 } from 'lucide-react'
-import { Organization, Branch, Department, QRCodeData } from '../shared/types'
+import { useState } from "react";
+import {
+  QrCode,
+  Download,
+  Share,
+  Copy,
+  RefreshCw,
+  Building2,
+} from "lucide-react";
+import { Organization, Branch, Department, QRCodeData } from "../shared/types";
 
 interface QRManagementProps {
-  organization: Organization | null
-  branches: Branch[]
-  departments: Department[]
-  qrCodeUrl: string
-  branchQrCodes: QRCodeData
-  departmentQrCodes: QRCodeData
-  qrGenerating: boolean
-  userProfile: any
-  onGenerateQR: () => void
-  onDownloadQR: () => void
-  onCopyQRUrl: () => void
-  onPrintQR: () => void
-  onDownloadBranchQR: (branchId: string, branchName: string) => void
-  onCopyBranchQRUrl: (branchId: string, branchName?: string) => void
-  onPrintBranchQR: (branchId: string, branchName: string) => void
-  onRefreshBranchQR: (branchId: string, branchName: string) => void
-  onDownloadDepartmentQR: (departmentId: string, departmentName: string) => void
-  onCopyDepartmentQRUrl: (departmentId: string, departmentName?: string, branchId?: string) => void
-  onPrintDepartmentQR: (departmentId: string, departmentName: string, branchId: string) => void
-  onRefreshDepartmentQR: (departmentId: string, departmentName: string, branchId: string) => void
+  organization: Organization | null;
+  branches: Branch[];
+  departments: Department[];
+  qrCodeUrl: string;
+  branchQrCodes: QRCodeData;
+  departmentQrCodes: QRCodeData;
+  qrGenerating: boolean;
+  userProfile: any;
+  onGenerateQR: () => void;
+  onDownloadQR: () => void;
+  onCopyQRUrl: () => void;
+  onPrintQR: () => void;
+  onDownloadBranchQR: (branchId: string, branchName: string) => void;
+  onCopyBranchQRUrl: (branchId: string, branchName?: string) => void;
+  onPrintBranchQR: (branchId: string, branchName: string) => void;
+  onRefreshBranchQR: (branchId: string, branchName: string) => void;
+  onDownloadDepartmentQR: (
+    departmentId: string,
+    departmentName: string
+  ) => void;
+  onCopyDepartmentQRUrl: (
+    departmentId: string,
+    departmentName?: string,
+    branchId?: string
+  ) => void;
+  onPrintDepartmentQR: (
+    departmentId: string,
+    departmentName: string,
+    branchId: string
+  ) => void;
+  onRefreshDepartmentQR: (
+    departmentId: string,
+    departmentName: string,
+    branchId: string
+  ) => void;
 }
 
 export const QRManagement = ({
@@ -45,9 +67,9 @@ export const QRManagement = ({
   onDownloadDepartmentQR,
   onCopyDepartmentQRUrl,
   onPrintDepartmentQR,
-  onRefreshDepartmentQR
+  onRefreshDepartmentQR,
 }: QRManagementProps) => {
-  const [activeQrTab, setActiveQrTab] = useState('general')
+  const [activeQrTab, setActiveQrTab] = useState("general");
 
   return (
     <div className="card p-6">
@@ -62,31 +84,31 @@ export const QRManagement = ({
       {/* QR Code Tabs */}
       <div className="flex space-x-1 mb-6">
         <button
-          onClick={() => setActiveQrTab('general')}
+          onClick={() => setActiveQrTab("general")}
           className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            activeQrTab === 'general'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            activeQrTab === "general"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
           General Access
         </button>
         <button
-          onClick={() => setActiveQrTab('branch')}
+          onClick={() => setActiveQrTab("branch")}
           className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            activeQrTab === 'branch'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            activeQrTab === "branch"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
           Branch-Specific ({branches.length})
         </button>
         <button
-          onClick={() => setActiveQrTab('department')}
+          onClick={() => setActiveQrTab("department")}
           className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            activeQrTab === 'department'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            activeQrTab === "department"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
           Department-Specific ({departments.length})
@@ -94,11 +116,16 @@ export const QRManagement = ({
       </div>
 
       {/* General Access Tab */}
-      {activeQrTab === 'general' && (
+      {activeQrTab === "general" && (
         <div className="bg-blue-50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-2">General Access QR Code</h3>
+          <h3 className="text-lg font-semibold text-blue-900 mb-2">
+            General Access QR Code
+          </h3>
           <p className="text-blue-700 mb-4">
-            This QR code allows customers to access {organization?.name || 'your organization'} and choose from all available branches. Perfect when branches are within the same location.
+            This QR code allows customers to access{" "}
+            {organization?.name || "your organization"} and choose from all
+            available branches. Perfect when branches are within the same
+            location.
           </p>
 
           <div className="text-center">
@@ -120,18 +147,22 @@ export const QRManagement = ({
                 <div className="text-center">
                   <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500">QR Code not available</p>
-                  <p className="text-xs text-gray-400 mt-1">Click refresh to generate</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Click refresh to generate
+                  </p>
                 </div>
               </div>
             ) : (
               <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-yellow-50 flex items-center justify-center">
                 <div className="text-center">
                   <QrCode className="w-12 h-12 text-yellow-400 mx-auto mb-2" />
-                  <p className="text-yellow-700">Waiting for organization data...</p>
+                  <p className="text-yellow-700">
+                    Waiting for organization data...
+                  </p>
                 </div>
               </div>
             )}
-            
+
             <div className="flex flex-wrap gap-2 justify-center">
               <button
                 onClick={onDownloadQR}
@@ -141,7 +172,7 @@ export const QRManagement = ({
                 <Download className="w-4 h-4" />
                 <span>Download</span>
               </button>
-              <button 
+              <button
                 onClick={onPrintQR}
                 disabled={!qrCodeUrl}
                 className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
@@ -162,14 +193,20 @@ export const QRManagement = ({
                 disabled={qrGenerating || !organization?.name}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                <RefreshCw className={`w-4 h-4 ${qrGenerating ? 'animate-spin' : ''}`} />
-                <span>{qrGenerating ? 'Generating...' : 'Refresh'}</span>
+                <RefreshCw
+                  className={`w-4 h-4 ${qrGenerating ? "animate-spin" : ""}`}
+                />
+                <span>{qrGenerating ? "Generating..." : "Refresh"}</span>
               </button>
             </div>
 
-            <div className="mt-4 p-3 bg-white rounded border">
+            <div className="mt-4 p-3 analytics-card">
               <p className="text-xs text-gray-500 break-all">
-                {typeof window !== 'undefined' && `${process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'}?org=${userProfile?.organization_id}`}
+                {typeof window !== "undefined" &&
+                  `${
+                    process.env.NEXT_PUBLIC_CUSTOMER_URL ||
+                    "http://localhost:3002"
+                  }?org=${userProfile?.organization_id}`}
               </p>
             </div>
           </div>
@@ -177,17 +214,20 @@ export const QRManagement = ({
       )}
 
       {/* Branch-Specific Tab */}
-      {activeQrTab === 'branch' && (
+      {activeQrTab === "branch" && (
         <div>
           {branches.length === 0 ? (
             <div className="bg-gray-50 rounded-lg p-8 text-center">
               <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Branches Available</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Branches Available
+              </h3>
               <p className="text-gray-600 mb-4">
-                Create branches in the Tree View to generate branch-specific QR codes
+                Create branches in the Tree View to generate branch-specific QR
+                codes
               </p>
-              <button 
-                onClick={() => window.location.href = '/tree'}
+              <button
+                onClick={() => (window.location.href = "/tree")}
                 className="btn-primary"
               >
                 Go to Tree View
@@ -196,14 +236,18 @@ export const QRManagement = ({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {branches.map((branch) => (
-                <div key={branch.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                <div key={branch.id} className="analytics-card p-4">
                   <div className="flex items-center space-x-2 mb-3">
                     <Building2 className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-semibold text-gray-900">{branch.name}</h4>
+                    <h4 className="font-semibold text-gray-900">
+                      {branch.name}
+                    </h4>
                   </div>
-                  
+
                   {branch.address && (
-                    <p className="text-sm text-gray-600 mb-4">{branch.address}</p>
+                    <p className="text-sm text-gray-600 mb-4">
+                      {branch.address}
+                    </p>
                   )}
 
                   <div className="text-center">
@@ -217,16 +261,22 @@ export const QRManagement = ({
                       <div className="mx-auto mb-4 w-[200px] h-[200px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
                         <div className="text-center">
                           <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">QR Code not available</p>
-                          <p className="text-xs text-gray-400 mt-1">Click refresh to generate</p>
+                          <p className="text-sm text-gray-500">
+                            QR Code not available
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Click refresh to generate
+                          </p>
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex flex-col space-y-2">
                       <div className="flex flex-wrap gap-2 justify-center">
                         <button
-                          onClick={() => onDownloadBranchQR(branch.id, branch.name)}
+                          onClick={() =>
+                            onDownloadBranchQR(branch.id, branch.name)
+                          }
                           disabled={!branchQrCodes[branch.id]}
                           className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
@@ -234,7 +284,9 @@ export const QRManagement = ({
                           <span>Download</span>
                         </button>
                         <button
-                          onClick={() => onPrintBranchQR(branch.id, branch.name)}
+                          onClick={() =>
+                            onPrintBranchQR(branch.id, branch.name)
+                          }
                           disabled={!branchQrCodes[branch.id]}
                           className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
@@ -242,7 +294,9 @@ export const QRManagement = ({
                           <span>Print</span>
                         </button>
                         <button
-                          onClick={() => onCopyBranchQRUrl(branch.id, branch.name)}
+                          onClick={() =>
+                            onCopyBranchQRUrl(branch.id, branch.name)
+                          }
                           disabled={!branchQrCodes[branch.id]}
                           className="flex items-center space-x-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
@@ -250,16 +304,24 @@ export const QRManagement = ({
                           <span>Copy URL</span>
                         </button>
                         <button
-                          onClick={() => onRefreshBranchQR(branch.id, branch.name)}
+                          onClick={() =>
+                            onRefreshBranchQR(branch.id, branch.name)
+                          }
                           className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
                         >
                           <RefreshCw className="w-3 h-3" />
                           <span>Refresh</span>
                         </button>
                       </div>
-                      
+
                       <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-500 break-all">
-                        {typeof window !== 'undefined' && `${process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'}?org=${userProfile?.organization_id}&branch=${branch.id}`}
+                        {typeof window !== "undefined" &&
+                          `${
+                            process.env.NEXT_PUBLIC_CUSTOMER_URL ||
+                            "http://localhost:3002"
+                          }?org=${userProfile?.organization_id}&branch=${
+                            branch.id
+                          }`}
                       </div>
                     </div>
                   </div>
@@ -271,17 +333,20 @@ export const QRManagement = ({
       )}
 
       {/* Department-Specific Tab */}
-      {activeQrTab === 'department' && (
+      {activeQrTab === "department" && (
         <div>
           {departments.length === 0 ? (
             <div className="bg-gray-50 rounded-lg p-8 text-center">
               <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Departments Available</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Departments Available
+              </h3>
               <p className="text-gray-600 mb-4">
-                Create departments in the Tree View to generate department-specific QR codes
+                Create departments in the Tree View to generate
+                department-specific QR codes
               </p>
-              <button 
-                onClick={() => window.location.href = '/tree'}
+              <button
+                onClick={() => (window.location.href = "/tree")}
                 className="btn-primary"
               >
                 Go to Tree View
@@ -290,21 +355,25 @@ export const QRManagement = ({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {departments.map((department) => (
-                <div key={department.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                <div key={department.id} className="analytics-card p-4">
                   <div className="flex items-center space-x-2 mb-3">
                     <QrCode className="w-5 h-5 text-purple-600" />
-                    <h4 className="font-semibold text-gray-900">{department.name}</h4>
+                    <h4 className="font-semibold text-gray-900">
+                      {department.name}
+                    </h4>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 mb-2">
                     <Building2 className="w-4 h-4 text-gray-500" />
                     <span className="text-sm text-gray-600">
-                      {department.branches?.name || 'Unknown Branch'}
+                      {department.branches?.name || "Unknown Branch"}
                     </span>
                   </div>
-                  
+
                   {department.description && (
-                    <p className="text-sm text-gray-600 mb-4">{department.description}</p>
+                    <p className="text-sm text-gray-600 mb-4">
+                      {department.description}
+                    </p>
                   )}
 
                   <div className="text-center">
@@ -318,16 +387,25 @@ export const QRManagement = ({
                       <div className="mx-auto mb-4 w-[200px] h-[200px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
                         <div className="text-center">
                           <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">QR Code not available</p>
-                          <p className="text-xs text-gray-400 mt-1">Click refresh to generate</p>
+                          <p className="text-sm text-gray-500">
+                            QR Code not available
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Click refresh to generate
+                          </p>
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex flex-col space-y-2">
                       <div className="flex flex-wrap gap-2 justify-center">
                         <button
-                          onClick={() => onDownloadDepartmentQR(department.id, department.name)}
+                          onClick={() =>
+                            onDownloadDepartmentQR(
+                              department.id,
+                              department.name
+                            )
+                          }
                           disabled={!departmentQrCodes[department.id]}
                           className="flex items-center space-x-1 px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
@@ -335,7 +413,13 @@ export const QRManagement = ({
                           <span>Download</span>
                         </button>
                         <button
-                          onClick={() => onPrintDepartmentQR(department.id, department.name, department.branch_id)}
+                          onClick={() =>
+                            onPrintDepartmentQR(
+                              department.id,
+                              department.name,
+                              department.branch_id
+                            )
+                          }
                           disabled={!departmentQrCodes[department.id]}
                           className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
@@ -343,7 +427,13 @@ export const QRManagement = ({
                           <span>Print</span>
                         </button>
                         <button
-                          onClick={() => onCopyDepartmentQRUrl(department.id, department.name, department.branch_id)}
+                          onClick={() =>
+                            onCopyDepartmentQRUrl(
+                              department.id,
+                              department.name,
+                              department.branch_id
+                            )
+                          }
                           disabled={!departmentQrCodes[department.id]}
                           className="flex items-center space-x-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
@@ -351,16 +441,28 @@ export const QRManagement = ({
                           <span>Copy URL</span>
                         </button>
                         <button
-                          onClick={() => onRefreshDepartmentQR(department.id, department.name, department.branch_id)}
+                          onClick={() =>
+                            onRefreshDepartmentQR(
+                              department.id,
+                              department.name,
+                              department.branch_id
+                            )
+                          }
                           className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
                         >
                           <RefreshCw className="w-3 h-3" />
                           <span>Refresh</span>
                         </button>
                       </div>
-                      
+
                       <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-500 break-all">
-                        {typeof window !== 'undefined' && `${process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3002'}?org=${userProfile?.organization_id}&branch=${department.branch_id}&department=${department.id}`}
+                        {typeof window !== "undefined" &&
+                          `${
+                            process.env.NEXT_PUBLIC_CUSTOMER_URL ||
+                            "http://localhost:3002"
+                          }?org=${userProfile?.organization_id}&branch=${
+                            department.branch_id
+                          }&department=${department.id}`}
                       </div>
                     </div>
                   </div>
@@ -371,5 +473,5 @@ export const QRManagement = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};

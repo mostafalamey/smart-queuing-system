@@ -119,7 +119,7 @@
 
   /* Analytics Card Styles */
   .analytics-card {
-    @apply bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200/90 transition-all duration-300;
+    @apply bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200/60 transition-all duration-300;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 

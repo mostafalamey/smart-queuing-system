@@ -61,7 +61,7 @@ export const OrganizationDetails = ({
       {/* Grid Layout - Responsive card system */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Basic Information Card - Takes 2 columns on large screens */}
-        <div className="lg:col-span-2 card p-6 hover:shadow-lg transition-all duration-300">
+        <div className="lg:col-span-2 analytics-card p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
               <Building2 className="w-5 h-5 text-white" />
@@ -145,7 +145,7 @@ export const OrganizationDetails = ({
         </div>
 
         {/* Branding Card */}
-        <div className="card p-6 hover:shadow-lg transition-all duration-300">
+        <div className="analytics-card p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
               <Palette className="w-5 h-5 text-white" />
@@ -267,7 +267,7 @@ export const OrganizationDetails = ({
       </div>
 
       {/* Customer Experience Card - Full width */}
-      <div className="card p-6 hover:shadow-lg transition-all duration-300 mb-6">
+      <div className="analytics-card p-6 mb-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
             <MessageSquare className="w-5 h-5 text-white" />

@@ -2,6 +2,35 @@
 -- Run this script AFTER running database-push-notifications-ticket-based.sql
 -- This completes the migration by swapping the new tables to their final names
 
+-- ⚠️  WARNING: THIS IS A ONE-TIME MIGRATION SCRIPT
+-- ⚠️  Running this multiple times will CLEAR all user notification preferences!
+-- ⚠️  Only run this if you're migrating from old table structure to new one
+
+-- Safety check: Exit if this migration has already been completed
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'notification_preferences' 
+        AND EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'notification_preferences' 
+            AND column_name = 'ticket_id'
+        )
+    ) THEN
+        RAISE NOTICE '=================================================================';
+        RAISE NOTICE 'Migration already completed - notification_preferences table exists with ticket_id column';
+        RAISE NOTICE 'Skipping migration to prevent data loss';
+        RAISE NOTICE '=================================================================';
+        RETURN;
+    END IF;
+    
+    RAISE NOTICE '=================================================================';
+    RAISE NOTICE 'Starting notification preferences table migration...';
+    RAISE NOTICE '=================================================================';
+END
+$$;
+
 -- =================================================================================
 -- STEP 1: Backup existing data (if any exists)
 -- =================================================================================
@@ -169,5 +198,11 @@ BEGIN
     RAISE NOTICE '   • Customers can create tickets without phone numbers';
     RAISE NOTICE '   • Push notifications use ticket IDs for privacy';
     RAISE NOTICE '   • Phone numbers are optional for future WhatsApp/SMS integration';
+    
+    RAISE NOTICE '=================================================================';
+    RAISE NOTICE 'MIGRATION COMPLETED SUCCESSFULLY';
+    RAISE NOTICE '⚠️  DO NOT RUN THIS SCRIPT AGAIN - IT WILL CLEAR USER DATA!';
+    RAISE NOTICE 'If you need to reset notification preferences, use proper cleanup functions instead.';
+    RAISE NOTICE '=================================================================';
 END
 $$;

@@ -1,19 +1,30 @@
-import { ZoomIn, ZoomOut, Home, Plus, Save, Lock, Crown, LayoutGrid, Maximize, GitBranch } from 'lucide-react'
-import { usePlanLimits } from '@/hooks/usePlanLimits'
-import { useAppToast } from '@/hooks/useAppToast'
+import {
+  ZoomIn,
+  ZoomOut,
+  Home,
+  Plus,
+  Save,
+  Lock,
+  Crown,
+  LayoutGrid,
+  Maximize,
+  GitBranch,
+} from "lucide-react";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useAppToast } from "@/hooks/useAppToast";
 
 interface TreeControlsProps {
-  zoom: number
-  onZoomIn: () => void
-  onZoomOut: () => void
-  onResetView: () => void
-  onZoomExtents?: () => void
-  onCreateBranch: () => void
-  onSaveLayout?: () => void
-  onAutoRearrange?: () => void
-  moveChildrenWithParent?: boolean
-  onToggleMoveChildren?: () => void
-  canCreateBranch?: boolean // Made optional for backward compatibility
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onResetView: () => void;
+  onZoomExtents?: () => void;
+  onCreateBranch: () => void;
+  onSaveLayout?: () => void;
+  onAutoRearrange?: () => void;
+  moveChildrenWithParent?: boolean;
+  onToggleMoveChildren?: () => void;
+  canCreateBranch?: boolean; // Made optional for backward compatibility
 }
 
 export const TreeControls = ({
@@ -27,30 +38,40 @@ export const TreeControls = ({
   onAutoRearrange,
   moveChildrenWithParent,
   onToggleMoveChildren,
-  canCreateBranch
+  canCreateBranch,
 }: TreeControlsProps) => {
-  const { planLimits, checkLimits, getLimitMessage } = usePlanLimits()
-  const { showError } = useAppToast()
-  
-  // Use plan limits to determine if branch creation is allowed
-  const limits = checkLimits()
-  const canActuallyCreateBranch = canCreateBranch !== undefined 
-    ? canCreateBranch 
-    : limits.canCreateBranch
-    
-  const limitMessage = getLimitMessage('branch')
-  const isDisabled = !canActuallyCreateBranch
-  
+  const { planLimits, checkLimits, getLimitMessage } = usePlanLimits();
+  const { showError } = useAppToast();
+
+  // Both role permissions AND plan limits must be satisfied
+  const limits = checkLimits();
+  const hasRolePermission =
+    canCreateBranch !== undefined ? canCreateBranch : true;
+  const hasPlanAllowance = limits.canCreateBranch;
+  const canActuallyCreateBranch = hasRolePermission && hasPlanAllowance;
+
+  const limitMessage = getLimitMessage("branch");
+  const isDisabled = !canActuallyCreateBranch;
+
   // Show upgrade hint for premium features
-  const isPremiumPlan = planLimits?.plan === 'business' || planLimits?.plan === 'enterprise'
+  const isPremiumPlan =
+    planLimits?.plan === "business" || planLimits?.plan === "enterprise";
 
   const handleCreateBranch = () => {
     if (isDisabled) {
-      showError(limitMessage || 'Cannot create more branches with your current plan')
-      return
+      if (!hasRolePermission) {
+        showError("You do not have permission to create branches");
+      } else if (!hasPlanAllowance) {
+        showError(
+          limitMessage || "Cannot create more branches with your current plan"
+        );
+      } else {
+        showError("Cannot create branch");
+      }
+      return;
     }
-    onCreateBranch()
-  }
+    onCreateBranch();
+  };
   return (
     <>
       {/* Horizontal Toolbar at Top Right */}
@@ -118,38 +139,58 @@ export const TreeControls = ({
               <button
                 onClick={onToggleMoveChildren}
                 className={`p-2 rounded-lg transition-colors text-white ${
-                  moveChildrenWithParent 
-                    ? 'bg-orange-500/30 hover:bg-orange-500/40' 
-                    : 'bg-gray-500/20 hover:bg-gray-500/30'
+                  moveChildrenWithParent
+                    ? "bg-orange-500/30 hover:bg-orange-500/40"
+                    : "bg-gray-500/20 hover:bg-gray-500/30"
                 }`}
-                title={moveChildrenWithParent 
-                  ? "Move Children: ON - Children move with parent" 
-                  : "Move Children: OFF - Children stay in place when parent moves"
+                title={
+                  moveChildrenWithParent
+                    ? "Move Children: ON - Children move with parent"
+                    : "Move Children: OFF - Children stay in place when parent moves"
                 }
-                aria-label={`Toggle move children with parent: ${moveChildrenWithParent ? 'enabled' : 'disabled'}`}
+                aria-label={`Toggle move children with parent: ${
+                  moveChildrenWithParent ? "enabled" : "disabled"
+                }`}
               >
-                <GitBranch className={`w-4 h-4 ${moveChildrenWithParent ? 'text-orange-200' : 'text-gray-400'}`} />
+                <GitBranch
+                  className={`w-4 h-4 ${
+                    moveChildrenWithParent ? "text-orange-200" : "text-gray-400"
+                  }`}
+                />
               </button>
             )}
           </div>
         </div>
-        
+
         {/* Add Branch button - larger and separate */}
         <button
           onClick={handleCreateBranch}
           disabled={isDisabled}
-          title={isDisabled 
-            ? (limitMessage || 'Upgrade to create more branches') 
-            : 'Add Branch - Create a new branch in your organization'
+          title={
+            isDisabled
+              ? !hasRolePermission
+                ? "You do not have permission to create branches"
+                : limitMessage || "Upgrade to create more branches"
+              : "Add Branch - Create a new branch in your organization"
           }
           className={`flex items-center gap-2 p-3 rounded-lg transition-colors shadow-lg backdrop-blur-md ${
-            isDisabled 
-              ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed'
-              : 'bg-blue-500/20 hover:bg-blue-500/30 text-white'
+            isDisabled
+              ? "bg-gray-500/20 text-gray-400 cursor-not-allowed"
+              : "bg-blue-500/20 hover:bg-blue-500/30 text-white"
           }`}
-          aria-label={isDisabled ? limitMessage : "Create new branch"}
+          aria-label={
+            isDisabled
+              ? !hasRolePermission
+                ? "Access denied - cannot create branches"
+                : limitMessage || "Plan limit reached"
+              : "Create new branch"
+          }
         >
-          {isDisabled ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {isDisabled ? (
+            <Lock className="w-4 h-4" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
           <span className="text-sm font-medium">Add Branch</span>
           {!isPremiumPlan && <Crown className="w-3 h-3 text-yellow-400" />}
         </button>
@@ -158,11 +199,9 @@ export const TreeControls = ({
       {/* Zoom Level Indicator */}
       <div className="absolute bottom-4 right-4 z-10">
         <div className="bg-white/10 backdrop-blur-md rounded-lg px-3 py-2">
-          <span className="text-sm text-white">
-            {Math.round(zoom * 100)}%
-          </span>
+          <span className="text-sm text-white">{Math.round(zoom * 100)}%</span>
         </div>
       </div>
     </>
-  )
-}
+  );
+};

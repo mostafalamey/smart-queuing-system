@@ -29,13 +29,13 @@ export const isEmployeeOnly = (role: UserRole | null): boolean => {
  * Get allowed navigation items based on user role
  */
 export const getAllowedNavigation = (role: UserRole | null) => {
-  const allNavItems = ["dashboard", "organization", "tree"];
+  const allNavItems = ["dashboard", "organization", "analytics", "tree"];
 
   switch (role) {
     case "admin":
       return allNavItems; // Admin can access everything
     case "manager":
-      return ["dashboard", "organization", "tree"]; // Manager has limited organization access
+      return ["dashboard", "organization", "analytics", "tree"]; // Manager has analytics access
     case "employee":
       return ["dashboard"]; // Employee can only access dashboard
     default:

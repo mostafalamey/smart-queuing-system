@@ -1,17 +1,19 @@
-import { Building2 } from 'lucide-react'
-import { Organization } from '../shared/types'
+import { Building2 } from "lucide-react";
+import { Organization } from "../shared/types";
 
 interface OrganizationHeaderProps {
-  organization: Organization | null
+  organization: Organization | null;
 }
 
-export const OrganizationHeader = ({ organization }: OrganizationHeaderProps) => {
+export const OrganizationHeader = ({
+  organization,
+}: OrganizationHeaderProps) => {
   return (
     <div className="relative overflow-hidden bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
       <div className="absolute inset-0 bg-black/10"></div>
-      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-12 translate-x-12"></div>
-      <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
-      
+      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12"></div>
+      <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full -translate-x-8"></div>
+
       <div className="relative flex items-center space-x-4">
         <div className="relative">
           <div className="absolute inset-0 bg-white/20 rounded-xl blur-sm"></div>
@@ -20,10 +22,14 @@ export const OrganizationHeader = ({ organization }: OrganizationHeaderProps) =>
           </div>
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Organization Management</h1>
-          <p className="text-white/80">Configure settings for {organization?.name || 'your organization'}</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Organization Management
+          </h1>
+          <p className="text-white/80">
+            Configure settings for {organization?.name || "your organization"}
+          </p>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

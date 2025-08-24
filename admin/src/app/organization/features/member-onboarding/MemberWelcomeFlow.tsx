@@ -207,7 +207,7 @@ export const MemberWelcomeFlow: React.FC<WelcomeFlowProps> = ({
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="analytics-card p-8 max-w-md w-full mx-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-center text-gray-600">
             Preparing your welcome tour...
@@ -221,7 +221,7 @@ export const MemberWelcomeFlow: React.FC<WelcomeFlowProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="analytics-card max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center">

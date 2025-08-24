@@ -236,7 +236,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
 
   if (!canManageInvitations) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card rounded-lg border p-8 text-center">
         <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Access Restricted
@@ -250,7 +250,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card rounded-lg border p-8 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-500">Loading invitation data...</p>
       </div>
@@ -261,7 +261,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
     <div className="space-y-6">
       {/* Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Users className="w-6 h-6 text-blue-600" />
@@ -277,7 +277,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
               <Clock className="w-6 h-6 text-yellow-600" />
@@ -291,7 +291,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -305,7 +305,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-purple-600" />
@@ -323,7 +323,7 @@ export const InvitationManagement: React.FC<InvitationManagementProps> = ({
       </div>
 
       {/* Pending Invitations Section */}
-      <div className="bg-white rounded-lg shadow-sm border">
+      <div className="analytics-card rounded-lg border">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

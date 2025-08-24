@@ -271,7 +271,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
   if (!canViewAnalytics) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card border p-8 text-center">
         <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Access Restricted
@@ -285,7 +285,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card rounded-lg border p-8 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-500">Loading analytics...</p>
       </div>
@@ -294,7 +294,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
   if (!analytics) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+      <div className="analytics-card rounded-lg border p-8 text-center">
         <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Unable to Load Analytics
@@ -340,7 +340,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Users className="w-6 h-6 text-blue-600" />
@@ -354,7 +354,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
               <UserCheck className="w-6 h-6 text-green-600" />
@@ -370,7 +370,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
               <Clock className="w-6 h-6 text-yellow-600" />
@@ -384,7 +384,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-indigo-100 rounded-lg">
               <GraduationCap className="w-6 h-6 text-indigo-600" />
@@ -403,7 +403,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
       {/* Secondary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-purple-600" />
@@ -419,7 +419,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Onboarding Progress
           </h3>
@@ -448,7 +448,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
       {/* Additional Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Recent Activity
           </h3>
@@ -472,7 +472,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Role Distribution
           </h3>
@@ -510,7 +510,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
 
       {/* Branch Distribution */}
       {analytics.branch_distribution.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="analytics-card rounded-lg border p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
             <Building2 className="w-5 h-5 mr-2" />
             Members by Branch
@@ -543,7 +543,7 @@ export const MemberAnalytics: React.FC<MemberAnalyticsProps> = ({
       )}
 
       {/* Member Activity Chart (Simplified) */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      <div className="analytics-card rounded-lg border p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
           <Calendar className="w-5 h-5 mr-2" />
           Daily Activity (Last 7 Days)

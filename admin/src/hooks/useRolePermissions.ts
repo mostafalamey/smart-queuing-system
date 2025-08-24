@@ -7,6 +7,7 @@ export interface RolePermissions {
   // Navigation permissions
   canAccessDashboard: boolean;
   canAccessOrganization: boolean;
+  canAccessAnalytics: boolean;
   canAccessTreeView: boolean;
 
   // Dashboard permissions
@@ -63,6 +64,7 @@ export const useRolePermissions = (): RolePermissions & {
       return {
         canAccessDashboard: false,
         canAccessOrganization: false,
+        canAccessAnalytics: false,
         canAccessTreeView: false,
         canSelectBranch: false,
         canSelectDepartment: false,
@@ -107,6 +109,7 @@ export const useRolePermissions = (): RolePermissions & {
           // Admin has full access to everything
           canAccessDashboard: true,
           canAccessOrganization: true,
+          canAccessAnalytics: true,
           canAccessTreeView: true,
           canSelectBranch: true,
           canSelectDepartment: true,
@@ -143,6 +146,7 @@ export const useRolePermissions = (): RolePermissions & {
           // Manager is assigned to specific branch, has enhanced organization access
           canAccessDashboard: true,
           canAccessOrganization: true,
+          canAccessAnalytics: true,
           canAccessTreeView: true,
           canSelectBranch: false, // Cannot select branch - auto-assigned
           canSelectDepartment: true,
@@ -179,6 +183,7 @@ export const useRolePermissions = (): RolePermissions & {
           // Employee is assigned to specific department, dashboard-only access
           canAccessDashboard: true,
           canAccessOrganization: false, // No organization access
+          canAccessAnalytics: false, // No analytics access
           canAccessTreeView: false, // No tree view access
           canSelectBranch: false, // Cannot select branch - auto-assigned
           canSelectDepartment: false, // Cannot select department - auto-assigned
@@ -215,6 +220,7 @@ export const useRolePermissions = (): RolePermissions & {
         return {
           canAccessDashboard: false,
           canAccessOrganization: false,
+          canAccessAnalytics: false,
           canAccessTreeView: false,
           canSelectBranch: false,
           canSelectDepartment: false,

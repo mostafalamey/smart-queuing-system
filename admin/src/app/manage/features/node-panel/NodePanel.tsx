@@ -47,17 +47,17 @@ export const NodePanel = ({
   const handleDelete = useCallback(() => {
     if (!node) return;
 
-    // Use async confirmation to avoid blocking the main thread
-    setTimeout(() => {
-      if (
-        confirm(
-          `Are you sure you want to delete "${node.name}"? This action cannot be undone.`
-        )
-      ) {
-        onDelete(node);
+    showWarning(
+      `Delete ${node.name}?`,
+      `Are you sure you want to delete "${node.name}"? This action cannot be undone.`,
+      {
+        label: "Delete",
+        onClick: () => {
+          onDelete(node);
+        },
       }
-    }, 0);
-  }, [node, onDelete]);
+    );
+  }, [node, onDelete, showWarning]);
 
   // Optimized edit handler
   const handleEdit = useCallback(() => {
