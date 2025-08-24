@@ -1,73 +1,105 @@
-import { logger } from '@/lib/logger'
-// WhatsApp Notification Service
-// This is a basic implementation that logs to console for MVP
-// In production, connect to UltraMsg, Twilio, or similar WhatsApp API
+import { logger } from "@/lib/logger";
 
 interface NotificationData {
-  phone: string
-  ticketNumber: string
-  departmentName: string
-  organizationName: string
-  type: 'ticket_created' | 'almost_your_turn' | 'your_turn'
-  currentServing?: string
-  waitingCount?: number
+  phone: string;
+  ticketNumber: string;
+  departmentName: string;
+  organizationName: string;
+  type: "ticket_created" | "almost_your_turn" | "your_turn";
+  currentServing?: string;
+  waitingCount?: number;
+  organizationId?: string;
+  ticketId?: string;
 }
 
 class NotificationService {
-  private static instance: NotificationService
-  private isEnabled: boolean = true
+  private static instance: NotificationService;
+  private isEnabled: boolean = true;
 
   static getInstance(): NotificationService {
     if (!NotificationService.instance) {
-      NotificationService.instance = new NotificationService()
+      NotificationService.instance = new NotificationService();
     }
-    return NotificationService.instance
+    return NotificationService.instance;
   }
 
   async sendWhatsAppMessage(data: NotificationData): Promise<boolean> {
     try {
-      const message = this.formatMessage(data)
-      
-      // For MVP: Log to console (replace with actual WhatsApp API in production)
-      
-      // TODO: In production, replace with actual WhatsApp API call
-      // Example with UltraMsg:
-      // const response = await fetch('https://api.ultramsg.com/instance123/messages/chat', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/x-www-form-urlencoded'
-      //   },
-      //   body: new URLSearchParams({
-      //     token: process.env.ULTRAMSG_TOKEN,
-      //     to: data.phone,
-      //     body: message
-      //   })
-      // })
-      
-      return true
+      const message = this.formatMessage(data);
+
+      logger.info("Sending WhatsApp message:", {
+        phone: data.phone,
+        type: data.type,
+        ticketNumber: data.ticketNumber,
+      });
+
+      // Use absolute URL for server-side calls, relative for client-side
+      const isServerSide = typeof window === "undefined";
+      const baseUrl = isServerSide ? "http://localhost:3001" : "";
+      const apiUrl = `${baseUrl}/api/notifications/whatsapp`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: data.phone,
+          message: message,
+          organizationId: data.organizationId || "unknown",
+          ticketId: data.ticketId,
+          notificationType: data.type,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        logger.error("WhatsApp API error:", result);
+        return false;
+      }
+
+      logger.info("WhatsApp message sent successfully:", {
+        phone: data.phone,
+        messageId: result.messageId,
+        ticketNumber: data.ticketNumber,
+      });
+
+      return true;
     } catch (error) {
-      logger.error('Failed to send WhatsApp message:', error)
-      return false
+      logger.error("Failed to send WhatsApp message:", error);
+      return false;
     }
   }
 
   private formatMessage(data: NotificationData): string {
-    const { ticketNumber, departmentName, organizationName, type, currentServing, waitingCount } = data
+    const {
+      ticketNumber,
+      departmentName,
+      organizationName,
+      type,
+      currentServing,
+      waitingCount,
+    } = data;
 
     switch (type) {
-      case 'ticket_created':
+      case "ticket_created":
         return `🎫 Welcome to ${organizationName}!
 
 Your ticket number: *${ticketNumber}*
 Department: ${departmentName}
 
-${waitingCount ? `There are ${waitingCount} customers ahead of you.` : 'You\'ll be called soon!'}
+${
+  waitingCount
+    ? `There are ${waitingCount} customers ahead of you.`
+    : "You'll be called soon!"
+}
 
 Please keep this message for reference. We'll notify you when it's almost your turn.
 
-Thank you for choosing ${organizationName}! 🙏`
+Thank you for choosing ${organizationName}! 🙏`;
 
-      case 'almost_your_turn':
+      case "almost_your_turn":
         return `⏰ Almost your turn at ${organizationName}!
 
 Your ticket: *${ticketNumber}*
@@ -75,72 +107,84 @@ Currently serving: ${currentServing}
 
 You're next! Please be ready at the ${departmentName} counter.
 
-Thank you for your patience! 🙏`
+Thank you for your patience! 🙏`;
 
-      case 'your_turn':
+      case "your_turn":
         return `🔔 It's your turn!
 
 Ticket: *${ticketNumber}*
 Please proceed to: ${departmentName}
 
-Thank you for choosing ${organizationName}! 🙏`
+Thank you for choosing ${organizationName}! 🙏`;
 
       default:
-        return `Update for ticket ${ticketNumber} at ${organizationName}`
+        return `Update for ticket ${ticketNumber} at ${organizationName}`;
     }
   }
 
   // Helper method to send ticket creation notification
   async notifyTicketCreated(
-    phone: string, 
-    ticketNumber: string, 
-    departmentName: string, 
+    phone: string,
+    ticketNumber: string,
+    departmentName: string,
     organizationName: string,
-    waitingCount: number
+    waitingCount: number,
+    organizationId?: string,
+    ticketId?: string
   ): Promise<boolean> {
     return this.sendWhatsAppMessage({
       phone,
       ticketNumber,
       departmentName,
       organizationName,
-      type: 'ticket_created',
-      waitingCount
-    })
+      type: "ticket_created",
+      waitingCount,
+      organizationId,
+      ticketId,
+    });
   }
 
   // Helper method to send "almost your turn" notification
   async notifyAlmostYourTurn(
-    phone: string, 
-    ticketNumber: string, 
-    departmentName: string, 
+    phone: string,
+    ticketNumber: string,
+    departmentName: string,
     organizationName: string,
-    currentServing: string
+    currentServing: string,
+    organizationId?: string,
+    ticketId?: string
   ): Promise<boolean> {
     return this.sendWhatsAppMessage({
       phone,
       ticketNumber,
       departmentName,
       organizationName,
-      type: 'almost_your_turn',
-      currentServing
-    })
+      type: "almost_your_turn",
+      currentServing,
+      organizationId,
+      ticketId,
+    });
   }
 
   // Helper method to send "your turn" notification
   async notifyYourTurn(
-    phone: string, 
-    ticketNumber: string, 
-    departmentName: string, 
-    organizationName: string
+    phone: string,
+    ticketNumber: string,
+    departmentName: string,
+    organizationName: string,
+    organizationId?: string,
+    ticketId?: string
   ): Promise<boolean> {
     return this.sendWhatsAppMessage({
       phone,
       ticketNumber,
       departmentName,
       organizationName,
-      type: 'your_turn'
-    })
+      type: "your_turn",
+      organizationId,
+      ticketId,
+    });
   }
 }
 
-export const notificationService = NotificationService.getInstance()
+export const notificationService = NotificationService.getInstance();

@@ -180,7 +180,7 @@ class QueueNotificationHelperImpl implements QueueNotificationHelper {
       }
 
       const url = `${this.adminUrl}/api/notifications/push`
-      logger.log('Sending push notification to:', url)
+      logger.debug('Sending push notification to:', url)
 
       const response = await fetch(url, {
         method: 'POST',

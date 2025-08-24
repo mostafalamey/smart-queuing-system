@@ -8,6 +8,8 @@ export interface Organization {
   primary_color: string;
   welcome_message: string | null;
   logo_url: string | null;
+  country: string | null;
+  country_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +64,8 @@ export interface OrganizationForm {
   primary_color: string;
   welcome_message: string;
   logo_url: string;
+  country: string;
+  country_code: string;
 }
 
 export interface QRCodeData {

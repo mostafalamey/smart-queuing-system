@@ -1,5 +1,148 @@
 # Smart Queue System - Changelog
 
+## Version 2.8.0 - UltraMessage Integration & Phone-Based Push Notifications (August 24, 2025)
+
+### 🚀 Revolutionary Phone-Based Push Notification System
+
+#### Persistent Notification Architecture
+
+- **Phone-Based Subscriptions** - Complete redesign from ticket-based to phone-based push notification system
+- **App Restart Persistence** - Push notifications now survive app restarts and browser sessions
+- **Mandatory Phone Collection** - Phone numbers are now required for reliable notification delivery
+- **Database Schema Evolution** - Added `customer_phone` column to `push_subscriptions` table with proper indexing
+- **Dual Lookup System** - Backwards-compatible system supporting both phone and ticket-based subscriptions
+- **Subscription Deduplication** - One subscription per phone number per organization to prevent database pollution
+
+#### Enhanced Push Notification Reliability
+
+- **Zero Subscription Pollution** - Eliminated duplicate subscription entries that were flooding the database
+- **Automatic Subscription Updates** - Existing subscriptions are updated instead of creating new ones
+- **Cross-Session Persistence** - Phone-based subscriptions maintain connection across app sessions
+- **Smart Recovery System** - Automatic subscription restoration when customers return to the app
+- **Organization-Scoped Management** - Proper tenant isolation for multi-organization deployments
+
+### 📱 UltraMessage WhatsApp API Integration
+
+#### Production-Ready WhatsApp Messaging
+
+- **UltraMessage API Integration** - Complete integration with UltraMessage WhatsApp Business API
+- **Instance-Based Configuration** - Configured with Instance ID `instance140392` and secure token management
+- **Robust Fallback System** - WhatsApp messages as fallback when push notifications fail
+- **Message Template System** - Professional queue notification templates with emojis and branding
+- **Error Handling & Retry Logic** - Comprehensive error handling with automatic retry mechanisms
+- **Debug Mode Support** - Development mode for testing without sending actual WhatsApp messages
+
+#### Advanced WhatsApp Features
+
+- **Dynamic Message Formatting** - Contextual messages based on queue status and ticket information
+- **Phone Number Validation** - International phone number format validation and normalization
+- **Message Status Tracking** - Complete tracking of message delivery status and failures
+- **Rate Limiting Protection** - Built-in protection against API rate limits
+- **Multi-Language Support** - Unicode and emoji support for international messaging
+- **Production Monitoring** - Comprehensive logging and monitoring for WhatsApp API interactions
+
+### 🔧 Queue Management System Enhancements
+
+#### Bulletproof Queue Operations
+
+- **409 Conflict Resolution** - Eliminated database conflict errors when admins click "Call Next"
+- **Robust Transaction Handling** - Improved database transaction management for queue operations
+- **Smart Error Recovery** - Automatic recovery from temporary database issues
+- **Concurrent User Support** - Enhanced support for multiple admin users managing the same queue
+- **Queue State Consistency** - Guaranteed queue state consistency across all admin sessions
+- **Performance Optimization** - Optimized database queries for faster queue operations
+
+#### Enhanced Admin Experience
+
+- **Seamless Queue Management** - Admins can now manage queues without encountering technical errors
+- **Real-Time State Updates** - Queue changes reflect immediately across all admin interfaces
+- **Error-Free Navigation** - Eliminated technical barriers that were interrupting admin workflow
+- **Professional Error Messages** - User-friendly error messages when issues do occur
+- **Improved Response Times** - Faster queue operations with optimized backend processing
+
+### 🗃️ Database Architecture Improvements
+
+#### Schema Evolution & Migration
+
+- **Production Database Migration** - Successfully executed `add-phone-column-to-push-subscriptions.sql`
+- **Column Addition** - Added `customer_phone TEXT` column to `push_subscriptions` table
+- **Constraint Modifications** - Made `ticket_id` nullable to support phone-based subscriptions
+- **Index Creation** - Added optimized indexes for phone-based and legacy ticket-based lookups
+- **Constraint Validation** - Added CHECK constraint ensuring either phone or ticket_id is provided
+- **Documentation Updates** - Added column comments for future developer reference
+
+#### Data Integrity & Performance
+
+- **Subscription Table Optimization** - Improved query performance with strategic indexing
+- **Legacy Compatibility** - Maintained backwards compatibility with existing ticket-based subscriptions
+- **Data Validation** - Enhanced data validation rules for phone numbers and subscription data
+- **Storage Efficiency** - Optimized storage usage with proper column types and constraints
+- **Migration Documentation** - Comprehensive documentation of schema changes for future reference
+
+### 🧹 Code Quality & Maintainability
+
+#### Production-Ready Codebase
+
+- **Comprehensive Cleanup** - Removed all test API endpoints and temporary files
+- **Logging Optimization** - Converted verbose `logger.log` calls to `logger.debug` for cleaner console output
+- **Debug Mode Control** - Debug logs only appear when `NEXT_PUBLIC_DEBUG_LOGS=true` is set
+- **Error Logging Preservation** - Maintained essential error logging for production troubleshooting
+- **Code Documentation** - Enhanced code comments and documentation throughout the system
+
+#### Developer Experience Improvements
+
+- **Clean Console Output** - Dramatically reduced console spam during development
+- **Professional Logging** - Structured logging system with appropriate log levels
+- **Maintainable Architecture** - Clean separation of concerns between notification systems
+- **Type Safety** - Enhanced TypeScript integration for better development experience
+- **Testing Readiness** - Codebase prepared for comprehensive testing implementation
+
+### 🎯 Key Achievements Summary
+
+#### Critical Issues Resolved
+
+- ✅ **Push Notification Persistence** - Fixed notifications stopping after app restart
+- ✅ **409 Conflict Elimination** - Resolved database conflicts when calling next customer
+- ✅ **WhatsApp Integration** - Added professional WhatsApp fallback messaging
+- ✅ **Subscription Deduplication** - Eliminated database pollution from duplicate subscriptions
+- ✅ **Phone Validation** - Made phone numbers mandatory for reliable notifications
+
+#### System Improvements
+
+- 🚀 **Enhanced Reliability** - Bulletproof notification delivery system
+- 📱 **Multi-Channel Messaging** - Push notifications + WhatsApp fallback
+- 🗄️ **Optimized Database** - Improved schema and query performance
+- 🧹 **Clean Codebase** - Production-ready code with proper logging
+- 📋 **Better UX** - Seamless admin and customer experience
+
+### 🔧 Technical Implementation Details
+
+#### API Enhancements
+
+- **Phone Subscription API** - New `POST /api/notifications/subscribe` with phone-based logic
+- **Enhanced Push API** - Updated `POST /api/notifications/push` with dual lookup support
+- **UltraMessage Integration** - `POST /api/notifications/whatsapp` with UltraMessage API
+- **Error Handling** - Comprehensive error handling across all notification APIs
+- **Validation Layer** - Enhanced input validation and sanitization
+
+#### Customer App Improvements
+
+- **Mandatory Phone Collection** - Phone number required before joining queue
+- **Persistent Subscriptions** - Subscriptions created immediately when customer enters phone
+- **Smart Recovery** - Automatic subscription restoration on app restart
+- **Clean User Interface** - Reduced console logging for professional experience
+- **Enhanced Validation** - Real-time phone number validation and formatting
+
+#### Admin App Enhancements
+
+- **Reliable Queue Management** - Eliminated technical errors during queue operations
+- **WhatsApp Fallback** - Automatic WhatsApp messaging when push notifications fail
+- **Improved Error Messages** - Professional error handling and user feedback
+- **Performance Optimization** - Faster response times for queue operations
+- **Debug Capabilities** - Enhanced logging for production troubleshooting
+
+---
+
 ## Version 2.7.0 - Enhanced Analytics Dashboard & UI Consistency (August 24, 2025)
 
 ### 🎯 Complete Analytics Dashboard Implementation
@@ -315,7 +458,7 @@ notification_logs: ticket_id (FK) → tickets(id), multi-channel delivery tracki
 - **Migration Detection** - Automatic fallback during database migration process
 - **Better Error Handling** - Comprehensive error messages and retry logic
 
-#### Customer App Improvements
+#### Customer App Improvements1
 
 - **No More Blocking** - Phone number field truly optional, customers can proceed without it
 - **Smooth UX** - Push notification setup doesn't require ticket ID upfront

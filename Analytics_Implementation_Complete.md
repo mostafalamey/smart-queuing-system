@@ -54,7 +54,7 @@ Successfully implemented a comprehensive Analytics Dashboard for the Smart Queue
 
 ### **Component Files Created:**
 
-```
+```tree
 admin/src/app/analytics/
 ├── page.tsx                           # Main analytics page
 ├── types/index.ts                     # TypeScript interfaces

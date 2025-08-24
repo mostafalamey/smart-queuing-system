@@ -1,35 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client with service role key for server-side operations
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+);
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 // Handle preflight requests
 export async function OPTIONS() {
   return new Response(null, {
     status: 200,
     headers: corsHeaders,
-  })
+  });
 }
 
 /**
  * Subscribe to push notifications
  * POST /api/notifications/subscribe
- * 
+ *
  * Body:
  * {
  *   organizationId: string,
- *   ticketId: string,
+ *   customerPhone: string,
  *   subscription: {
  *     endpoint: string,
  *     keys: {
@@ -42,180 +42,207 @@ export async function OPTIONS() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    const { organizationId, ticketId, subscription, userAgent } = body
+    const body = await request.json();
 
-    // Validate required fields (ticket ID instead of phone)
-    if (!organizationId || !ticketId || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+    const { organizationId, customerPhone, subscription, userAgent } = body;
+
+    // Validate required fields (phone number instead of ticket ID)
+    if (
+      !organizationId ||
+      !customerPhone ||
+      !subscription?.endpoint ||
+      !subscription?.keys?.p256dh ||
+      !subscription?.keys?.auth
+    ) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        {
+          error: "Missing required fields",
+          details: {
+            organizationId: !!organizationId,
+            customerPhone: !!customerPhone,
+            subscriptionEndpoint: !!subscription?.endpoint,
+            subscriptionKeys: !!(
+              subscription?.keys?.p256dh && subscription?.keys?.auth
+            ),
+          },
+        },
         { status: 400, headers: corsHeaders }
-      )
+      );
     }
 
-    // Check if subscription already exists for this ticket
-    const { data: existingSubscription, error: selectError } = await supabase
-      .from('push_subscriptions')
-      .select('id, is_active')
-      .eq('organization_id', organizationId)
-      .eq('ticket_id', ticketId)
-      .eq('endpoint', subscription.endpoint)
-      .single()
+    console.log("Creating/updating subscription for phone:", customerPhone);
 
-    if (selectError && selectError.code !== 'PGRST116') {
+    // Check if subscription already exists for this phone number and organization
+    const { data: existingSubscription, error: selectError } = await supabase
+      .from("push_subscriptions")
+      .select("id, is_active, endpoint")
+      .eq("organization_id", organizationId)
+      .eq("customer_phone", customerPhone)
+      .eq("endpoint", subscription.endpoint)
+      .single();
+
+    if (selectError && selectError.code !== "PGRST116") {
+      console.error("Database select error:", selectError);
       return NextResponse.json(
-        { error: 'Database error', details: selectError.message },
+        { error: "Database error", details: selectError.message },
         { status: 500, headers: corsHeaders }
-      )
+      );
     }
 
     if (existingSubscription) {
+      console.log(
+        "Found existing subscription, updating:",
+        existingSubscription.id
+      );
+
       // Update existing subscription to active
       const { error: updateError } = await supabase
-        .from('push_subscriptions')
-        .update({ 
+        .from("push_subscriptions")
+        .update({
           is_active: true,
           last_used_at: new Date().toISOString(),
           p256dh_key: subscription.keys.p256dh,
           auth_key: subscription.keys.auth,
-          user_agent: userAgent || null
+          user_agent: userAgent || null,
         })
-        .eq('id', existingSubscription.id)
+        .eq("id", existingSubscription.id);
 
       if (updateError) {
-        console.error('Error updating subscription:', updateError)
+        console.error("Error updating subscription:", updateError);
         return NextResponse.json(
-          { error: 'Failed to update subscription', details: updateError.message },
+          {
+            error: "Failed to update subscription",
+            details: updateError.message,
+          },
           { status: 500, headers: corsHeaders }
-        )
+        );
       }
 
-      return NextResponse.json({
-        success: true,
-        message: 'Subscription updated successfully',
-        subscriptionId: existingSubscription.id
-      }, { headers: corsHeaders })
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Subscription updated successfully",
+          subscriptionId: existingSubscription.id,
+          customerPhone: customerPhone,
+        },
+        { headers: corsHeaders }
+      );
     }
 
-    // Create new subscription
+    console.log("Creating new subscription for phone:", customerPhone);
+
+    // Create new subscription (no ticket_id, just phone-based)
     const { data: newSubscription, error: insertError } = await supabase
-      .from('push_subscriptions')
+      .from("push_subscriptions")
       .insert({
         organization_id: organizationId,
-        ticket_id: ticketId,
+        customer_phone: customerPhone,
         endpoint: subscription.endpoint,
         p256dh_key: subscription.keys.p256dh,
         auth_key: subscription.keys.auth,
         user_agent: userAgent || null,
-        is_active: true
+        is_active: true,
       })
-      .select('id')
-      .single()
+      .select("id")
+      .single();
 
     if (insertError) {
-      console.error('Error creating subscription:', insertError)
+      console.error("Error creating subscription:", insertError);
       return NextResponse.json(
-        { error: 'Failed to create subscription', details: insertError.message },
+        {
+          error: "Failed to create subscription",
+          details: insertError.message,
+        },
         { status: 500, headers: corsHeaders }
-      )
+      );
     }
 
-    // Get customer phone from ticket for notification preferences (if available)
-    const { data: ticketData, error: ticketError } = await supabase
-      .from('tickets')
-      .select('customer_phone')
-      .eq('id', ticketId)
-      .single()
+    console.log("Successfully created subscription:", newSubscription.id);
 
-    if (ticketError) {
-      console.error('Error fetching ticket data:', ticketError)
-      // Continue without updating preferences if ticket lookup fails
-    } else if (ticketData?.customer_phone) {
-      // Update notification preferences only if phone number exists
-      await upsertNotificationPreferences(organizationId, ticketData.customer_phone, true, false)
-    }
+    // Update notification preferences for this phone number
+    await upsertNotificationPreferences(
+      organizationId,
+      null, // No specific ticket ID
+      customerPhone,
+      true, // push enabled
+      false // push not denied
+    );
 
-    return NextResponse.json({
-      success: true,
-      message: 'Subscription created successfully',
-      subscriptionId: newSubscription.id
-    }, { headers: corsHeaders })
-
-  } catch (error) {
-    console.error('Subscribe API error:', error)
     return NextResponse.json(
-      { 
-        error: 'Database error', 
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        success: true,
+        message: "Subscription created successfully",
+        subscriptionId: newSubscription.id,
+        customerPhone: customerPhone,
+      },
+      { headers: corsHeaders }
+    );
+  } catch (error) {
+    console.error("Subscribe API error:", error);
+    return NextResponse.json(
+      {
+        error: "Database error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500, headers: corsHeaders }
-    )
+    );
   }
 }
 
 /**
  * Update notification preferences when push is denied
  * PUT /api/notifications/subscribe
- * 
+ *
  * Body:
  * {
  *   organizationId: string,
- *   ticketId: string,
+ *   customerPhone: string,
  *   pushDenied: boolean
  * }
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { organizationId, ticketId, pushDenied } = await request.json()
+    const { organizationId, customerPhone, pushDenied } = await request.json();
 
     // Validate required fields
-    if (!organizationId || !ticketId || typeof pushDenied !== 'boolean') {
+    if (!organizationId || !customerPhone || typeof pushDenied !== "boolean") {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        {
+          error: "Missing required fields",
+          details: {
+            organizationId: !!organizationId,
+            customerPhone: !!customerPhone,
+            pushDenied: typeof pushDenied === "boolean",
+          },
+        },
         { status: 400 }
-      )
+      );
     }
 
-    // Get ticket data to find customer phone (if exists)
-    const { data: ticketData, error: ticketError } = await supabase
-      .from('tickets')
-      .select('customer_phone')
-      .eq('id', ticketId)
-      .single()
+    console.log("Updating notification preferences for phone:", customerPhone);
 
-    if (ticketError) {
-      return NextResponse.json(
-        { error: 'Ticket not found' },
-        { status: 404 }
-      )
-    }
-
-    // Update preferences only if customer has a phone number
-    if (ticketData?.customer_phone) {
-      await upsertNotificationPreferences(organizationId, ticketData.customer_phone, !pushDenied, pushDenied)
-    }
-
-    // If push was denied, deactivate any existing subscriptions for this ticket
-    if (pushDenied) {
-      await supabase
-        .from('push_subscriptions')
-        .update({ is_active: false })
-        .eq('organization_id', organizationId)
-        .eq('ticket_id', ticketId)
-    }
+    // Update notification preferences for this phone number
+    await upsertNotificationPreferences(
+      organizationId,
+      null, // No specific ticket ID for phone-based subscriptions
+      customerPhone,
+      !pushDenied,
+      pushDenied
+    );
 
     return NextResponse.json({
       success: true,
-      message: pushDenied ? 'Push notifications disabled, WhatsApp fallback enabled' : 'Push notifications enabled'
-    })
-
+      customerPhone: customerPhone,
+      message: pushDenied
+        ? "Push notifications disabled, WhatsApp fallback enabled"
+        : "Push notifications enabled",
+    });
   } catch (error) {
-    console.error('Update preferences API error:', error)
+    console.error("Update preferences API error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -225,93 +252,91 @@ export async function PUT(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const organizationId = searchParams.get('organizationId')
-    const ticketId = searchParams.get('ticketId')
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get("organizationId");
+    const ticketId = searchParams.get("ticketId");
 
     if (!organizationId || !ticketId) {
       return NextResponse.json(
-        { error: 'Missing organizationId or ticketId' },
+        { error: "Missing organizationId or ticketId" },
         { status: 400 }
-      )
+      );
     }
 
     // Get customer phone from ticket (might be null)
     const { data: ticketData, error: ticketError } = await supabase
-      .from('tickets')
-      .select('customer_phone')
-      .eq('id', ticketId)
-      .single()
+      .from("tickets")
+      .select("customer_phone")
+      .eq("id", ticketId)
+      .single();
 
     if (ticketError) {
-      return NextResponse.json(
-        { error: 'Ticket not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    // If customer has phone, get their preferences
-    let preferences = null
-    if (ticketData?.customer_phone) {
-      const { data } = await supabase
-        .from('notification_preferences')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .eq('customer_phone', ticketData.customer_phone)
-        .single()
-      preferences = data
-    }
+    // Get notification preferences for this specific ticket
+    let preferences = null;
+    const { data } = await supabase
+      .from("notification_preferences")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .single();
+    preferences = data;
 
-    // Get active subscriptions count for this ticket
-    const { data: subscriptions, count } = await supabase
-      .from('push_subscriptions')
-      .select('id', { count: 'exact' })
-      .eq('organization_id', organizationId)
-      .eq('ticket_id', ticketId)
-      .eq('is_active', true)
-
-    return NextResponse.json({
-      success: true,
-      preferences: preferences || {
-        push_enabled: true,
-        push_denied: false,
-        whatsapp_fallback: true
-      },
-      activeSubscriptions: count || 0
-    })
-
-  } catch (error) {
-    console.error('Get preferences API error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        success: true,
+        ticketExists: true, // Explicitly indicate ticket exists
+        preferences: preferences || {
+          push_enabled: true,
+          push_denied: false,
+          whatsapp_fallback: true,
+        },
+        activeSubscriptions: preferences ? 1 : 0, // Based on preferences existence
+      },
+      { headers: corsHeaders }
+    );
+  } catch (error) {
+    console.error("Get preferences API error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
       { status: 500 }
-    )
+    );
   }
 }
 
 /**
- * Helper function to upsert notification preferences
+ * Helper function to upsert notification preferences for a customer phone
  */
 async function upsertNotificationPreferences(
   organizationId: string,
-  customerPhone: string,
+  ticketId: string | null,
+  customerPhone: string | null,
   pushEnabled: boolean,
   pushDenied: boolean
 ) {
-  const { error } = await supabase
-    .from('notification_preferences')
-    .upsert({
+  if (!customerPhone) {
+    console.log("No customer phone provided, skipping preferences update");
+    return;
+  }
+
+  const { error } = await supabase.from("notification_preferences").upsert(
+    {
       organization_id: organizationId,
+      ticket_id: ticketId, // Can be null for phone-based subscriptions
       customer_phone: customerPhone,
       push_enabled: pushEnabled,
       push_denied: pushDenied,
       push_denied_at: pushDenied ? new Date().toISOString() : null,
-      whatsapp_fallback: true // Always enable WhatsApp as fallback
-    }, {
-      onConflict: 'organization_id,customer_phone'
-    })
+      whatsapp_fallback: true, // Always enable WhatsApp as fallback
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "ticket_id", // ticket_id is unique
+    }
+  );
 
   if (error) {
-    console.error('Error upserting notification preferences:', error)
+    console.error("Error upserting notification preferences:", error);
   }
 }

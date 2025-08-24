@@ -67,6 +67,8 @@ export const useOrganizationData = () => {
     primary_color: "#3b82f6",
     welcome_message: "",
     logo_url: "",
+    country: "Egypt",
+    country_code: "+20",
   });
 
   // Fetch functions
@@ -90,6 +92,8 @@ export const useOrganizationData = () => {
         primary_color: data.primary_color || "#3b82f6",
         welcome_message: data.welcome_message || "",
         logo_url: data.logo_url || "",
+        country: data.country || "Egypt",
+        country_code: data.country_code || "+20",
       });
 
       // Generate organization QR code inline

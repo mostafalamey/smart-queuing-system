@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ColorPreview } from "@/components/ColorPreview";
 import { Organization, OrganizationForm } from "../shared/types";
+import { CountrySelector } from "./CountrySelector";
 
 interface OrganizationDetailsProps {
   orgForm: OrganizationForm;
@@ -114,6 +115,26 @@ export const OrganizationDetails = ({
                 {...getInputProps("phone")}
                 placeholder="+1234567890"
               />
+            </div>
+
+            <div>
+              <CountrySelector
+                selectedCountry={orgForm.country}
+                selectedCountryCode={orgForm.country_code}
+                onCountryChange={(country, countryCode) => {
+                  if (!readOnly) {
+                    setOrgForm({
+                      ...orgForm,
+                      country,
+                      country_code: countryCode,
+                    });
+                  }
+                }}
+                disabled={readOnly}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This will be the default country for customer phone number entry
+              </p>
             </div>
 
             <div className="sm:col-span-2">
