@@ -81,3 +81,13 @@ Thumbs.db
 # Local development
 start-dev.bat
 node_modules
+
+# Sensitive files with credentials/passwords
+supabase_database_password.txt
+*password*.txt
+*credentials*.txt
+*secrets*.txt
+
+# UltraMsg/WhatsApp credentials
+ultramsg_*.txt
+whatsapp_*.txt

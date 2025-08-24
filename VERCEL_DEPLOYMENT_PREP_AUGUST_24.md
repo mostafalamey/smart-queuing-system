@@ -25,13 +25,13 @@
 In Vercel Dashboard → smart-queue-admin → Settings → Environment Variables:
 
 1. **NEXT_PUBLIC_SUPABASE_URL**: `https://xxaqztdwdjgrkdyfnjvr.supabase.co`
-2. **NEXT_PUBLIC_SUPABASE_ANON_KEY**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4YXF6dGR3ZGpncmtkeWZuanZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4NjkyNTYsImV4cCI6MjA3MDQ0NTI1Nn0.mr35VgacJYZTc35lAbn5KQ5BsV8ElucEp-Ekf_E63wg`
-3. **SUPABASE_SERVICE_ROLE_KEY**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4YXF6dGR3ZGpncmtkeWZuanZyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDg2OTI1NiwiZXhwIjoyMDcwNDQ1MjU2fQ.wHiHKV5qDCPJ2Y2MLMzWMZqQHIqUECWzO7-OHQMG_aY`
+2. **NEXT_PUBLIC_SUPABASE_ANON_KEY**: `[YOUR_SUPABASE_ANON_KEY]`
+3. **SUPABASE_SERVICE_ROLE_KEY**: `[YOUR_SUPABASE_SERVICE_ROLE_KEY]`
 4. **VAPID_SUBJECT**: `mailto:admin@smartqueue.com`
-5. **VAPID_PUBLIC_KEY**: `BGUReuLggRpU7vUmPZsDgFIxRtjmKmsObnNOP5mNL25WwQ4F1JtzBgxsuAaZHttM9QUpnw8WD1QaPSzCEvdDrO0`
-6. **VAPID_PRIVATE_KEY**: `xP0kZtI_WmrxNB4sMNfAnvCHT8bMG8NuqjBR01WNOL8`
-7. **ULTRAMSG_TOKEN**: `{your_ultramsg_token}`
-8. **ULTRAMSG_INSTANCE_ID**: `{your_ultramsg_instance_id}`
+5. **VAPID_PUBLIC_KEY**: `[YOUR_VAPID_PUBLIC_KEY]`
+6. **VAPID_PRIVATE_KEY**: `[YOUR_VAPID_PRIVATE_KEY]`
+7. **ULTRAMSG_TOKEN**: `[YOUR_ULTRAMSG_TOKEN]`
+8. **ULTRAMSG_INSTANCE_ID**: `[YOUR_ULTRAMSG_INSTANCE_ID]`
 9. **NEXT_PUBLIC_ADMIN_URL**: `https://smart-queue-admin.vercel.app`
 
 ### Customer App Environment Variables
@@ -39,9 +39,9 @@ In Vercel Dashboard → smart-queue-admin → Settings → Environment Variables
 In Vercel Dashboard → smart-queue-customer → Settings → Environment Variables:
 
 1. **NEXT_PUBLIC_SUPABASE_URL**: `https://xxaqztdwdjgrkdyfnjvr.supabase.co`
-2. **NEXT_PUBLIC_SUPABASE_ANON_KEY**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4YXF6dGR3ZGpncmtkeWZuanZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4NjkyNTYsImV4cCI6MjA3MDQ0NTI1Nn0.mr35VgacJYZTc35lAbn5KQ5BsV8ElucEp-Ekf_E63wg`
+2. **NEXT_PUBLIC_SUPABASE_ANON_KEY**: `[YOUR_SUPABASE_ANON_KEY]`
 3. **NEXT_PUBLIC_ADMIN_URL**: `https://smart-queue-admin.vercel.app` ⚠️ **CRITICAL FOR PUSH NOTIFICATIONS**
-4. **NEXT_PUBLIC_VAPID_PUBLIC_KEY**: `BGUReuLggRpU7vUmPZsDgFIxRtjmKmsObnNOP5mNL25WwQ4F1JtzBgxsuAaZHttM9QUpnw8WD1QaPSzCEvdDrO0`
+4. **NEXT_PUBLIC_VAPID_PUBLIC_KEY**: `[YOUR_VAPID_PUBLIC_KEY]`
 
 ## 🆕 New Features in This Deployment
 
