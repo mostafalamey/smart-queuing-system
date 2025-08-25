@@ -80,8 +80,14 @@ const SimplePieChart: React.FC<SimplePieChartProps> = ({
   });
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width={width} height={height} className="mb-4">
+    <div className="flex flex-col items-center w-full">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        className="mb-4 max-w-sm"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {segments.map((segment, index) => (
           <g key={index}>
             <path
@@ -159,10 +165,21 @@ const SimplePieChart: React.FC<SimplePieChartProps> = ({
 };
 
 const VolumeStats: React.FC<{ data: AnalyticsData }> = ({ data }) => {
-  const totalTickets = data.ticketsIssued;
-  const servedTickets = data.ticketsServed;
-  const waitingTickets = data.currentWaiting;
-  const pendingTickets = totalTickets - servedTickets - waitingTickets;
+  // Safe number helper
+  const safeNumber = (value: number | undefined | null): number => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return 0;
+    }
+    return value;
+  };
+
+  const totalTickets = safeNumber(data.ticketsIssued);
+  const servedTickets = safeNumber(data.ticketsServed);
+  const waitingTickets = safeNumber(data.currentWaiting);
+  const pendingTickets = Math.max(
+    0,
+    totalTickets - servedTickets - waitingTickets
+  );
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -240,8 +257,8 @@ export const VolumeSection: React.FC<VolumeSectionProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Service Distribution */}
+      <div className="space-y-6">
+        {/* Service Distribution - Full Width */}
         <div className="analytics-card p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-2 bg-purple-100 rounded-lg">
@@ -262,11 +279,13 @@ export const VolumeSection: React.FC<VolumeSectionProps> = ({
               <div className="h-64 bg-gray-200 rounded"></div>
             </div>
           ) : (
-            <SimplePieChart
-              data={data?.serviceDistribution || []}
-              width={300}
-              height={250}
-            />
+            <div className="flex justify-center">
+              <SimplePieChart
+                data={data?.serviceDistribution || []}
+                width={400}
+                height={300}
+              />
+            </div>
           )}
         </div>
 
@@ -324,7 +343,7 @@ export const VolumeSection: React.FC<VolumeSectionProps> = ({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600 mb-1">
-                {data.serviceDistribution.length}
+                {data.serviceDistribution?.length || 0}
               </div>
               <div className="text-sm text-gray-600">Active Services</div>
               <div className="text-xs text-gray-500 mt-1">
@@ -333,7 +352,9 @@ export const VolumeSection: React.FC<VolumeSectionProps> = ({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600 mb-1">
-                {data.avgServiceTime > 0
+                {data.avgServiceTime &&
+                !isNaN(data.avgServiceTime) &&
+                data.avgServiceTime > 0
                   ? Math.round((60 / data.avgServiceTime) * 10) / 10
                   : 0}
               </div>
@@ -344,7 +365,11 @@ export const VolumeSection: React.FC<VolumeSectionProps> = ({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600 mb-1">
-                {data.currentWaiting > 0
+                {data.currentWaiting &&
+                !isNaN(data.currentWaiting) &&
+                data.avgWaitTime &&
+                !isNaN(data.avgWaitTime) &&
+                data.currentWaiting > 0
                   ? Math.round(
                       ((data.currentWaiting * data.avgWaitTime) / 60) * 10
                     ) / 10

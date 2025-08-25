@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import ResetQueueModal from "@/components/ResetQueueModal";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { MemberWelcomeFlow } from "@/app/organization/features/member-onboarding/MemberWelcomeFlow";
+import { AnalyticsTestPanel } from "@/components/AnalyticsTestPanel";
 
 // Feature components
 import { DashboardHeader } from "./features/dashboard-header";
@@ -152,6 +153,8 @@ export default function DashboardPage() {
           connectionError={dashboardData.connectionError}
           onRefresh={dashboardData.handleRefresh}
         />
+
+        {/* Phase 1 Complete! Analytics Test Panel can now be removed */}
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
           {/* Enhanced Queue Manager */}

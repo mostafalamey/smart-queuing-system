@@ -59,8 +59,14 @@ const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
   const pathD = `M ${points.split(" ").join(" L ")}`;
 
   return (
-    <div className="relative">
-      <svg width={width} height={height} className="overflow-visible">
+    <div className="relative w-full">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        className="overflow-visible"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {/* Grid lines */}
         <defs>
           <pattern
@@ -156,16 +162,39 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({
     );
   }
 
-  const maxValue = Math.max(...data.map((d) => d.avgWaitTime));
+  const safeData = data.filter(
+    (d) => d && typeof d.avgWaitTime === "number" && !isNaN(d.avgWaitTime)
+  );
+
+  if (safeData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-48 text-gray-500">
+        <div className="text-center">
+          <BarChart3 className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p>No valid data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(
+    1,
+    Math.max(...safeData.map((d) => d.avgWaitTime || 0))
+  );
   const padding = 40;
   const chartWidth = width - padding * 2;
   const chartHeight = height - padding * 2;
-  const barWidth = (chartWidth / data.length) * 0.7;
-  const barSpacing = chartWidth / data.length;
+  const barWidth = (chartWidth / safeData.length) * 0.7;
+  const barSpacing = chartWidth / safeData.length;
 
   return (
-    <div className="relative">
-      <svg width={width} height={height}>
+    <div className="relative w-full">
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMid meet"
+      >
         {/* Chart area */}
         <rect
           x={padding}
@@ -178,8 +207,9 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({
         />
 
         {/* Bars */}
-        {data.map((item, index) => {
-          const barHeight = (item.avgWaitTime / maxValue) * chartHeight;
+        {safeData.map((item, index) => {
+          const avgWaitTime = item.avgWaitTime || 0;
+          const barHeight = Math.max(1, (avgWaitTime / maxValue) * chartHeight);
           const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
           const y = padding + chartHeight - barHeight;
 
@@ -199,7 +229,7 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({
                 textAnchor="middle"
                 className="text-xs fill-gray-700 font-medium"
               >
-                {Math.round(item.avgWaitTime)}m
+                {Math.round(avgWaitTime)}m
               </text>
             </g>
           );
@@ -250,8 +280,8 @@ export const QueuePerformanceSection: React.FC<
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Wait Time Trend */}
+      <div className="space-y-6">
+        {/* Wait Time Trend - Full Width */}
         <div className="analytics-card p-6">
           <div className="flex items-center space-x-3 mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -272,11 +302,13 @@ export const QueuePerformanceSection: React.FC<
               <div className="h-48 bg-gray-200 rounded"></div>
             </div>
           ) : (
-            <SimpleLineChart
-              data={data?.waitTimeTrend || []}
-              width={400}
-              height={200}
-            />
+            <div className="w-full overflow-hidden">
+              <SimpleLineChart
+                data={data?.waitTimeTrend || []}
+                width={600}
+                height={200}
+              />
+            </div>
           )}
         </div>
 
@@ -301,11 +333,13 @@ export const QueuePerformanceSection: React.FC<
               <div className="h-48 bg-gray-200 rounded"></div>
             </div>
           ) : (
-            <SimpleBarChart
-              data={data?.departmentPerformance || []}
-              width={400}
-              height={200}
-            />
+            <div className="w-full overflow-hidden">
+              <SimpleBarChart
+                data={data?.departmentPerformance || []}
+                width={600}
+                height={200}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -319,7 +353,11 @@ export const QueuePerformanceSection: React.FC<
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600 mb-1">
-                {data.avgWaitTime.toFixed(1)}m
+                {(data.avgWaitTime && !isNaN(data.avgWaitTime)
+                  ? data.avgWaitTime
+                  : 0
+                ).toFixed(1)}
+                m
               </div>
               <div className="text-sm text-gray-600">Overall Avg Wait</div>
               <div className="text-xs text-gray-500 mt-1">
@@ -328,7 +366,7 @@ export const QueuePerformanceSection: React.FC<
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-green-600 mb-1">
-                {data.departmentPerformance.length}
+                {data.departmentPerformance?.length || 0}
               </div>
               <div className="text-sm text-gray-600">Active Departments</div>
               <div className="text-xs text-gray-500 mt-1">
@@ -337,7 +375,11 @@ export const QueuePerformanceSection: React.FC<
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-purple-600 mb-1">
-                {data.avgServiceTime.toFixed(1)}m
+                {(data.avgServiceTime && !isNaN(data.avgServiceTime)
+                  ? data.avgServiceTime
+                  : 0
+                ).toFixed(1)}
+                m
               </div>
               <div className="text-sm text-gray-600">Avg Service Time</div>
               <div className="text-xs text-gray-500 mt-1">

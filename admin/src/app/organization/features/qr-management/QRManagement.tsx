@@ -130,20 +130,22 @@ export const QRManagement = ({
 
           <div className="text-center">
             {qrCodeUrl ? (
-              <img
-                src={qrCodeUrl}
-                alt="General Access QR Code"
-                className="mx-auto mb-4 border border-gray-200 rounded"
-              />
+              <div className="mx-auto mb-4 w-72 h-72 max-w-full border border-gray-200 rounded overflow-hidden">
+                <img
+                  src={qrCodeUrl}
+                  alt="General Access QR Code"
+                  className="w-full h-full object-contain"
+                />
+              </div>
             ) : qrGenerating ? (
-              <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-blue-50 flex items-center justify-center">
+              <div className="mx-auto mb-4 w-72 h-72 max-w-full border border-gray-200 rounded bg-blue-50 flex items-center justify-center">
                 <div className="text-center">
                   <QrCode className="w-12 h-12 text-blue-400 mx-auto mb-2 animate-pulse" />
                   <p className="text-blue-600">Generating QR Code...</p>
                 </div>
               </div>
             ) : organization?.name ? (
-              <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+              <div className="mx-auto mb-4 w-72 h-72 max-w-full border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                   <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500">QR Code not available</p>
@@ -153,7 +155,7 @@ export const QRManagement = ({
                 </div>
               </div>
             ) : (
-              <div className="mx-auto mb-4 w-[300px] h-[300px] border border-gray-200 rounded bg-yellow-50 flex items-center justify-center">
+              <div className="mx-auto mb-4 w-72 h-72 max-w-full border border-gray-200 rounded bg-yellow-50 flex items-center justify-center">
                 <div className="text-center">
                   <QrCode className="w-12 h-12 text-yellow-400 mx-auto mb-2" />
                   <p className="text-yellow-700">
@@ -252,13 +254,15 @@ export const QRManagement = ({
 
                   <div className="text-center">
                     {branchQrCodes[branch.id] ? (
-                      <img
-                        src={branchQrCodes[branch.id]}
-                        alt={`QR Code for ${branch.name}`}
-                        className="mx-auto mb-4 border border-gray-200 rounded w-[250px] h-[250px]"
-                      />
+                      <div className="mx-auto mb-4 w-48 h-48 max-w-full border border-gray-200 rounded overflow-hidden">
+                        <img
+                          src={branchQrCodes[branch.id]}
+                          alt={`QR Code for ${branch.name}`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
                     ) : (
-                      <div className="mx-auto mb-4 w-[200px] h-[200px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                      <div className="mx-auto mb-4 w-48 h-48 max-w-full border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
                         <div className="text-center">
                           <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">
@@ -378,13 +382,15 @@ export const QRManagement = ({
 
                   <div className="text-center">
                     {departmentQrCodes[department.id] ? (
-                      <img
-                        src={departmentQrCodes[department.id]}
-                        alt={`QR Code for ${department.name}`}
-                        className="mx-auto mb-4 border border-gray-200 rounded w-[250px] h-[250px]"
-                      />
+                      <div className="mx-auto mb-4 w-48 h-48 max-w-full border border-gray-200 rounded overflow-hidden">
+                        <img
+                          src={departmentQrCodes[department.id]}
+                          alt={`QR Code for ${department.name}`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
                     ) : (
-                      <div className="mx-auto mb-4 w-[200px] h-[200px] border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                      <div className="mx-auto mb-4 w-48 h-48 max-w-full border border-gray-200 rounded bg-gray-50 flex items-center justify-center">
                         <div className="text-center">
                           <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">

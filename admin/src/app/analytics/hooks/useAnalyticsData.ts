@@ -134,8 +134,12 @@ export const useAnalyticsData = () => {
         .lte("created_at", endDate)
         .eq("departments.branch_id", selectedBranch);
 
-      // Add department filter if selected
-      if (selectedDepartment) {
+      // Add department filter if selected and valid
+      if (
+        selectedDepartment &&
+        selectedDepartment !== "" &&
+        selectedDepartment !== "undefined"
+      ) {
         ticketsQuery = ticketsQuery.eq("department_id", selectedDepartment);
       }
 
@@ -163,34 +167,50 @@ export const useAnalyticsData = () => {
       (t) => t.status === "serving" || t.status === "completed"
     );
 
-    // Calculate wait times (created_at to called_at)
+    // Calculate wait times (created_at to called_at) with validation
     const waitTimes = calledTickets
-      .filter((t) => t.called_at)
+      .filter((t) => t.called_at && t.created_at)
       .map((t) => {
-        const created = new Date(t.created_at);
-        const called = new Date(t.called_at);
-        return (called.getTime() - created.getTime()) / (1000 * 60); // minutes
-      });
+        try {
+          const created = new Date(t.created_at);
+          const called = new Date(t.called_at);
+          const waitTime = (called.getTime() - created.getTime()) / (1000 * 60); // minutes
+          return isNaN(waitTime) || waitTime < 0 ? 0 : waitTime;
+        } catch {
+          return 0;
+        }
+      })
+      .filter((time) => time >= 0); // Remove negative wait times
 
-    // Calculate service times (called_at to completed_at)
+    // Calculate service times (called_at to completed_at) with validation
     const serviceTimes = servedTickets
       .filter((t) => t.called_at && t.completed_at)
       .map((t) => {
-        const called = new Date(t.called_at);
-        const completed = new Date(t.completed_at);
-        return (completed.getTime() - called.getTime()) / (1000 * 60); // minutes
-      });
+        try {
+          const called = new Date(t.called_at);
+          const completed = new Date(t.completed_at);
+          const serviceTime =
+            (completed.getTime() - called.getTime()) / (1000 * 60); // minutes
+          return isNaN(serviceTime) || serviceTime < 0 ? 0 : serviceTime;
+        } catch {
+          return 0;
+        }
+      })
+      .filter((time) => time >= 0); // Remove negative service times
 
-    // Calculate averages
+    // Calculate averages with NaN protection
     const avgWaitTime =
       waitTimes.length > 0
-        ? waitTimes.reduce((sum, time) => sum + time, 0) / waitTimes.length
+        ? waitTimes.reduce((sum, time) => sum + (isNaN(time) ? 0 : time), 0) /
+          waitTimes.length
         : 0;
 
     const avgServiceTime =
       serviceTimes.length > 0
-        ? serviceTimes.reduce((sum, time) => sum + time, 0) /
-          serviceTimes.length
+        ? serviceTimes.reduce(
+            (sum, time) => sum + (isNaN(time) ? 0 : time),
+            0
+          ) / serviceTimes.length
         : 0;
 
     const completionRate =
@@ -206,13 +226,17 @@ export const useAnalyticsData = () => {
     const serviceDistribution = generateServiceDistribution(tickets);
 
     return {
-      avgWaitTime: Math.round(avgWaitTime * 10) / 10,
-      avgServiceTime: Math.round(avgServiceTime * 10) / 10,
-      ticketsIssued: totalTickets,
-      ticketsServed: servedTickets.length,
+      avgWaitTime: isNaN(avgWaitTime) ? 0 : Math.round(avgWaitTime * 10) / 10,
+      avgServiceTime: isNaN(avgServiceTime)
+        ? 0
+        : Math.round(avgServiceTime * 10) / 10,
+      ticketsIssued: totalTickets || 0,
+      ticketsServed: servedTickets.length || 0,
       noShowRate: 0, // TODO: Calculate based on tickets that were called but never served
-      completionRate: Math.round(completionRate * 10) / 10,
-      currentWaiting: waitingTickets.length,
+      completionRate: isNaN(completionRate)
+        ? 0
+        : Math.round(completionRate * 10) / 10,
+      currentWaiting: waitingTickets.length || 0,
       waitTimeTrend,
       peakHours: [], // TODO: Implement peak hours analysis
       departmentPerformance,
@@ -232,28 +256,44 @@ export const useAnalyticsData = () => {
     const dailyData: { [key: string]: { times: number[]; count: number } } = {};
 
     tickets.forEach((ticket) => {
-      if (ticket.called_at) {
-        const date = new Date(ticket.created_at).toISOString().split("T")[0];
-        const waitTime =
-          (new Date(ticket.called_at).getTime() -
-            new Date(ticket.created_at).getTime()) /
-          (1000 * 60);
+      if (ticket.called_at && ticket.created_at) {
+        try {
+          const date = new Date(ticket.created_at).toISOString().split("T")[0];
+          const waitTime =
+            (new Date(ticket.called_at).getTime() -
+              new Date(ticket.created_at).getTime()) /
+            (1000 * 60);
 
-        if (!dailyData[date]) {
-          dailyData[date] = { times: [], count: 0 };
+          // Only add valid wait times
+          if (!isNaN(waitTime) && waitTime >= 0) {
+            if (!dailyData[date]) {
+              dailyData[date] = { times: [], count: 0 };
+            }
+            dailyData[date].times.push(waitTime);
+            dailyData[date].count++;
+          }
+        } catch (error) {
+          // Skip invalid dates
         }
-        dailyData[date].times.push(waitTime);
-        dailyData[date].count++;
       }
     });
 
     return Object.entries(dailyData)
-      .map(([date, data]) => ({
-        date,
-        avgWaitTime:
-          data.times.reduce((sum, time) => sum + time, 0) / data.times.length,
-        ticketCount: data.count,
-      }))
+      .map(([date, data]) => {
+        const avgWaitTime =
+          data.times.length > 0
+            ? data.times.reduce((sum, time) => sum + time, 0) /
+              data.times.length
+            : 0;
+
+        return {
+          date,
+          avgWaitTime: isNaN(avgWaitTime)
+            ? 0
+            : Math.round(avgWaitTime * 10) / 10,
+          ticketCount: data.count,
+        };
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
@@ -286,51 +326,63 @@ export const useAnalyticsData = () => {
         deptData[deptId].servedTickets++;
       }
 
-      if (ticket.called_at) {
-        const waitTime =
-          (new Date(ticket.called_at).getTime() -
-            new Date(ticket.created_at).getTime()) /
-          (1000 * 60);
-        deptData[deptId].waitTimes.push(waitTime);
+      if (ticket.called_at && ticket.created_at) {
+        try {
+          const waitTime =
+            (new Date(ticket.called_at).getTime() -
+              new Date(ticket.created_at).getTime()) /
+            (1000 * 60);
+          if (!isNaN(waitTime) && waitTime >= 0) {
+            deptData[deptId].waitTimes.push(waitTime);
+          }
+        } catch {
+          // Skip invalid dates
+        }
       }
 
       if (ticket.called_at && ticket.completed_at) {
-        const serviceTime =
-          (new Date(ticket.completed_at).getTime() -
-            new Date(ticket.called_at).getTime()) /
-          (1000 * 60);
-        deptData[deptId].serviceTimes.push(serviceTime);
+        try {
+          const serviceTime =
+            (new Date(ticket.completed_at).getTime() -
+              new Date(ticket.called_at).getTime()) /
+            (1000 * 60);
+          if (!isNaN(serviceTime) && serviceTime >= 0) {
+            deptData[deptId].serviceTimes.push(serviceTime);
+          }
+        } catch {
+          // Skip invalid dates
+        }
       }
     });
 
-    return Object.values(deptData).map((dept: any) => ({
-      departmentId: dept.departmentId,
-      departmentName: dept.departmentName,
-      avgWaitTime:
+    return Object.values(deptData).map((dept: any) => {
+      const avgWaitTime =
         dept.waitTimes.length > 0
-          ? Math.round(
-              (dept.waitTimes.reduce(
-                (sum: number, time: number) => sum + time,
-                0
-              ) /
-                dept.waitTimes.length) *
-                10
-            ) / 10
-          : 0,
-      avgServiceTime:
+          ? dept.waitTimes.reduce(
+              (sum: number, time: number) => sum + time,
+              0
+            ) / dept.waitTimes.length
+          : 0;
+
+      const avgServiceTime =
         dept.serviceTimes.length > 0
-          ? Math.round(
-              (dept.serviceTimes.reduce(
-                (sum: number, time: number) => sum + time,
-                0
-              ) /
-                dept.serviceTimes.length) *
-                10
-            ) / 10
-          : 0,
-      ticketsServed: dept.servedTickets,
-      waitingCount: dept.waitingTickets,
-    }));
+          ? dept.serviceTimes.reduce(
+              (sum: number, time: number) => sum + time,
+              0
+            ) / dept.serviceTimes.length
+          : 0;
+
+      return {
+        departmentId: dept.departmentId,
+        departmentName: dept.departmentName,
+        avgWaitTime: isNaN(avgWaitTime) ? 0 : Math.round(avgWaitTime * 10) / 10,
+        avgServiceTime: isNaN(avgServiceTime)
+          ? 0
+          : Math.round(avgServiceTime * 10) / 10,
+        ticketsServed: dept.servedTickets,
+        waitingCount: dept.waitingTickets,
+      };
+    });
   };
 
   const generateServiceDistribution = (tickets: any[]) => {

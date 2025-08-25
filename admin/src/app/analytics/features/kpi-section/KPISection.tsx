@@ -20,10 +20,9 @@ interface KPICardProps {
   value: string | number;
   subtitle?: string;
   icon: React.ReactNode;
+  color: "blue" | "purple" | "green" | "yellow" | "red";
   trend?: "up" | "down" | "neutral";
-  trendValue?: string;
-  color: "blue" | "green" | "yellow" | "purple" | "red";
-  loading?: boolean;
+  loading: boolean;
 }
 
 const KPICard: React.FC<KPICardProps> = ({
@@ -31,73 +30,62 @@ const KPICard: React.FC<KPICardProps> = ({
   value,
   subtitle,
   icon,
-  trend,
-  trendValue,
   color,
-  loading = false,
+  trend,
+  loading,
 }) => {
-  const colorClasses = {
-    blue: "from-blue-500 to-blue-600 bg-blue-50 border-blue-200 text-blue-600",
-    green:
-      "from-green-500 to-green-600 bg-green-50 border-green-200 text-green-600",
-    yellow:
-      "from-yellow-500 to-yellow-600 bg-yellow-50 border-yellow-200 text-yellow-600",
-    purple:
-      "from-purple-500 to-purple-600 bg-purple-50 border-purple-200 text-purple-600",
-    red: "from-red-500 to-red-600 bg-red-50 border-red-200 text-red-600",
+  const getIconColorClasses = (color: string) => {
+    switch (color) {
+      case "blue":
+        return "bg-blue-100 text-blue-600";
+      case "purple":
+        return "bg-purple-100 text-purple-600";
+      case "green":
+        return "bg-green-100 text-green-600";
+      case "yellow":
+        return "bg-yellow-100 text-yellow-600";
+      case "red":
+        return "bg-red-100 text-red-600";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
   };
 
-  const getTrendIcon = () => {
+  const getTrendIcon = (trend?: string) => {
     switch (trend) {
       case "up":
-        return <TrendingUp className="w-4 h-4 text-green-500" />;
+        return <TrendingUp className="w-4 h-4 text-green-600" />;
       case "down":
-        return <TrendingDown className="w-4 h-4 text-red-500" />;
+        return <TrendingDown className="w-4 h-4 text-red-600" />;
       default:
         return <Minus className="w-4 h-4 text-gray-400" />;
     }
   };
 
-  return (
-    <div className="analytics-card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div
-          className={`p-3 rounded-lg bg-gradient-to-br ${
-            colorClasses[color].split(" ")[0]
-          } ${colorClasses[color].split(" ")[1]} text-white shadow-md`}
-        >
-          {icon}
-        </div>
-        {trend && trendValue && (
-          <div className="flex items-center space-x-1">
-            {getTrendIcon()}
-            <span
-              className={`text-sm font-medium ${
-                trend === "up"
-                  ? "text-green-600"
-                  : trend === "down"
-                  ? "text-red-600"
-                  : "text-gray-500"
-              }`}
-            >
-              {trendValue}
-            </span>
-          </div>
-        )}
-      </div>
+  const safeTrendIcon = getTrendIcon(trend);
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-600 mb-1">{title}</h3>
+  return (
+    <div className="analytics-card-kpi p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className={`p-2 rounded-lg ${getIconColorClasses(color)}`}>
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-700">{title}</h3>
+            <div className="flex items-center gap-2 mt-1">{safeTrendIcon}</div>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4">
         {loading ? (
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-16 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-24"></div>
+            <div className="h-8 bg-gray-300 rounded w-20 mb-2"></div>
+            <div className="h-4 bg-gray-300 rounded w-32"></div>
           </div>
         ) : (
           <>
-            <p className="text-2xl font-bold text-gray-900 mb-1">
-              {typeof value === "number" ? value.toLocaleString() : value}
-            </p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
             {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
           </>
         )}
@@ -108,6 +96,7 @@ const KPICard: React.FC<KPICardProps> = ({
 
 export const KPISection: React.FC<KPISectionProps> = ({ data, loading }) => {
   const formatTime = (minutes: number): string => {
+    if (!minutes || isNaN(minutes) || minutes < 0) return "0m";
     if (minutes < 1) return `${Math.round(minutes * 60)}s`;
     if (minutes < 60) return `${Math.round(minutes)}m`;
     const hours = Math.floor(minutes / 60);
@@ -122,17 +111,20 @@ export const KPISection: React.FC<KPISectionProps> = ({ data, loading }) => {
   } => {
     if (!data) return { value: "0%", subtitle: "No data available" };
 
-    const rate = data.completionRate;
+    const rate = data.completionRate || 0;
+    // Ensure rate is a valid number
+    const validRate = isNaN(rate) ? 0 : Math.round(rate);
+
     let subtitle = "";
     let trend: "up" | "down" | "neutral" = "neutral";
 
-    if (rate >= 90) {
+    if (validRate >= 90) {
       subtitle = "Excellent performance";
       trend = "up";
-    } else if (rate >= 75) {
+    } else if (validRate >= 75) {
       subtitle = "Good performance";
       trend = "up";
-    } else if (rate >= 50) {
+    } else if (validRate >= 50) {
       subtitle = "Needs improvement";
       trend = "neutral";
     } else {
@@ -140,10 +132,18 @@ export const KPISection: React.FC<KPISectionProps> = ({ data, loading }) => {
       trend = "down";
     }
 
-    return { value: `${rate}%`, subtitle, trend };
+    return { value: `${validRate}%`, subtitle, trend };
   };
 
   const completionRateInfo = getCompletionRateDisplay();
+
+  // Safe number helper
+  const safeNumber = (value: number | undefined | null): number => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return 0;
+    }
+    return value;
+  };
 
   return (
     <div className="mb-8">
@@ -188,16 +188,18 @@ export const KPISection: React.FC<KPISectionProps> = ({ data, loading }) => {
           loading={loading}
         />
 
-        {/* Current Waiting */}
+        {/* Currently Waiting */}
         <KPICard
           title="Currently Waiting"
-          value={data ? data.currentWaiting : 0}
-          subtitle={`${data ? data.ticketsIssued : 0} tickets issued today`}
+          value={data ? safeNumber(data.currentWaiting) : 0}
+          subtitle={`${
+            data ? safeNumber(data.ticketsIssued) : 0
+          } tickets issued today`}
           icon={<AlertCircle className="w-6 h-6" />}
           color={
-            data && data.currentWaiting > 10
+            data && safeNumber(data.currentWaiting) > 10
               ? "red"
-              : data && data.currentWaiting > 5
+              : data && safeNumber(data.currentWaiting) > 5
               ? "yellow"
               : "green"
           }
@@ -211,24 +213,22 @@ export const KPISection: React.FC<KPISectionProps> = ({ data, loading }) => {
           <div className="grid grid-cols-3 divide-x divide-gray-300">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {data.ticketsServed}
+                {safeNumber(data.ticketsServed)}
               </div>
               <div className="text-sm text-gray-600">Tickets Served</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {data.ticketsIssued - data.ticketsServed}
+                {safeNumber(data.ticketsIssued) -
+                  safeNumber(data.ticketsServed)}
               </div>
-              <div className="text-sm text-gray-600">Pending Tickets</div>
+              <div className="text-sm text-gray-600">In Progress</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {data.ticketsIssued > 0
-                  ? Math.round((data.ticketsServed / data.ticketsIssued) * 100)
-                  : 0}
-                %
+                {Math.round(safeNumber(data.noShowRate))}%
               </div>
-              <div className="text-sm text-gray-600">Efficiency Rate</div>
+              <div className="text-sm text-gray-600">No Show Rate</div>
             </div>
           </div>
         </div>

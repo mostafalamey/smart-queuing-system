@@ -46,6 +46,17 @@ interface CleanupResult {
   ticketsArchived: number;
   notificationsProcessed: number;
   totalExecutionTimeMs: number;
+
+  // Analytics processing information
+  analyticsProcessed?: {
+    success: boolean;
+    recordsProcessed: number;
+    executionTimeMs: number;
+    processedDate: string;
+    analyticsTypes?: string[];
+    error?: string;
+  };
+
   details: {
     ticketsDeleted: number;
     successfulNotificationsDeleted: number;
@@ -263,6 +274,107 @@ serve(async (req) => {
 });
 
 /**
+ * Process analytics data before cleanup for a specific organization
+ * This captures critical analytics information that would be lost during cleanup
+ */
+async function processAnalyticsBeforeCleanup(
+  supabase: any,
+  organizationId: string,
+  config: Required<CleanupRequest>
+): Promise<{
+  success: boolean;
+  recordsProcessed: number;
+  executionTimeMs: number;
+  processedDate: string;
+  analyticsTypes: string[];
+  error?: string;
+}> {
+  const startTime = Date.now();
+
+  // Calculate the date we're processing (yesterday - the data about to be cleaned up)
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const targetDate = yesterday.toISOString().split("T")[0];
+
+  try {
+    console.log(
+      `📊 Processing analytics for organization ${organizationId} on date ${targetDate}`
+    );
+
+    // Call our database function to process analytics for this organization
+    const { data: analyticsResults, error: analyticsError } =
+      await supabase.rpc("process_organization_analytics", {
+        target_organization_id: organizationId,
+        target_date: targetDate,
+        analytics_types: ["daily", "service", "notification"],
+      });
+
+    if (analyticsError) {
+      console.error(`Analytics processing error:`, analyticsError);
+      return {
+        success: false,
+        recordsProcessed: 0,
+        executionTimeMs: Date.now() - startTime,
+        processedDate: targetDate,
+        analyticsTypes: ["daily", "service", "notification"],
+        error: analyticsError.message || "Unknown analytics processing error",
+      };
+    }
+
+    // Calculate total records processed
+    const totalRecords = (analyticsResults || []).reduce(
+      (sum: number, result: any) => sum + (result.records_processed || 0),
+      0
+    );
+
+    // Check if all processing was successful
+    const allSuccessful = (analyticsResults || []).every(
+      (result: any) => result.success
+    );
+
+    if (!allSuccessful) {
+      const failures = (analyticsResults || []).filter(
+        (result: any) => !result.success
+      );
+      const errorMessage = failures
+        .map((f: any) => `${f.analytics_type}: ${f.error_message}`)
+        .join("; ");
+
+      console.warn(`⚠️ Some analytics processing failed: ${errorMessage}`);
+      return {
+        success: false,
+        recordsProcessed: totalRecords,
+        executionTimeMs: Date.now() - startTime,
+        processedDate: targetDate,
+        analyticsTypes: ["daily", "service", "notification"],
+        error: errorMessage,
+      };
+    }
+
+    console.log(
+      `✅ Analytics processing completed successfully: ${totalRecords} records processed`
+    );
+    return {
+      success: true,
+      recordsProcessed: totalRecords,
+      executionTimeMs: Date.now() - startTime,
+      processedDate: targetDate,
+      analyticsTypes: ["daily", "service", "notification"],
+    };
+  } catch (error) {
+    console.error(`❌ Analytics processing failed with exception:`, error);
+    return {
+      success: false,
+      recordsProcessed: 0,
+      executionTimeMs: Date.now() - startTime,
+      processedDate: targetDate,
+      analyticsTypes: ["daily", "service", "notification"],
+      error: error.message || "Unknown error during analytics processing",
+    };
+  }
+}
+
+/**
  * Clean up data for a single organization
  */
 async function cleanupOrganization(
@@ -293,6 +405,46 @@ async function cleanupOrganization(
       `Processing organization: ${organization.name} (${organization.id})`
     );
 
+    // ⭐ STEP 1: Process Analytics BEFORE Cleanup
+    console.log(
+      `📊 Processing analytics for ${organization.name} before cleanup...`
+    );
+
+    const analyticsResult = await processAnalyticsBeforeCleanup(
+      supabase,
+      organization.id,
+      config
+    );
+
+    if (analyticsResult.success) {
+      console.log(
+        `✅ Analytics processed: ${analyticsResult.recordsProcessed} records`
+      );
+      // Add analytics info to result for reporting
+      result.analyticsProcessed = {
+        success: true,
+        recordsProcessed: analyticsResult.recordsProcessed,
+        executionTimeMs: analyticsResult.executionTimeMs,
+        processedDate: analyticsResult.processedDate,
+        analyticsTypes: analyticsResult.analyticsTypes,
+      };
+    } else {
+      console.warn(`⚠️ Analytics processing failed: ${analyticsResult.error}`);
+      // Don't fail the entire cleanup if analytics fails
+      result.analyticsProcessed = {
+        success: false,
+        recordsProcessed: 0,
+        executionTimeMs: analyticsResult.executionTimeMs,
+        processedDate: analyticsResult.processedDate,
+        error: analyticsResult.error,
+      };
+      // Add warning to recommendations
+      result.recommendations?.push(
+        `Analytics processing failed: ${analyticsResult.error}`
+      );
+    }
+
+    // ⭐ STEP 2: Continue with Cleanup (original logic)
     // Cleanup tickets if requested
     if (config.cleanupType === "tickets" || config.cleanupType === "both") {
       try {
