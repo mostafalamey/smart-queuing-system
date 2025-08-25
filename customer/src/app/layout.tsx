@@ -10,21 +10,21 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Queue",
+  title: "Smart Queue Customer",
   description: "Join the queue digitally",
   // manifest: removed - handled dynamically by DynamicManifest component
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" }
+      { url: "/favicon.ico", sizes: "any" },
     ],
     apple: "/apple-touch-icon.png",
   },
   other: {
     "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-title": "Smart Queue",
-    "apple-mobile-web-app-status-bar-style": "default"
-  }
+    "apple-mobile-web-app-title": "Smart Queue Customer",
+    "apple-mobile-web-app-status-bar-style": "default",
+  },
 };
 
 export const viewport: Viewport = {
@@ -34,7 +34,7 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#3b82f6",
-  colorScheme: "light"
+  colorScheme: "light",
 };
 
 export default function RootLayout({

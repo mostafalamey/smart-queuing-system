@@ -48,7 +48,7 @@ export const AnalyticsFilters: React.FC<AnalyticsFiltersProps> = ({
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-celestial-500 focus:border-celestial-500 transition-colors"
+            className="select-field"
             aria-label="Select time range"
           >
             {timeRangeOptions.map((option) => (
@@ -69,7 +69,7 @@ export const AnalyticsFilters: React.FC<AnalyticsFiltersProps> = ({
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
             disabled={loading || branches.length === 0}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-celestial-500 focus:border-celestial-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="select-field disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Select branch"
           >
             <option value="">All Branches</option>
@@ -91,7 +91,7 @@ export const AnalyticsFilters: React.FC<AnalyticsFiltersProps> = ({
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
             disabled={loading || !selectedBranch || departments.length === 0}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-celestial-500 focus:border-celestial-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="select-field disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Select department"
           >
             <option value="">All Departments</option>

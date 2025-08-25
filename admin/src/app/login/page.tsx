@@ -1,60 +1,60 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { useAuth } from '@/lib/AuthContext'
-import { LoadingSpinner } from '@/components/LoadingSpinner'
-import { Eye, EyeOff } from 'lucide-react'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/lib/AuthContext";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { signIn, user, loading: authLoading } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const router = useRouter();
+  const { signIn, user, loading: authLoading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Redirect if already authenticated
   useEffect(() => {
     if (!authLoading && user) {
       // Check if there's a redirect parameter
-      const urlParams = new URLSearchParams(window.location.search)
-      const redirectTo = urlParams.get('redirectTo')
-      
-      if (redirectTo && redirectTo.startsWith('/')) {
-        router.replace(redirectTo)
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectTo = urlParams.get("redirectTo");
+
+      if (redirectTo && redirectTo.startsWith("/")) {
+        router.replace(redirectTo);
       } else {
-        router.replace('/dashboard')
+        router.replace("/dashboard");
       }
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
-      const { error } = await signIn(email, password)
+      const { error } = await signIn(email, password);
 
       if (error) {
-        setError(error.message)
-        setLoading(false)
+        setError(error.message);
+        setLoading(false);
       } else {
         // Don't set loading to false here, let the auth context handle it
         // The useEffect above will handle the redirect
       }
     } catch (err) {
-      setError('An unexpected error occurred')
-      setLoading(false)
+      setError("An unexpected error occurred");
+      setLoading(false);
     }
-  }
+  };
 
   // Show loading if auth is still initializing or if user is authenticated
   if (authLoading || user) {
-    return <LoadingSpinner message={user ? "Redirecting..." : "Loading..."} />
+    return <LoadingSpinner message={user ? "Redirecting..." : "Loading..."} />;
   }
 
   return (
@@ -84,7 +84,10 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Email Address
               </label>
               <input
@@ -99,13 +102,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Password
               </label>
               <div className="relative">
                 <input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-field pr-10"
@@ -116,9 +122,13 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -130,7 +140,10 @@ export default function LoginPage() {
                   type="checkbox"
                   className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor="remember-me"
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   Remember me
                 </label>
               </div>
@@ -147,14 +160,17 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link href="/signup" className="text-brand-primary hover:text-brand-dark font-medium">
+              Don't have an account?{" "}
+              <Link
+                href="/signup"
+                className="text-brand-primary hover:text-brand-dark font-medium"
+              >
                 Create an account
               </Link>
             </p>
@@ -162,5 +178,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

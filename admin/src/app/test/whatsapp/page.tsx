@@ -176,7 +176,7 @@ export default function WhatsAppTestPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1234567890"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-field"
                   disabled={loading}
                 />
                 <p className="text-sm text-gray-500 mt-1">

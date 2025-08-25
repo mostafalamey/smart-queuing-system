@@ -10,6 +10,7 @@ import {
   MapPin,
   MessageSquare,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { ColorPreview } from "@/components/ColorPreview";
 import { Organization, OrganizationForm } from "../shared/types";
 import { CountrySelector } from "./CountrySelector";
@@ -35,10 +36,20 @@ export const OrganizationDetails = ({
   onRemoveLogo,
   readOnly = false,
 }: OrganizationDetailsProps) => {
+  // Ref for brand preview background
+  const brandPreviewRef = useRef<HTMLDivElement>(null);
+
+  // Update brand preview background when color changes
+  useEffect(() => {
+    if (brandPreviewRef.current) {
+      brandPreviewRef.current.style.backgroundColor = orgForm.primary_color;
+    }
+  }, [orgForm.primary_color]);
+
   // Helper function to get input props with read-only logic
   const getInputProps = (field: keyof OrganizationForm) => ({
     readOnly,
-    className: `w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none ${
+    className: `input-field ${
       readOnly ? "bg-gray-50 cursor-not-allowed text-gray-700" : ""
     }`,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -60,26 +71,27 @@ export const OrganizationDetails = ({
       )}
 
       {/* Grid Layout - Responsive card system */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 relative z-10">
         {/* Basic Information Card - Takes 2 columns on large screens */}
-        <div className="lg:col-span-2 analytics-card p-6">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
+        <div className="lg:col-span-2 analytics-card p-5">
+          <div className="flex items-center space-x-3 mb-5">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-lg font-bold text-gray-900">
                 Basic Information
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-xs text-gray-500">
                 Essential organization details
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="space-y-4">
+            {/* Organization Name - Full width with compact styling */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                 Organization Name *
               </label>
               <input
@@ -91,68 +103,75 @@ export const OrganizationDetails = ({
               />
             </div>
 
+            {/* Contact Info - Two columns for desktop, stacked for mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-1.5">
+                  <Mail className="w-3.5 h-3.5 text-gray-500" />
+                  <span>Contact Email</span>
+                </label>
+                <input
+                  type="email"
+                  value={orgForm.contact_email}
+                  {...getInputProps("contact_email")}
+                  placeholder="admin@company.com"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-1.5">
+                  <Phone className="w-3.5 h-3.5 text-gray-500" />
+                  <span>Phone Number</span>
+                </label>
+                <input
+                  type="tel"
+                  value={orgForm.phone}
+                  {...getInputProps("phone")}
+                  placeholder="+201015554028"
+                />
+              </div>
+            </div>
+
+            {/* Country Selector with Website */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <CountrySelector
+                  selectedCountry={orgForm.country}
+                  selectedCountryCode={orgForm.country_code}
+                  onCountryChange={(country, countryCode) => {
+                    if (!readOnly) {
+                      setOrgForm({
+                        ...orgForm,
+                        country,
+                        country_code: countryCode,
+                      });
+                    }
+                  }}
+                  disabled={readOnly}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Default country for customer phone entry
+                </p>
+              </div>
+
+              <div>
+                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-1.5">
+                  <Globe className="w-3.5 h-3.5 text-gray-500" />
+                  <span>Website</span>
+                </label>
+                <input
+                  type="url"
+                  value={orgForm.website}
+                  {...getInputProps("website")}
+                  placeholder="https://company.com"
+                />
+              </div>
+            </div>
+
+            {/* Address - Full width */}
             <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <Mail className="w-4 h-4" />
-                <span>Contact Email</span>
-              </label>
-              <input
-                type="email"
-                value={orgForm.contact_email}
-                {...getInputProps("contact_email")}
-                placeholder="admin@company.com"
-              />
-            </div>
-
-            <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <Phone className="w-4 h-4" />
-                <span>Phone Number</span>
-              </label>
-              <input
-                type="tel"
-                value={orgForm.phone}
-                {...getInputProps("phone")}
-                placeholder="+1234567890"
-              />
-            </div>
-
-            <div>
-              <CountrySelector
-                selectedCountry={orgForm.country}
-                selectedCountryCode={orgForm.country_code}
-                onCountryChange={(country, countryCode) => {
-                  if (!readOnly) {
-                    setOrgForm({
-                      ...orgForm,
-                      country,
-                      country_code: countryCode,
-                    });
-                  }
-                }}
-                disabled={readOnly}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                This will be the default country for customer phone number entry
-              </p>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <Globe className="w-4 h-4" />
-                <span>Website</span>
-              </label>
-              <input
-                type="url"
-                value={orgForm.website}
-                {...getInputProps("website")}
-                placeholder="https://company.com"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <MapPin className="w-4 h-4" />
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-1.5">
+                <MapPin className="w-3.5 h-3.5 text-gray-500" />
                 <span>Address</span>
               </label>
               <textarea
@@ -267,7 +286,29 @@ export const OrganizationDetails = ({
               {/* Color Picker - Better Layout */}
               <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-center space-x-4">
-                  <ColorPreview color={orgForm.primary_color} />
+                  {/* Custom Brand Preview with Logo and Name */}
+                  <div
+                    ref={brandPreviewRef}
+                    className="w-42 h-16 rounded-lg shadow-sm flex items-center justify-center px-8 py-3"
+                  >
+                    <div className="flex items-center space-x-3">
+                      {orgForm.logo_url ? (
+                        <img
+                          src={orgForm.logo_url}
+                          alt="Logo"
+                          className="w-7 h-7 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 bg-white bg-opacity-20 rounded flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <span className="text-white text-sm font-medium truncate">
+                        {orgForm.name || "Organization"}
+                      </span>
+                    </div>
+                  </div>
+
                   <input
                     type="color"
                     value={orgForm.primary_color}

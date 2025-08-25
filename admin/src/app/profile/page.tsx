@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { logger } from '@/lib/logger'
-import { DashboardLayout } from '@/components/DashboardLayout';
-import { useAuth } from '@/lib/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { useAppToast } from '@/hooks/useAppToast';
-import { User, Upload, Camera, X } from 'lucide-react';
-import Image from 'next/image';
+import { useState, useEffect, useRef } from "react";
+import { logger } from "@/lib/logger";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { useAuth } from "@/lib/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { useAppToast } from "@/hooks/useAppToast";
+import { User, Upload, Camera, X } from "lucide-react";
+import Image from "next/image";
 
 export default function ProfilePage() {
   const { user, userProfile, refreshUser } = useAuth();
   const { showSuccess, showError } = useAppToast();
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (userProfile) {
-      setName(userProfile.name || '');
+      setName(userProfile.name || "");
       setAvatarPreview(userProfile.avatar_url || null);
     }
   }, [userProfile]);
@@ -29,14 +29,14 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
-      if (!file.type.startsWith('image/')) {
-        showError('Please select an image file');
+      if (!file.type.startsWith("image/")) {
+        showError("Please select an image file");
         return;
       }
 
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        showError('Image size must be less than 5MB');
+        showError("Image size must be less than 5MB");
         return;
       }
 
@@ -52,35 +52,36 @@ export default function ProfilePage() {
   };
 
   const uploadAvatar = async (file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split(".").pop();
     const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
 
     // Delete existing avatar if it exists
     if (userProfile?.avatar_url) {
       try {
-        const existingPath = userProfile.avatar_url.split('/').slice(-2).join('/'); // Get "user_id/filename"
-        await supabase.storage
-          .from('avatars')
-          .remove([existingPath]);
+        const existingPath = userProfile.avatar_url
+          .split("/")
+          .slice(-2)
+          .join("/"); // Get "user_id/filename"
+        await supabase.storage.from("avatars").remove([existingPath]);
       } catch (error) {
-        logger.warn('Could not delete existing avatar:', error);
+        logger.warn("Could not delete existing avatar:", error);
       }
     }
 
     const { data, error } = await supabase.storage
-      .from('avatars')
+      .from("avatars")
       .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
+        cacheControl: "3600",
+        upsert: false,
       });
 
     if (error) {
       throw error;
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(data.path);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(data.path);
 
     return publicUrl;
   };
@@ -90,7 +91,7 @@ export default function ProfilePage() {
     if (!userProfile?.id) return;
 
     if (!name.trim()) {
-      showError('Name is required');
+      showError("Name is required");
       return;
     }
 
@@ -105,24 +106,23 @@ export default function ProfilePage() {
 
       // Update user profile
       const { error } = await supabase
-        .from('members')
+        .from("members")
         .update({
           name: name.trim(),
           avatar_url: avatarUrl,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', userProfile.id);
+        .eq("id", userProfile.id);
 
       if (error) {
         throw error;
       }
 
-      showSuccess('Profile updated successfully!');
+      showSuccess("Profile updated successfully!");
       await refreshUser();
-      
     } catch (error) {
-      logger.error('Error updating profile:', error);
-      showError('Failed to update profile. Please try again.');
+      logger.error("Error updating profile:", error);
+      showError("Failed to update profile. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +132,7 @@ export default function ProfilePage() {
     setAvatarFile(null);
     setAvatarPreview(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -141,8 +141,12 @@ export default function ProfilePage() {
       <div className="p-6 max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Profile</h1>
-          <p className="text-gray-600">Update your personal information and avatar</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Edit Profile
+          </h1>
+          <p className="text-gray-600">
+            Update your personal information and avatar
+          </p>
         </div>
 
         {/* Profile Form */}
@@ -172,7 +176,7 @@ export default function ProfilePage() {
                     <User className="w-16 h-16 text-white" />
                   </div>
                 )}
-                
+
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -201,7 +205,10 @@ export default function ProfilePage() {
 
             {/* Name Field */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Full Name *
               </label>
               <input
@@ -209,7 +216,7 @@ export default function ProfilePage() {
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-celestial-500 focus:border-transparent transition-all duration-200"
+                className="input-field"
                 placeholder="Enter your full name"
                 required
               />
@@ -221,9 +228,11 @@ export default function ProfilePage() {
                 Role
               </label>
               <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-600">
-                {userProfile?.role || 'N/A'}
+                {userProfile?.role || "N/A"}
               </div>
-              <p className="text-xs text-gray-500 mt-1">Role cannot be changed</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Role cannot be changed
+              </p>
             </div>
 
             {/* Action Buttons */}
@@ -246,7 +255,7 @@ export default function ProfilePage() {
                     Saving...
                   </div>
                 ) : (
-                  'Save Changes'
+                  "Save Changes"
                 )}
               </button>
             </div>

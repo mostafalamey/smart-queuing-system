@@ -800,7 +800,7 @@ function CustomerAppContent() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-white/40 rounded-xl flex items-center justify-center p-1">
+            <div className="w-16 h-16 border-4 border-white/40 rounded-xl flex items-center justify-center p-1">
               {organization?.logo_url ? (
                 <img
                   src={organization.logo_url}

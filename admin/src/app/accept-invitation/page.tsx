@@ -352,7 +352,7 @@ function AcceptInvitationContent() {
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="input-field"
               placeholder="Enter your full name"
               required
             />
@@ -368,7 +368,7 @@ function AcceptInvitationContent() {
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="input-field"
               placeholder="Create a password"
               minLength={8}
               required
@@ -388,7 +388,7 @@ function AcceptInvitationContent() {
               onChange={(e) =>
                 setFormData({ ...formData, confirmPassword: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="input-field"
               placeholder="Confirm your password"
               minLength={8}
               required
