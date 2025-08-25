@@ -5,12 +5,14 @@
 Your system uses **Resend** for email delivery. Here are your options:
 
 ### **Current Setup: Resend Free**
+
 - ✅ **Unlimited emails**: No daily limits
 - ⚠️ **Domain restrictions**: Can only send to verified emails
 - ✅ **Already configured**: Ready to deploy
 - 💰 **Upgrade option**: $20/month for sending to any email
 
 #### **How It Works:**
+
 - Your current setup can send emails to `mlamey@outlook.com`
 - For production use, you can either:
   1. Add more verified emails in your Resend dashboard
@@ -18,18 +20,21 @@ Your system uses **Resend** for email delivery. Here are your options:
   3. Set up a custom domain (free with Resend)
 
 ### **To Add More Email Recipients (Free):**
-1. Go to: https://resend.com/domains
+
+1. Go to: <https://resend.com/domains>
 2. Add recipients to your verified list
 3. Each person can receive invitations
 
 ### **To Enable Any Email Address:**
+
 1. **Option A**: Upgrade to Resend Pro ($20/month)
-   - Go to: https://resend.com/settings/billing
+
+   - Go to: <https://resend.com/settings/billing>
    - Upgrade your plan
    - Can send to any email address
 
 2. **Option B**: Add Custom Domain (Free)
-   - Go to: https://resend.com/domains
+   - Go to: <https://resend.com/domains>
    - Add your custom domain (e.g., `yourdomain.com`)
    - Complete DNS verification
    - Use `noreply@yourdomain.com` as FROM_EMAIL
@@ -54,6 +59,7 @@ vercel --prod
 ### **3. Set Environment Variables**
 
 In Vercel Dashboard:
+
 1. Go to your project → Settings → Environment Variables
 2. Add each variable from `.env.vercel` file:
 
@@ -75,6 +81,7 @@ NEXT_PUBLIC_CUSTOMER_URL=https://your-customer-app.vercel.app
 ### **4. Update URLs After Deployment**
 
 Once deployed, update these variables with your actual Vercel URLs:
+
 ```bash
 NEXT_PUBLIC_SITE_URL=https://your-actual-domain.vercel.app
 NEXT_PUBLIC_CUSTOMER_URL=https://your-customer-app.vercel.app
@@ -94,10 +101,12 @@ NEXT_PUBLIC_CUSTOMER_URL=https://your-customer-app.vercel.app
 ## 💡 **Recommendations**
 
 ### **For Development/Testing:**
+
 - ✅ Current setup works perfectly
 - Can invite `mlamey@outlook.com` and other verified emails
 
 ### **For Production:**
+
 - **Option 1**: Add custom domain to Resend (free)
 - **Option 2**: Upgrade to Resend Pro ($20/month)
 - **Option 3**: Add specific emails to verified list (free)
@@ -108,10 +117,10 @@ NEXT_PUBLIC_CUSTOMER_URL=https://your-customer-app.vercel.app
 
 Your invitation system is **production-ready** with Resend! 🎉
 
-| Service | Cost | Email Limits | Send to Any Email |
-|---------|------|--------------|-------------------|
-| **Resend Free** | Free | Unlimited | ❌ Only verified emails |
-| **Resend Pro** | $20/month | Unlimited | ✅ Any email address |
-| **Resend + Domain** | Free | Unlimited | ✅ Any email (with domain setup) |
+| Service             | Cost      | Email Limits | Send to Any Email                |
+| ------------------- | --------- | ------------ | -------------------------------- |
+| **Resend Free**     | Free      | Unlimited    | ❌ Only verified emails          |
+| **Resend Pro**      | $20/month | Unlimited    | ✅ Any email address             |
+| **Resend + Domain** | Free      | Unlimited    | ✅ Any email (with domain setup) |
 
 **Current Status**: Ready to deploy with existing Resend configuration!

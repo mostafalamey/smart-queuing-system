@@ -1,5 +1,79 @@
 # Smart Queue System - Changelog
 
+## Version 2.9.0 - Queue Management UX Enhancement & Workflow Control (August 25, 2025)
+
+### 🎯 Enhanced Queue Management Workflow
+
+#### Mandatory Skip/Complete Actions
+
+- **Workflow Control** - Users must now click "Skip" or "Complete" before calling the next customer
+- **Call Next Button State Management** - "Call Next Customer" button is disabled until current ticket is handled
+- **Visual Feedback** - Clear indication when action is required on the currently serving ticket
+- **Guided User Experience** - Helpful messages guide staff through the proper workflow
+- **State Persistence** - System tracks whether current ticket has been handled across real-time updates
+
+#### Enhanced Currently Serving Card Design
+
+- **Prominent Action Buttons** - Skip and Complete buttons made significantly more visible
+- **Dynamic Visual States** - Card appearance changes when action is required
+- **Improved Layout** - Reorganized button placement for better accessibility and less cramped appearance
+- **Professional Styling** - Enhanced gradients, shadows, and animations for better user engagement
+- **Responsive Design** - Optimized spacing and layout to prevent vertical scrolling issues
+
+### 🍞 Standardized Toast Notification System
+
+#### Consistent Confirmation Experience
+
+- **Unified Time-Based Confirmations** - Both Skip and Complete actions now use countdown timer toasts
+- **Standardized Success Messages** - Consistent success notification format for all queue actions
+- **Progress Bar Indicators** - Visual countdown timers for all confirmation toasts
+- **Professional Message Templates** - Customer-focused language throughout the interface
+- **Action Button Consistency** - "Call Next Customer" action available on all success toasts
+
+#### Toast Notification Features
+
+- **5-Second Countdown Timers** - Consistent auto-dismiss timing across all actions
+- **Gradient Background Design** - Beautiful toast designs matching app color scheme
+- **Smooth Enter/Exit Animations** - Professional transition effects
+- **Manual Close Options** - Users can dismiss toasts early if needed
+- **Accessibility Compliance** - Proper ARIA labels and keyboard navigation support
+
+### 🎨 UI/UX Improvements
+
+#### Queue Manager Card Optimization
+
+- **Compact Layout Design** - Reduced spacing between elements to prevent page scrolling
+- **Better Visual Hierarchy** - Clear separation between sections with appropriate spacing
+- **Enhanced Button Sizing** - Larger, more accessible action buttons
+- **Improved Typography** - Better text sizing and contrast for readability
+- **Grid-Based Button Layout** - Full-width button arrangement for better touch targets
+
+#### Professional Visual Enhancements
+
+- **Dynamic Card States** - Currently serving card changes appearance when ticket is active
+- **Animated Visual Cues** - Pulsing animations and "ACTION REQUIRED" badges
+- **Color-Coded Status Indicators** - Amber/orange theme for active tickets requiring attention
+- **Icon Updates** - Context-appropriate icons (🔥 for urgent, 📢 for normal states)
+- **Hover Effects** - Subtle scale and shadow animations on interactive elements
+
+### 🔧 Technical Improvements
+
+#### State Management Enhancement
+
+- **currentTicketHandled State** - New state tracking to control workflow progression
+- **Real-Time State Updates** - Automatic reset of handled state when new ticket is served
+- **Dashboard Data Integration** - Seamless integration with existing data management hooks
+- **Function Signature Updates** - Enhanced queue operations with proper parameter handling
+
+#### Code Quality & Maintainability
+
+- **TypeScript Compliance** - Full type safety for all new state and functions
+- **Consistent Error Handling** - Standardized error handling across all queue operations
+- **Modular Component Design** - Clean separation of concerns in React components
+- **Comprehensive Documentation** - Updated inline comments and type definitions
+
+---
+
 ## Version 2.8.0 - UltraMessage Integration & Phone-Based Push Notifications (August 24, 2025)
 
 ### 🚀 Revolutionary Phone-Based Push Notification System
@@ -562,7 +636,7 @@ notification_logs: ticket_id (FK) → tickets(id), multi-channel delivery tracki
 - **Resolved Custom Tooltip Issues** - Reverted to native browser tooltips for better positioning and reliability
 - **Clean Build Process** - Removed orphaned imports and ensured both admin and customer apps build successfully
 
-### 🔧 Technical Improvements
+### 🔧 **Technical Improvements**
 
 - **Production Ready Build** - Both applications compile with zero errors (Admin: 16 routes, Customer: 6 routes)
 - **Type Safety** - Full TypeScript integration with proper type checking for all plan-related functions

@@ -34,6 +34,7 @@ export const useDashboardData = () => {
   const [connectionError, setConnectionError] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [lastCleanupTime, setLastCleanupTime] = useState<Date | null>(null);
+  const [currentTicketHandled, setCurrentTicketHandled] = useState(false);
 
   // Refs to prevent multiple simultaneous operations
   const isFetchingRef = useRef(false);
@@ -258,6 +259,13 @@ export const useDashboardData = () => {
         waitingCount: count || 0,
         lastTicketNumber: lastTickets?.[0]?.ticket_number || null,
       });
+
+      // Reset ticket handled status when a new ticket starts being served or no ticket is being served
+      const newCurrentServing = servingTickets?.[0]?.ticket_number || null;
+      const previousCurrentServing = queueData?.currentServing || null;
+      if (newCurrentServing !== previousCurrentServing) {
+        setCurrentTicketHandled(false);
+      }
     } catch (error) {
       logger.error("Error fetching queue data:", error);
       setQueueData(null);
@@ -280,6 +288,10 @@ export const useDashboardData = () => {
       "Queue information has been updated with the latest data."
     );
   }, [fetchQueueData, connectionError, fetchBranches, showInfo]);
+
+  const markCurrentTicketAsHandled = useCallback(() => {
+    setCurrentTicketHandled(true);
+  }, []);
 
   // Effects
   useEffect(() => {
@@ -386,10 +398,12 @@ export const useDashboardData = () => {
     mounted,
     lastCleanupTime,
     setLastCleanupTime,
+    currentTicketHandled,
 
     // Functions
     fetchQueueData,
     handleRefresh,
+    markCurrentTicketAsHandled,
 
     // Refs (for subscriptions and operations)
     isFetchingRef,

@@ -99,8 +99,11 @@ export default function DashboardPage() {
         /* setConnectionError handled in dashboardData */
       },
       dashboardData.showWarning,
-      dashboardData.showError
+      dashboardData.showError,
+      dashboardData.showSuccess
     );
+    // Mark ticket as handled after skipping
+    dashboardData.markCurrentTicketAsHandled();
   };
 
   const handleCompleteTicket = () => {
@@ -115,6 +118,8 @@ export default function DashboardPage() {
       dashboardData.showSuccess,
       dashboardData.showError
     );
+    // Mark ticket as handled after completing
+    dashboardData.markCurrentTicketAsHandled();
   };
 
   const handleResetQueue = (includeCleanup: boolean) => {
@@ -185,6 +190,7 @@ export default function DashboardPage() {
                   onCallNext={handleCallNext}
                   onShowResetModal={() => setShowResetQueueModal(true)}
                   canResetQueue={dashboardData.canResetQueue}
+                  currentTicketHandled={dashboardData.currentTicketHandled}
                 />
               </div>
             </div>

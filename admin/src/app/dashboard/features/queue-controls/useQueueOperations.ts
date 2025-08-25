@@ -124,7 +124,8 @@ export const useQueueOperations = () => {
       setLoading: (loading: boolean) => void,
       setConnectionError: (error: boolean) => void,
       showWarning: (title: string, message: string, action?: any) => void,
-      showError: (title: string, message: string, action?: any) => void
+      showError: (title: string, message: string, action?: any) => void,
+      showSuccess: (title: string, message: string, action?: any) => void
     ) => {
       if (!selectedDepartment || !queueData?.currentServing) return;
 
@@ -160,11 +161,11 @@ export const useQueueOperations = () => {
           fetchQueueData();
           setConnectionError(false);
 
-          showWarning(
-            "Ticket Skipped",
+          showSuccess(
+            "Customer Skipped Successfully!",
             `Ticket ${servingTicket.ticket_number} has been skipped and marked as cancelled.`,
             {
-              label: "Call Next",
+              label: "Call Next Customer",
               onClick: () => {
                 // This would call the callNext function
               },
@@ -176,8 +177,8 @@ export const useQueueOperations = () => {
         setConnectionError(true);
 
         showError(
-          "Failed to Skip Ticket",
-          "There was an error skipping the current ticket. Please try again.",
+          "Failed to Skip Customer",
+          "There was an error skipping the current customer. Please try again.",
           {
             label: "Retry",
             onClick: () =>
@@ -188,7 +189,8 @@ export const useQueueOperations = () => {
                 setLoading,
                 setConnectionError,
                 showWarning,
-                showError
+                showError,
+                showSuccess
               ),
           }
         );
@@ -245,10 +247,10 @@ export const useQueueOperations = () => {
           setConnectionError(false);
 
           showSuccess(
-            "Ticket Completed!",
+            "Customer Service Completed!",
             `Ticket ${servingTicket.ticket_number} has been marked as completed.`,
             {
-              label: "Call Next",
+              label: "Call Next Customer",
               onClick: () => {
                 // This would call the callNext function
               },

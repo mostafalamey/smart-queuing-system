@@ -127,7 +127,7 @@ interface Country {
 3. Country code automatically updates
 4. Saves settings
 
-### Customer Experience
+### **Customer Experience**
 
 1. Customer scans QR code or visits customer app
 2. Phone input shows: "📱 Egypt (+20)"
