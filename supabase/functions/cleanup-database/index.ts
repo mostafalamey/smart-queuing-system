@@ -539,38 +539,10 @@ async function cleanupTicketsForOrganization(
   organizationId: string,
   config: Required<CleanupRequest>
 ): Promise<{ deleted: number; archived: number; error?: string }> {
-  // Use the existing integrated cleanup function if available
-  try {
-    const { data, error } = await supabase.rpc(
-      "cleanup_old_tickets_with_notifications",
-      {
-        hours_old: config.ticketRetentionHours,
-        archive_before_delete: config.archiveTickets,
-        cleanup_notifications: false, // We'll handle notifications separately
-        notification_retention_hours: 2, // Not used when cleanup_notifications is false
-      }
-    );
-
-    if (error) {
-      console.error(
-        "RPC cleanup_old_tickets_with_notifications failed, falling back to direct queries:",
-        error
-      );
-      return await cleanupTicketsDirect(supabase, organizationId, config);
-    }
-
-    const result = data[0];
-    return {
-      deleted: result.total_tickets_cleaned,
-      archived: result.total_tickets_archived,
-    };
-  } catch (error) {
-    console.error(
-      "Failed to use RPC function, falling back to direct cleanup:",
-      error
-    );
-    return await cleanupTicketsDirect(supabase, organizationId, config);
-  }
+  // Since the RPC function cleanup_old_tickets_with_notifications is not organization-aware,
+  // we'll use direct queries to ensure we only clean up tickets for this specific organization
+  console.log(`Using direct ticket cleanup for organization ${organizationId}`);
+  return await cleanupTicketsDirect(supabase, organizationId, config);
 }
 
 /**
@@ -585,17 +557,54 @@ async function cleanupTicketsDirect(
     Date.now() - config.ticketRetentionHours * 60 * 60 * 1000
   ).toISOString();
 
+  console.log(
+    `Cleanup cutoff time: ${cutoffTime} (${config.ticketRetentionHours} hours ago)`
+  );
+
   let archived = 0;
   let deleted = 0;
 
   try {
-    // Get tickets to clean up via departments
+    console.log(
+      `Starting direct ticket cleanup for organization ${organizationId}`
+    );
+
+    // First get branches for this organization
+    const { data: branches, error: branchError } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("organization_id", organizationId);
+
+    if (branchError) {
+      console.error("Failed to get branches:", branchError);
+      return {
+        deleted: 0,
+        archived: 0,
+        error: `Failed to get branches: ${branchError.message}`,
+      };
+    }
+
+    console.log(
+      `Found ${
+        branches?.length || 0
+      } branches for organization ${organizationId}`
+    );
+
+    if (!branches || branches.length === 0) {
+      console.log("No branches found for this organization");
+      return { deleted: 0, archived: 0 };
+    }
+
+    const branchIds = branches.map((b) => b.id);
+
+    // Then get departments for these branches
     const { data: departments, error: deptError } = await supabase
       .from("departments")
       .select("id")
-      .eq("organization_id", organizationId); // Assuming departments have organization_id
+      .in("branch_id", branchIds);
 
     if (deptError) {
+      console.error("Failed to get departments:", deptError);
       return {
         deleted: 0,
         archived: 0,
@@ -603,11 +612,19 @@ async function cleanupTicketsDirect(
       };
     }
 
+    console.log(
+      `Found ${
+        departments?.length || 0
+      } departments for organization ${organizationId}`
+    );
+
     if (!departments || departments.length === 0) {
+      console.log("No departments found for this organization");
       return { deleted: 0, archived: 0 };
     }
 
     const departmentIds = departments.map((d) => d.id);
+    console.log(`Department IDs: ${departmentIds.join(", ")}`);
 
     // Get old completed/cancelled tickets
     const { data: oldTickets, error: fetchError } = await supabase
@@ -619,6 +636,7 @@ async function cleanupTicketsDirect(
       .limit(config.maxBatchSize);
 
     if (fetchError) {
+      console.error("Failed to fetch tickets:", fetchError);
       return {
         deleted: 0,
         archived: 0,
@@ -626,12 +644,20 @@ async function cleanupTicketsDirect(
       };
     }
 
+    console.log(
+      `Found ${
+        oldTickets?.length || 0
+      } old tickets to clean up for organization ${organizationId}`
+    );
+
     if (!oldTickets || oldTickets.length === 0) {
+      console.log("No old tickets found to clean up");
       return { deleted: 0, archived: 0 };
     }
 
     // Archive if requested and not dry run
     if (config.archiveTickets && !config.dryRun) {
+      console.log(`Attempting to archive ${oldTickets.length} tickets...`);
       const { error: archiveError } = await supabase
         .from("tickets_archive")
         .insert(
@@ -657,11 +683,13 @@ async function cleanupTicketsDirect(
         );
       } else {
         archived = oldTickets.length;
+        console.log(`Successfully archived ${archived} tickets`);
       }
     }
 
     // Delete tickets if not dry run
     if (!config.dryRun) {
+      console.log(`Attempting to delete ${oldTickets.length} tickets...`);
       const { error: deleteError } = await supabase
         .from("tickets")
         .delete()
@@ -671,6 +699,7 @@ async function cleanupTicketsDirect(
         );
 
       if (deleteError) {
+        console.error("Failed to delete tickets:", deleteError);
         return {
           deleted: 0,
           archived,
@@ -679,8 +708,10 @@ async function cleanupTicketsDirect(
       }
 
       deleted = oldTickets.length;
+      console.log(`Successfully deleted ${deleted} tickets`);
     } else {
       deleted = oldTickets.length; // For dry run, report what would be deleted
+      console.log(`Dry run: would delete ${deleted} tickets`);
     }
 
     return { deleted, archived };

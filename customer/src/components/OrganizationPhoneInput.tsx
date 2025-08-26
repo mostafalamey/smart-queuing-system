@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Phone, Globe } from "lucide-react";
+import { Phone, Globe, AlertCircle } from "lucide-react";
 
 interface OrganizationPhoneInputProps {
   value: string;
@@ -17,6 +17,17 @@ interface OrganizationCountryData {
   organizationName: string;
 }
 
+// Phone validation patterns for different countries
+const phoneValidationPatterns: {
+  [key: string]: { pattern: RegExp; length: number; example: string };
+} = {
+  "+20": { pattern: /^[0-9]{10}$/, length: 10, example: "1012345678" }, // Egypt: 10 digits
+  "+1": { pattern: /^[0-9]{10}$/, length: 10, example: "2345678900" }, // US/Canada: 10 digits
+  "+44": { pattern: /^[0-9]{10,11}$/, length: 10, example: "7700900123" }, // UK: 10-11 digits
+  "+971": { pattern: /^[0-9]{8,9}$/, length: 8, example: "501234567" }, // UAE: 8-9 digits
+  "+966": { pattern: /^[0-9]{9}$/, length: 9, example: "501234567" }, // Saudi Arabia: 9 digits
+};
+
 export const OrganizationPhoneInput: React.FC<OrganizationPhoneInputProps> = ({
   value,
   onChange,
@@ -28,6 +39,9 @@ export const OrganizationPhoneInput: React.FC<OrganizationPhoneInputProps> = ({
   const [countryData, setCountryData] =
     useState<OrganizationCountryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [localPhoneNumber, setLocalPhoneNumber] = useState("");
+  const [isValid, setIsValid] = useState(true);
+  const [validationMessage, setValidationMessage] = useState("");
 
   useEffect(() => {
     const fetchOrganizationCountry = async () => {
@@ -45,9 +59,10 @@ export const OrganizationPhoneInput: React.FC<OrganizationPhoneInputProps> = ({
         if (data.success) {
           setCountryData(data);
 
-          // Auto-prefill country code if phone number is empty
-          if (!value.trim() && data.countryCode) {
-            onChange(`${data.countryCode} `);
+          // If value already contains a full phone number, extract the local part
+          if (value && data.countryCode && value.startsWith(data.countryCode)) {
+            const localPart = value.substring(data.countryCode.length).trim();
+            setLocalPhoneNumber(localPart);
           }
         }
       } catch (error) {
@@ -60,36 +75,63 @@ export const OrganizationPhoneInput: React.FC<OrganizationPhoneInputProps> = ({
     fetchOrganizationCountry();
   }, [organizationId]);
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let inputValue = e.target.value;
-
-    // If user is backspacing and removes the country code, re-add it
-    if (
-      countryData?.countryCode &&
-      !inputValue.startsWith(countryData.countryCode)
-    ) {
-      // Only auto-add if the input is completely empty or they're typing a number
-      if (!inputValue.trim() || /^\d/.test(inputValue)) {
-        inputValue = `${countryData.countryCode} ${inputValue}`;
-      }
+  // Validate phone number based on country
+  const validatePhoneNumber = (phoneNumber: string, countryCode: string) => {
+    if (!phoneNumber.trim()) {
+      return { isValid: true, message: "" }; // Empty is valid (not required check)
     }
 
-    onChange(inputValue);
+    const validation = phoneValidationPatterns[countryCode];
+    if (!validation) {
+      // Default validation for unknown countries
+      const isValid = /^[0-9]{8,15}$/.test(phoneNumber);
+      return {
+        isValid,
+        message: isValid
+          ? ""
+          : "Please enter a valid phone number (8-15 digits)",
+      };
+    }
+
+    const isValid = validation.pattern.test(phoneNumber);
+    const message = isValid
+      ? ""
+      : `Phone number should be ${validation.length} digits (e.g., ${validation.example})`;
+
+    return { isValid, message };
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+
+    // Only allow numbers
+    const numericValue = inputValue.replace(/[^0-9]/g, "");
+
+    setLocalPhoneNumber(numericValue);
+
+    // Validate the phone number
+    if (countryData?.countryCode) {
+      const validation = validatePhoneNumber(
+        numericValue,
+        countryData.countryCode
+      );
+      setIsValid(validation.isValid);
+      setValidationMessage(validation.message);
+
+      // Update parent with full phone number (country code + local number)
+      const fullPhoneNumber = numericValue
+        ? `${countryData.countryCode}${numericValue}`
+        : "";
+      onChange(fullPhoneNumber);
+    }
   };
 
   const getPhonePlaceholder = () => {
     if (countryData?.countryCode) {
-      // Create a sample phone number for the country
-      const sampleNumber =
-        countryData.countryCode === "+20"
-          ? "101 555 4028" // Egypt format
-          : countryData.countryCode === "+1"
-          ? "234 567 8900" // US/Canada format
-          : "123 456 7890"; // Generic format
-
-      return `${countryData.countryCode} ${sampleNumber}`;
+      const validation = phoneValidationPatterns[countryData.countryCode];
+      return validation ? validation.example : "123456789";
     }
-    return placeholder || "+1 234 567 8900";
+    return placeholder || "123456789";
   };
 
   return (
@@ -106,20 +148,40 @@ export const OrganizationPhoneInput: React.FC<OrganizationPhoneInputProps> = ({
           <span>
             {countryData.organizationName} is based in {countryData.country}
           </span>
-          <span className="font-mono bg-gray-100 px-1 rounded">
-            {countryData.countryCode}
-          </span>
         </div>
       )}
 
-      <input
-        type="tel"
-        value={value}
-        onChange={handlePhoneChange}
-        className={className}
-        placeholder={getPhonePlaceholder()}
-        required={required}
-      />
+      {/* Phone Input with Country Code Label */}
+      <div className="relative">
+        {countryData && !loading && (
+          <div className="absolute left-0 top-0 bottom-0 flex items-center z-10">
+            <span className="text-gray-700 font-medium bg-gray-50 px-3 py-2 border border-gray-300 rounded-l-lg text-sm border-r border-r-gray-300">
+              {countryData.countryCode}
+            </span>
+          </div>
+        )}
+
+        <input
+          type="tel"
+          value={localPhoneNumber}
+          onChange={handlePhoneChange}
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+            countryData ? "pl-20" : "pl-3"
+          } ${
+            !isValid ? "border-red-500 focus:ring-red-500" : "border-gray-300"
+          } ${className}`}
+          placeholder={getPhonePlaceholder()}
+          required={required}
+        />
+      </div>
+
+      {/* Validation Message */}
+      {!isValid && validationMessage && (
+        <div className="flex items-center space-x-1 mt-1 text-red-500 text-xs">
+          <AlertCircle className="w-3 h-3" />
+          <span>{validationMessage}</span>
+        </div>
+      )}
 
       <p className="text-sm text-gray-500 mt-1">
         Required for push notifications and WhatsApp updates
@@ -127,8 +189,8 @@ export const OrganizationPhoneInput: React.FC<OrganizationPhoneInputProps> = ({
           <>
             <br />
             <span className="text-xs">
-              Phone format for {countryData.country}: {countryData.countryCode}{" "}
-              XXX XXX XXXX
+              Enter your local phone number without the country code (
+              {countryData.countryCode})
             </span>
           </>
         )}

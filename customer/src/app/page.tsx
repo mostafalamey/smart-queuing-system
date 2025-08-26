@@ -102,6 +102,48 @@ function CustomerAppContent() {
     timestamp: number;
   } | null>(null);
 
+  // Phone validation patterns for different countries
+  const phoneValidationPatterns: {
+    [key: string]: { pattern: RegExp; minLength: number };
+  } = {
+    "+20": { pattern: /^[0-9]{10}$/, minLength: 10 }, // Egypt: 10 digits
+    "+1": { pattern: /^[0-9]{10}$/, minLength: 10 }, // US/Canada: 10 digits
+    "+44": { pattern: /^[0-9]{10,11}$/, minLength: 10 }, // UK: 10-11 digits
+    "+971": { pattern: /^[0-9]{8,9}$/, minLength: 8 }, // UAE: 8-9 digits
+    "+966": { pattern: /^[0-9]{9}$/, minLength: 9 }, // Saudi Arabia: 9 digits
+  };
+
+  // Validate phone number based on pattern and ensure it has actual digits
+  const isValidPhoneNumber = (phoneNumber: string) => {
+    if (!phoneNumber || !phoneNumber.trim()) {
+      return false;
+    }
+
+    // Find country code in the phone number first
+    const countryCode = Object.keys(phoneValidationPatterns).find((code) =>
+      phoneNumber.startsWith(code)
+    );
+
+    if (!countryCode) {
+      // Fallback validation for unknown countries - must be at least 8 digits after country code
+      const digits = phoneNumber.replace(/^\+\d+/, "").replace(/\D/g, "");
+      return digits.length >= 8;
+    }
+
+    // Extract local number (remove country code and spaces)
+    const localNumber = phoneNumber
+      .substring(countryCode.length)
+      .replace(/\D/g, "");
+
+    // Check if there are no local digits (only country code)
+    if (!localNumber || localNumber.length === 0) {
+      return false;
+    }
+
+    const validation = phoneValidationPatterns[countryCode];
+    return validation.pattern.test(localNumber);
+  };
+
   // Initialize browser detection and push notification listeners
   useEffect(() => {
     initializeBrowserDetection();
@@ -736,9 +778,9 @@ function CustomerAppContent() {
 
   const handleContinue = async () => {
     if (step === 1) {
-      // Validate phone number is provided (now mandatory)
-      if (!phoneNumber.trim()) {
-        logger.debug("Phone number is required");
+      // Validate phone number is provided and valid (now mandatory)
+      if (!isValidPhoneNumber(phoneNumber)) {
+        logger.debug("Valid phone number is required");
         return;
       }
 
@@ -911,7 +953,7 @@ function CustomerAppContent() {
 
                 <button
                   onClick={handleContinue}
-                  disabled={!phoneNumber.trim()}
+                  disabled={!isValidPhoneNumber(phoneNumber)}
                   className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continue
