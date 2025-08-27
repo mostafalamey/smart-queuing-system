@@ -113,21 +113,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Clean customer phone number consistently (remove +, -, spaces)
+    const cleanCustomerPhone = customerPhone?.replace(/[\+\-\s]/g, "") || "";
+
     // Try to find subscriptions by phone number first (new approach)
     // If customerPhone is provided, use phone-based lookup
     // Otherwise, fall back to ticket-based lookup (legacy)
     let subscriptions = null;
     let subscriptionError = null;
 
-    if (customerPhone) {
-      console.log("Using phone-based subscription lookup for:", customerPhone);
+    if (cleanCustomerPhone) {
+      console.log(
+        "Using phone-based subscription lookup for:",
+        cleanCustomerPhone
+      );
 
       // Get active push subscriptions for this phone number
       const { data: phoneSubscriptions, error: phoneError } = await supabase
         .from("push_subscriptions")
         .select("*")
         .eq("organization_id", organizationId)
-        .eq("customer_phone", customerPhone)
+        .eq("customer_phone", cleanCustomerPhone)
         .eq("is_active", true);
 
       subscriptions = phoneSubscriptions;
@@ -389,14 +395,54 @@ export async function POST(request: NextRequest) {
         : undefined
     );
 
-    // If push notifications failed and we have a customer phone, try WhatsApp fallback
+    // Enhanced notification logic:
+    // 1. Always attempt push notifications
+    // 2. ALSO send WhatsApp if user has an active session (for reliable delivery)
+    // 3. Use WhatsApp as fallback if push completely fails
     let whatsappFallbackResult = null;
-    if (successCount === 0 && customerPhone) {
+
+    // Check if user has an active WhatsApp session
+    let hasActiveWhatsAppSession = false;
+    if (cleanCustomerPhone) {
       try {
-        console.log(
-          "Push notifications failed, attempting WhatsApp fallback for:",
-          customerPhone
-        );
+        const { data: session } = await supabase
+          .from("whatsapp_sessions")
+          .select("id, expires_at")
+          .eq("phone_number", cleanCustomerPhone)
+          .eq("is_active", true)
+          .gte("expires_at", new Date().toISOString())
+          .single();
+
+        hasActiveWhatsAppSession = !!session;
+        console.log(`WhatsApp session check for ${cleanCustomerPhone}:`, {
+          hasSession: hasActiveWhatsAppSession,
+          sessionId: session?.id,
+          expiresAt: session?.expires_at,
+        });
+      } catch (sessionError) {
+        console.log("No active WhatsApp session found for:", customerPhone);
+      }
+    }
+
+    // Send WhatsApp notification if:
+    // 1. Push failed completely (original fallback logic), OR
+    // 2. User has an active WhatsApp session (dual notification) - BUT NOT for ticket_created
+    // Note: ticket_created WhatsApp messages are sent when session is created, so skip here to avoid duplicates
+    const shouldSendWhatsApp =
+      (successCount === 0 || hasActiveWhatsAppSession) &&
+      customerPhone &&
+      notificationType !== "ticket_created";
+
+    if (shouldSendWhatsApp) {
+      const whatsappReason =
+        successCount === 0
+          ? "Push notifications failed, attempting WhatsApp fallback for:"
+          : hasActiveWhatsAppSession
+          ? "User has active WhatsApp session, sending dual notification for:"
+          : "Sending WhatsApp backup for critical notification:";
+
+      try {
+        console.log(whatsappReason, customerPhone, `(${notificationType})`);
 
         // Get ticket details for better messaging
         const { data: ticketData } = await supabase

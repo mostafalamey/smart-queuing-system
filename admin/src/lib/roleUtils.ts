@@ -54,13 +54,14 @@ export const getAllowedOrganizationTabs = (role: UserRole | null) => {
     "plan",
     "invitations",
     "analytics",
+    "messages",
   ];
 
   switch (role) {
     case "admin":
       return allTabs; // Admin can access all tabs
     case "manager":
-      return ["details", "qr", "members", "analytics"]; // Manager can access most tabs with limited permissions
+      return ["details", "qr", "members", "analytics", "messages"]; // Manager can access most tabs including messages
     case "employee":
     default:
       return []; // Employee and others have no organization access

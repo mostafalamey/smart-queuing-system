@@ -46,10 +46,13 @@ export async function POST(request: NextRequest) {
 
     const { organizationId, customerPhone, subscription, userAgent } = body;
 
+    // Clean phone number consistently (remove +, -, spaces)
+    const cleanCustomerPhone = customerPhone?.replace(/[\+\-\s]/g, "") || "";
+
     // Validate required fields (phone number instead of ticket ID)
     if (
       !organizationId ||
-      !customerPhone ||
+      !cleanCustomerPhone ||
       !subscription?.endpoint ||
       !subscription?.keys?.p256dh ||
       !subscription?.keys?.auth
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
           error: "Missing required fields",
           details: {
             organizationId: !!organizationId,
-            customerPhone: !!customerPhone,
+            customerPhone: !!cleanCustomerPhone,
             subscriptionEndpoint: !!subscription?.endpoint,
             subscriptionKeys: !!(
               subscription?.keys?.p256dh && subscription?.keys?.auth
@@ -70,14 +73,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Creating/updating subscription for phone:", customerPhone);
+    console.log(
+      "Creating/updating subscription for phone:",
+      cleanCustomerPhone
+    );
 
     // Check if subscription already exists for this phone number and organization
     const { data: existingSubscription, error: selectError } = await supabase
       .from("push_subscriptions")
       .select("id, is_active, endpoint")
       .eq("organization_id", organizationId)
-      .eq("customer_phone", customerPhone)
+      .eq("customer_phone", cleanCustomerPhone)
       .eq("endpoint", subscription.endpoint)
       .single();
 
@@ -123,20 +129,20 @@ export async function POST(request: NextRequest) {
           success: true,
           message: "Subscription updated successfully",
           subscriptionId: existingSubscription.id,
-          customerPhone: customerPhone,
+          customerPhone: cleanCustomerPhone,
         },
         { headers: corsHeaders }
       );
     }
 
-    console.log("Creating new subscription for phone:", customerPhone);
+    console.log("Creating new subscription for phone:", cleanCustomerPhone);
 
     // Create new subscription (no ticket_id, just phone-based)
     const { data: newSubscription, error: insertError } = await supabase
       .from("push_subscriptions")
       .insert({
         organization_id: organizationId,
-        customer_phone: customerPhone,
+        customer_phone: cleanCustomerPhone,
         endpoint: subscription.endpoint,
         p256dh_key: subscription.keys.p256dh,
         auth_key: subscription.keys.auth,

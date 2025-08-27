@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { whatsappSessionService } from "@/lib/whatsapp-sessions";
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -102,6 +103,40 @@ export async function POST(request: NextRequest) {
 
     // Format phone number (remove + and ensure it starts with country code)
     const formattedPhone = phone.startsWith("+") ? phone.substring(1) : phone;
+
+    // 🔒 INBOUND-FIRST COMPLIANCE CHECK
+    // Verify that the customer has an active WhatsApp session before sending
+    console.log("🔍 Checking WhatsApp session for:", formattedPhone);
+
+    const hasActiveSession = await whatsappSessionService.hasActiveSession(
+      formattedPhone,
+      organizationId
+    );
+
+    if (!hasActiveSession) {
+      console.log(
+        "❌ No active WhatsApp session for",
+        formattedPhone.substring(0, 5) + "****"
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "No active WhatsApp session - customer must send message first",
+          reason: "no_active_session",
+          compliance: "Inbound-first policy - prevents unsolicited messages",
+          suggestion:
+            "Customer needs to send WhatsApp message to activate session",
+        },
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    console.log(
+      "✅ Active WhatsApp session found for",
+      formattedPhone.substring(0, 5) + "****"
+    );
 
     if (isDebugMode) {
       console.log("🔍 WhatsApp Debug Mode - Would send message:", {

@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { whatsappSessionService } from "@/lib/whatsapp-sessions";
 
 interface NotificationData {
   phone: string;
@@ -23,11 +24,61 @@ class NotificationService {
     return NotificationService.instance;
   }
 
+  /**
+   * Enhanced WhatsApp message sending with session checking
+   */
   async sendWhatsAppMessage(data: NotificationData): Promise<boolean> {
     try {
+      console.log(
+        "🔍 NotificationService: Checking session for phone:",
+        data.phone
+      );
+
+      // 1. Check if customer has active WhatsApp session
+      const hasActiveSession = await whatsappSessionService.hasActiveSession(
+        data.phone
+      );
+
+      console.log(
+        "🔍 NotificationService: hasActiveSession result:",
+        hasActiveSession
+      );
+
+      if (!hasActiveSession) {
+        logger.info(
+          "No active WhatsApp session found - skipping WhatsApp notification",
+          {
+            phone: data.phone,
+            type: data.type,
+            ticketNumber: data.ticketNumber,
+          }
+        );
+
+        // Log attempt for analytics
+        await this.logNotificationAttempt({
+          phone: data.phone,
+          ticketId: data.ticketId,
+          method: "whatsapp",
+          success: false,
+          reason: "no_active_session",
+          notificationType: data.type,
+        });
+
+        return false;
+      }
+
+      // 2. Session is active, proceed with sending
       const message = this.formatMessage(data);
 
-      logger.info("Sending WhatsApp message:", {
+      console.log(
+        "✅ NotificationService: Active session found, sending message:",
+        {
+          phone: data.phone,
+          message: message.substring(0, 100) + "...",
+        }
+      );
+
+      logger.info("Sending WhatsApp message (session verified):", {
         phone: data.phone,
         type: data.type,
         ticketNumber: data.ticketNumber,
@@ -35,8 +86,12 @@ class NotificationService {
 
       // Use absolute URL for server-side calls, relative for client-side
       const isServerSide = typeof window === "undefined";
-      const baseUrl = isServerSide ? "http://localhost:3001" : "";
+      const baseUrl = isServerSide
+        ? process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001"
+        : "";
       const apiUrl = `${baseUrl}/api/notifications/whatsapp`;
+
+      console.log("🔍 NotificationService: Calling WhatsApp API at:", apiUrl);
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -184,6 +239,71 @@ Thank you for choosing ${organizationName}! 🙏`;
       organizationId,
       ticketId,
     });
+  }
+
+  /**
+   * Log notification attempt for analytics
+   */
+  private async logNotificationAttempt(data: {
+    phone: string;
+    ticketId?: string;
+    method: string;
+    success: boolean;
+    reason?: string;
+    notificationType?: string;
+  }): Promise<void> {
+    try {
+      logger.info("Notification attempt logged", {
+        phone: data.phone,
+        method: data.method,
+        success: data.success,
+        reason: data.reason,
+        type: data.notificationType,
+      });
+
+      // Future: Store in database for analytics
+      // await supabase.from('notification_logs').insert({
+      //   phone_number: data.phone,
+      //   ticket_id: data.ticketId,
+      //   method: data.method,
+      //   success: data.success,
+      //   error_message: data.reason,
+      //   notification_type: data.notificationType
+      // });
+    } catch (error) {
+      logger.error("Failed to log notification attempt:", error);
+    }
+  }
+
+  /**
+   * Check WhatsApp session status for a phone number
+   */
+  async checkWhatsAppSessionStatus(phoneNumber: string): Promise<{
+    hasActiveSession: boolean;
+    expiresAt?: Date;
+    timeRemaining?: number;
+  }> {
+    try {
+      const hasActive = await whatsappSessionService.hasActiveSession(
+        phoneNumber
+      );
+
+      if (hasActive) {
+        const session = await whatsappSessionService.getActiveSession(
+          phoneNumber
+        );
+        return {
+          hasActiveSession: true,
+          expiresAt: session?.expiresAt,
+          timeRemaining: session ? session.expiresAt.getTime() - Date.now() : 0,
+        };
+      }
+
+      return { hasActiveSession: false };
+    } catch (error) {
+      logger.error("Error checking WhatsApp session status:", error);
+      return { hasActiveSession: false };
+    }
   }
 }
 

@@ -13,7 +13,15 @@ import { URLPersistenceService } from "@/lib/urlPersistence";
 import PWAInstallHelper from "@/components/PWAInstallHelper";
 import PushNotificationPopup from "@/components/PushNotificationPopup";
 import { OrganizationPhoneInput } from "@/components/OrganizationPhoneInput";
+import { WhatsAppOptIn } from "@/components/WhatsAppOptIn";
 import { logger } from "@/lib/logger";
+import {
+  defaultMessageTemplates,
+  processMessageTemplate,
+  getQueueStatistics,
+  type MessageTemplateData,
+  type MessageTemplates,
+} from "../../../shared/message-templates";
 import {
   Phone,
   ChevronRight,
@@ -71,7 +79,7 @@ function CustomerAppContent() {
   const branchId = urlParams.branch;
   const departmentId = urlParams.department;
 
-  const [step, setStep] = useState(1); // 1: Phone, 2: Department, 3: Service
+  const [step, setStep] = useState(1); // 1: Phone, 2: Branch, 3: Department, 4: Service + Notifications, 5: Queue Join + Final Setup
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -82,6 +90,21 @@ function CustomerAppContent() {
   );
   const [selectedService, setSelectedService] = useState<string>("");
   const [phoneNumber, setPhoneNumber] = useState("");
+
+  // Notification preferences
+  const [notificationPreference, setNotificationPreference] = useState<
+    "push" | "whatsapp" | "both"
+  >("push");
+  const [notificationSetupStatus, setNotificationSetupStatus] = useState<
+    "pending" | "setting_up" | "success" | "failed"
+  >("pending");
+  const [whatsappRetryCount, setWhatsappRetryCount] = useState(0);
+  const [whatsappSessionCheckInterval, setWhatsappSessionCheckInterval] =
+    useState<NodeJS.Timeout | null>(null);
+
+  const [whatsappOptIn, setWhatsappOptIn] = useState<boolean>(false); // Keep for backward compatibility
+  const [expectedTicketNumber, setExpectedTicketNumber] =
+    useState<string>("SER-001");
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
   const [ticketNumber, setTicketNumber] = useState<string>("");
   const [ticketId, setTicketId] = useState<string>("");
@@ -163,6 +186,25 @@ function CustomerAppContent() {
       restoreSubscriptionOnAppStart();
     }
   }, [orgId]);
+
+  // Auto-redirect when notification setup is successful
+  useEffect(() => {
+    if (step === 5 && notificationSetupStatus === "success") {
+      const timer = setTimeout(() => {
+        setStep(6); // Move to confirmation step
+      }, 2000); // Wait 2 seconds to show success message
+
+      return () => clearTimeout(timer);
+    }
+  }, [step, notificationSetupStatus]);
+
+  // Auto-trigger queue join when reaching step 5
+  useEffect(() => {
+    if (step === 5 && notificationSetupStatus === "pending") {
+      console.log("🎯 Step 5 reached, auto-triggering queue join...");
+      handleQueueJoinWithNotifications();
+    }
+  }, [step]);
 
   // Helper function to check if app is installed as PWA
   const isAppInstalled = (): boolean => {
@@ -511,6 +553,678 @@ function CustomerAppContent() {
     }
   }, [selectedService, selectedDepartment]);
 
+  // Function to generate expected ticket number for preview
+  const getExpectedTicketNumber = async (
+    serviceId: string
+  ): Promise<string> => {
+    try {
+      // Get service details
+      const { data: service } = await supabase
+        .from("services")
+        .select("name")
+        .eq("id", serviceId)
+        .single();
+
+      if (!service) return "SER-001";
+
+      // Get the last ticket number for this service
+      const { data: lastTicket } = await supabase
+        .from("tickets")
+        .select("ticket_number")
+        .eq("service_id", serviceId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      const servicePrefix = service.name.substring(0, 3).toUpperCase();
+      let lastNumber = 0;
+
+      if (lastTicket?.ticket_number) {
+        const match = lastTicket.ticket_number.match(/\d+$/);
+        if (match) {
+          lastNumber = parseInt(match[0]);
+        }
+      }
+
+      const nextNumber = lastNumber + 1;
+      return `${servicePrefix}-${nextNumber.toString().padStart(3, "0")}`;
+    } catch (error) {
+      logger.error("Error generating expected ticket number:", error);
+      return "SER-001";
+    }
+  };
+
+  // Function to load organization's custom message templates
+  const loadOrganizationTemplates = async (
+    organizationId: string
+  ): Promise<MessageTemplates> => {
+    try {
+      console.log("🔍 Loading templates for organization:", organizationId);
+
+      const { data: customTemplates, error } = await supabase
+        .from("message_templates")
+        .select("templates")
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        // PGRST116 = no rows found
+        console.error("❌ Error loading templates:", error);
+        throw error;
+      }
+
+      if (customTemplates?.templates) {
+        console.log("✅ Found custom templates:", customTemplates.templates);
+        return customTemplates.templates as MessageTemplates;
+      }
+
+      // Return default templates if no custom ones found
+      console.log("⚠️ No custom templates found, using defaults");
+      return defaultMessageTemplates;
+    } catch (error) {
+      console.error("❌ Error loading organization templates:", error);
+      return defaultMessageTemplates;
+    }
+  };
+
+  // WhatsApp session retry logic
+  const checkWhatsAppSessionWithRetry = async (
+    phone: string,
+    maxRetries: number = 3
+  ): Promise<boolean> => {
+    console.log(
+      "🔄 checkWhatsAppSessionWithRetry starting for phone:",
+      phone,
+      "maxRetries:",
+      maxRetries
+    );
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `🔍 Attempt ${attempt}/${maxRetries} - checking for WhatsApp session...`
+        );
+        setWhatsappRetryCount(attempt);
+
+        const response = await fetch(
+          `http://localhost:3001/api/whatsapp/check-session`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              phone: phone,
+              organizationId: orgId,
+            }),
+          }
+        );
+        const data = await response.json();
+
+        console.log(`📋 Session check result (attempt ${attempt}):`, data);
+
+        if (data.success && data.hasActiveSession) {
+          console.log(`✅ WhatsApp session found on attempt ${attempt}`);
+          logger.info(`WhatsApp session found on attempt ${attempt}`);
+          return true;
+        }
+
+        // If not the last attempt, wait before retrying
+        if (attempt < maxRetries) {
+          console.log(
+            `⏰ Session not found, waiting 5 seconds before retry ${
+              attempt + 1
+            }...`
+          );
+          logger.info(
+            `WhatsApp session not found, retrying in 5 seconds... (${attempt}/${maxRetries})`
+          );
+          await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
+        }
+      } catch (error) {
+        console.error(`❌ Session check attempt ${attempt} failed:`, error);
+        logger.error(
+          `WhatsApp session check attempt ${attempt} failed:`,
+          error
+        );
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+      }
+    }
+
+    console.log("❌ All retry attempts failed");
+    return false;
+  };
+
+  // New function to handle queue join + notification setup
+  const handleQueueJoinWithNotifications = async () => {
+    if (!selectedService) {
+      logger.error("Cannot join queue: no service selected");
+      return;
+    }
+
+    console.log(
+      "🚀 Starting queue join with notifications. Preference:",
+      notificationPreference
+    );
+    setLoading(true);
+    setNotificationSetupStatus("setting_up");
+
+    try {
+      // Step 1: Create the ticket first
+      console.log("📝 Creating ticket...");
+      const newTicket = await createTicketInQueue();
+      console.log("✅ Ticket created successfully:", newTicket.id);
+
+      // Wait a moment for state to update
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Step 2: Handle notifications based on preference
+      if (
+        notificationPreference === "whatsapp" ||
+        notificationPreference === "both"
+      ) {
+        console.log("💬 Setting up WhatsApp notifications...");
+        await handleWhatsAppNotificationSetup();
+        console.log("✅ WhatsApp setup completed");
+
+        // Now send the ticket creation WhatsApp notification since session is activated
+        console.log("💬 Sending WhatsApp ticket creation notification...");
+        try {
+          // Get comprehensive service and organization data
+          const { data: serviceWithDept } = await supabase
+            .from("services")
+            .select(
+              `
+              name,
+              department:department_id (
+                id,
+                name
+              )
+            `
+            )
+            .eq("id", selectedService)
+            .single();
+
+          const serviceName = serviceWithDept?.name || "Selected Service";
+          const departmentName =
+            (serviceWithDept?.department as any)?.name || "Department";
+
+          // Get queue statistics
+          const queueStats = await getQueueStatistics(
+            selectedService,
+            supabase
+          );
+
+          // Prepare message template data
+          const templateData: MessageTemplateData = {
+            organizationName: organization?.name || "Our Organization",
+            ticketNumber: newTicket.ticket_number || "N/A",
+            serviceName,
+            departmentName,
+            estimatedWaitTime: queueStats.estimatedWaitTime,
+            queuePosition: queueStats.queuePosition,
+            totalInQueue: queueStats.totalInQueue,
+            currentlyServing: queueStats.currentlyServing,
+          };
+
+          // Load organization's custom message templates
+          const orgTemplates = orgId
+            ? await loadOrganizationTemplates(orgId)
+            : defaultMessageTemplates;
+          console.log(
+            "📝 Using templates for WhatsApp:",
+            orgTemplates.ticketCreated.whatsapp
+          );
+
+          // Generate WhatsApp message using custom or default template
+          const whatsappMessage = processMessageTemplate(
+            orgTemplates.ticketCreated.whatsapp,
+            templateData
+          );
+          console.log("📱 Generated WhatsApp message:", whatsappMessage);
+
+          const whatsappResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_ADMIN_URL}/api/notifications/whatsapp`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                phone: phoneNumber,
+                message: whatsappMessage,
+                organizationId: orgId,
+                ticketId: newTicket.id,
+                notificationType: "ticket_created",
+              }),
+            }
+          );
+
+          if (whatsappResponse.ok) {
+            console.log(
+              "✅ WhatsApp ticket creation notification sent successfully"
+            );
+          } else {
+            console.log(
+              "⚠️ Failed to send WhatsApp ticket creation notification:",
+              await whatsappResponse.text()
+            );
+          }
+        } catch (error) {
+          console.error(
+            "❌ Error sending WhatsApp ticket creation notification:",
+            error
+          );
+        }
+      }
+
+      if (
+        notificationPreference === "push" ||
+        notificationPreference === "both"
+      ) {
+        console.log("🔔 Setting up push notifications...");
+        // Pass the ticket ID directly instead of relying on state
+        await handlePushNotificationSetup(newTicket.id);
+        console.log("✅ Push setup completed");
+      }
+
+      console.log("🎉 All notifications setup completed successfully");
+      setNotificationSetupStatus("success");
+    } catch (error) {
+      console.error("❌ Error in queue join with notifications:", error);
+      logger.error("Error in queue join with notifications:", error);
+      setNotificationSetupStatus("failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Separate ticket creation logic
+  const createTicketInQueue = async () => {
+    if (!selectedService) {
+      throw new Error("No service selected");
+    }
+
+    logger.debug("createTicketInQueue starting with:", {
+      phoneNumber,
+      selectedService,
+      selectedDepartment,
+      organizationId: organization?.id,
+    });
+
+    // Get service details with department info
+    const { data: service, error: serviceError } = await supabase
+      .from("services")
+      .select(
+        `
+        *,
+        department:department_id (
+          id,
+          name
+        )
+      `
+      )
+      .eq("id", selectedService)
+      .single();
+
+    logger.debug("Service query result:", { service, serviceError });
+
+    if (serviceError || !service) {
+      throw new Error("Service not found");
+    }
+
+    // Get last ticket number for this service
+    const { data: lastTicket } = await supabase
+      .from("tickets")
+      .select("ticket_number")
+      .eq("service_id", selectedService)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    // Generate ticket number
+    const servicePrefix = service.name.substring(0, 3).toUpperCase();
+    let lastNumber = 0;
+
+    if (lastTicket?.ticket_number) {
+      const match = lastTicket.ticket_number.match(/\d+$/);
+      if (match) {
+        lastNumber = parseInt(match[0]);
+      }
+    }
+
+    const newTicketNumber = lastNumber + 1;
+    const ticketNumberString = `${servicePrefix}-${newTicketNumber
+      .toString()
+      .padStart(3, "0")}`;
+
+    logger.debug("About to create ticket with data:", {
+      service_id: selectedService,
+      department_id: service.department_id,
+      ticket_number: ticketNumberString,
+      customer_phone: phoneNumber,
+      status: "waiting",
+    });
+
+    // Create the ticket
+    const { data: newTicket, error: ticketError } = await supabase
+      .from("tickets")
+      .insert({
+        service_id: selectedService,
+        department_id: service.department_id,
+        ticket_number: ticketNumberString,
+        customer_phone: phoneNumber || null,
+        status: "waiting",
+      })
+      .select()
+      .single();
+
+    logger.debug("Ticket creation result:", { newTicket, ticketError });
+
+    if (ticketError) {
+      logger.error("Error creating ticket:", ticketError);
+      throw ticketError;
+    }
+
+    // Store ticket information
+    setTicketNumber(ticketNumberString);
+    setTicketId(newTicket.id);
+
+    // Show in-app notification for ticket creation
+    const queueStatsForInApp = await getQueueStatistics(
+      selectedService,
+      supabase
+    );
+    const inAppTemplateData: MessageTemplateData = {
+      organizationName: organization?.name || "Our Organization",
+      ticketNumber: ticketNumberString,
+      serviceName: service.name,
+      departmentName: (service.department as any)?.name || "Department",
+      estimatedWaitTime: queueStatsForInApp.estimatedWaitTime,
+      queuePosition: queueStatsForInApp.queuePosition,
+      totalInQueue: queueStatsForInApp.totalInQueue,
+      currentlyServing: queueStatsForInApp.currentlyServing,
+    };
+
+    // Load organization templates for in-app notification
+    const orgTemplatesForInApp = orgId
+      ? await loadOrganizationTemplates(orgId)
+      : defaultMessageTemplates;
+
+    const inAppTitle = processMessageTemplate(
+      orgTemplatesForInApp.ticketCreated.push.title,
+      inAppTemplateData
+    );
+    const inAppBody = processMessageTemplate(
+      orgTemplatesForInApp.ticketCreated.push.body,
+      inAppTemplateData
+    );
+
+    setCurrentNotification({
+      title: inAppTitle,
+      body: inAppBody,
+      type: "ticket_created",
+      timestamp: Date.now(),
+    });
+
+    // Send push notification for ticket creation if push notifications are enabled OR user wants push notifications
+    try {
+      if (
+        (pushNotificationsEnabled ||
+          notificationPreference === "push" ||
+          notificationPreference === "both") &&
+        phoneNumber
+      ) {
+        console.log("📱 Sending ticket creation push notification...");
+
+        // Get queue statistics for push notification
+        const queueStats = await getQueueStatistics(selectedService, supabase);
+
+        // Prepare message template data
+        const templateData: MessageTemplateData = {
+          organizationName: organization?.name || "Our Organization",
+          ticketNumber: ticketNumberString,
+          serviceName: service.name,
+          departmentName: (service.department as any)?.name || "Department",
+          estimatedWaitTime: queueStats.estimatedWaitTime,
+          queuePosition: queueStats.queuePosition,
+          totalInQueue: queueStats.totalInQueue,
+          currentlyServing: queueStats.currentlyServing,
+        };
+
+        // Load organization's custom message templates for push notification
+        const orgTemplatesForPush = orgId
+          ? await loadOrganizationTemplates(orgId)
+          : defaultMessageTemplates;
+        console.log(
+          "📝 Using templates for Push:",
+          orgTemplatesForPush.ticketCreated.push
+        );
+
+        // Generate push notification messages using custom templates
+        const pushTitle = processMessageTemplate(
+          orgTemplatesForPush.ticketCreated.push.title,
+          templateData
+        );
+        const pushBody = processMessageTemplate(
+          orgTemplatesForPush.ticketCreated.push.body,
+          templateData
+        );
+        console.log("🔔 Generated push notification:", {
+          title: pushTitle,
+          body: pushBody,
+        });
+
+        const pushResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_ADMIN_URL}/api/notifications/push`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              organizationId: orgId,
+              ticketId: newTicket.id,
+              customerPhone: phoneNumber,
+              payload: {
+                title: pushTitle,
+                body: pushBody,
+                icon: "/icon-192x192.png",
+                badge: "/badge-72x72.png",
+                data: {
+                  ticketId: newTicket.id,
+                  ticketNumber: ticketNumberString,
+                  action: "ticket_created",
+                },
+              },
+              notificationType: "ticket_created",
+              ticketNumber: ticketNumberString,
+            }),
+          }
+        );
+
+        if (pushResponse.ok) {
+          console.log("✅ Ticket creation push notification sent successfully");
+        } else {
+          console.log(
+            "⚠️ Failed to send ticket creation push notification:",
+            await pushResponse.text()
+          );
+        }
+      } else {
+        console.log(
+          "ℹ️ Skipping ticket creation push notification - not requested or no phone number"
+        );
+      }
+    } catch (error) {
+      console.error(
+        "❌ Error sending ticket creation push notification:",
+        error
+      );
+      // Don't throw - push notification failure shouldn't break ticket creation
+    }
+
+    // Send WhatsApp notification for ticket creation if there's an active WhatsApp session
+    // NOTE: This is moved to handleQueueJoinWithNotifications() to run AFTER session setup
+    // Keeping this comment here for clarity about the flow
+
+    // Refresh queue status
+    fetchQueueStatus();
+
+    return newTicket;
+  };
+
+  // Handle WhatsApp notification setup with retry logic
+  const handleWhatsAppNotificationSetup = async () => {
+    if (!phoneNumber) {
+      console.log("❌ No phone number provided for WhatsApp setup");
+      return;
+    }
+
+    console.log("💬 Starting WhatsApp setup for phone:", phoneNumber);
+
+    try {
+      // First, create a session record
+      console.log("📝 Creating WhatsApp session record...");
+      const sessionResponse = await fetch(`/api/whatsapp/create-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: phoneNumber,
+          organizationId: orgId,
+        }),
+      });
+
+      if (!sessionResponse.ok) {
+        throw new Error("Failed to create WhatsApp session record");
+      }
+
+      const sessionData = await sessionResponse.json();
+      console.log("✅ Session record created:", sessionData.sessionId);
+
+      // Then, open WhatsApp for the user to send the message (in new tab)
+      const whatsappUrl = `https://wa.me/201015544028?text=${encodeURIComponent(
+        "Hello"
+      )}`;
+      console.log("📱 Opening WhatsApp in new tab with URL:", whatsappUrl);
+
+      const newWindow = window.open(whatsappUrl, "_blank");
+      if (!newWindow) {
+        console.log("⚠️ Popup blocked, showing manual link");
+        // Popup was blocked, show user a manual link
+        const openManually = confirm(
+          'Please click OK to open WhatsApp in a new tab and send "Hello" to complete setup.\n\nIf WhatsApp doesn\'t open automatically, you may need to allow popups for this site.'
+        );
+        if (openManually) {
+          // Open in new tab instead of replacing current page
+          window.open(whatsappUrl, "_blank");
+        }
+      }
+
+      // Wait a bit for the user to switch to WhatsApp and send message
+      console.log("⏳ Waiting 3 seconds for user to send WhatsApp message...");
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // Then retry checking for session activation
+      console.log("🔄 Starting session activation check with retry logic...");
+      const sessionActivated = await checkWhatsAppSessionWithRetry(
+        phoneNumber,
+        3
+      );
+
+      if (sessionActivated) {
+        setWhatsappOptIn(true);
+        console.log("✅ WhatsApp session activated successfully");
+        logger.info("WhatsApp session activated successfully");
+      } else {
+        console.log("❌ WhatsApp session not activated after retries");
+        logger.warn("WhatsApp session not activated after retries");
+        throw new Error("WhatsApp session setup failed");
+      }
+    } catch (error) {
+      console.error("❌ WhatsApp setup failed:", error);
+      logger.error("WhatsApp setup failed:", error);
+      throw error;
+    }
+  };
+
+  // Handle push notification setup
+  const handlePushNotificationSetup = async (overrideTicketId?: string) => {
+    const currentTicketId = overrideTicketId || ticketId;
+
+    if (!currentTicketId || !orgId) {
+      console.log("⚠️ Push setup skipped - missing ticketId or orgId:", {
+        ticketId: currentTicketId,
+        orgId,
+      });
+      return;
+    }
+
+    console.log(
+      "🔔 Starting push notification setup with ticketId:",
+      currentTicketId
+    );
+
+    try {
+      // Check if permission is already granted
+      if (Notification.permission === "granted") {
+        console.log(
+          "✅ Notification permission already granted, proceeding..."
+        );
+      } else if (Notification.permission === "default") {
+        console.log("🔔 Requesting notification permission...");
+        const permission = await Notification.requestPermission();
+        console.log("🔐 Notification permission result:", permission);
+
+        if (permission !== "granted") {
+          console.log("❌ Notification permission denied:", permission);
+          return;
+        }
+      } else {
+        console.log("❌ Notification permission previously denied");
+        return;
+      }
+
+      console.log("🔔 Initializing push notification service...");
+      const initialized = await pushNotificationService.initialize();
+
+      if (initialized) {
+        console.log("📱 Creating subscription with phone:", phoneNumber);
+        const subscription = await pushNotificationService.subscribeWithPhone(
+          orgId,
+          phoneNumber!
+        );
+        console.log("📋 Subscription creation result:", !!subscription);
+
+        if (subscription && currentTicketId) {
+          console.log(
+            "🔗 Associating subscription with ticket:",
+            currentTicketId
+          );
+          await pushNotificationService.associateSubscriptionWithTicket(
+            currentTicketId
+          );
+
+          setPushNotificationsEnabled(true);
+          console.log("✅ Push notifications fully enabled");
+          logger.info("Push notifications enabled successfully");
+        } else {
+          console.log("❌ Subscription creation failed");
+        }
+      } else {
+        console.log("❌ Push service initialization failed");
+      }
+    } catch (error) {
+      console.error("❌ Push notification setup failed:", error);
+      logger.error("Push notification setup failed:", error);
+      // Don't throw - push failure shouldn't block queue join
+    }
+  };
+
   const joinQueue = async () => {
     if (!selectedService) {
       logger.debug("joinQueue validation failed:", {
@@ -637,7 +1351,7 @@ function CustomerAppContent() {
         }
       }
 
-      setStep(5); // Move to confirmation step
+      setStep(6); // Move to confirmation step
 
       // Show in-app notification for ticket creation
       setCurrentNotification({
@@ -693,17 +1407,22 @@ function CustomerAppContent() {
           }
         }
 
-        // Send WhatsApp notification only if phone number is provided and (push failed or not enabled)
-        if (phoneNumber && (!pushSent || !pushNotificationsEnabled)) {
-          await notificationService.notifyTicketCreated(
-            phoneNumber,
-            ticketNumberString,
-            `${department.name} - ${selectedServiceData.name}`,
-            organization.name,
-            queueStatus?.waitingCount || 0,
-            orgId || undefined, // organizationId
-            newTicket.id // ticketId
-          );
+        // Send WhatsApp notification if user opted in (ALWAYS send if opted in, regardless of push status)
+        if (whatsappOptIn && phoneNumber) {
+          try {
+            await notificationService.notifyTicketCreated(
+              phoneNumber,
+              ticketNumberString,
+              `${department.name} - ${selectedServiceData.name}`,
+              organization.name,
+              queueStatus?.waitingCount || 0,
+              orgId || undefined, // organizationId
+              newTicket.id // ticketId
+            );
+            logger.log("WhatsApp notification sent successfully");
+          } catch (error) {
+            logger.error("WhatsApp notification failed:", error);
+          }
         }
       }
     } catch (error) {
@@ -777,6 +1496,15 @@ function CustomerAppContent() {
   };
 
   const handleContinue = async () => {
+    console.log(
+      "🔍 handleContinue called. Current step:",
+      step,
+      "Selected service:",
+      selectedService,
+      "Notification preference:",
+      notificationPreference
+    );
+
     if (step === 1) {
       // Validate phone number is provided and valid (now mandatory)
       if (!isValidPhoneNumber(phoneNumber)) {
@@ -784,40 +1512,8 @@ function CustomerAppContent() {
         return;
       }
 
-      // Initialize push notification service and check for existing subscriptions
-      if (pushNotificationsSupported && !pushNotificationsEnabled) {
-        try {
-          const initialized = await pushNotificationService.initialize();
-          if (initialized) {
-            const permission = pushNotificationService.getPermissionStatus();
-            logger.debug("Current permission status:", permission);
-
-            // If permission is already granted, try to create/restore phone-based subscription
-            if (permission === "granted") {
-              logger.log(
-                "Permission already granted, creating phone-based subscription..."
-              );
-              const subscription =
-                await pushNotificationService.subscribeWithPhone(
-                  orgId!,
-                  phoneNumber!
-                );
-              if (subscription) {
-                setPushNotificationsEnabled(true);
-                logger.log(
-                  "Phone-based subscription created/restored successfully"
-                );
-              }
-            } else if (permission === "default" && isAppInstalled()) {
-              // Only show prompt if permission is default and app is installed as PWA
-              setShowPushPrompt(true);
-            }
-          }
-        } catch (error) {
-          logger.error("Error initializing push notifications:", error);
-        }
-      }
-
+      // Skip push notification setup here - we'll handle it in step 5
+      // Just move to the next step
       if (branchId && departmentId) {
         setStep(4); // Skip branch and department selection if both are pre-selected
       } else if (branchId) {
@@ -826,11 +1522,39 @@ function CustomerAppContent() {
         setStep(2);
       }
     } else if (step === 2 && selectedBranch) {
+      console.log("➡️ Moving from step 2 to step 3");
       setStep(3);
     } else if (step === 3 && selectedDepartment) {
-      setStep(4); // Move to service selection
-    } else if (step === 4 && selectedService) {
-      joinQueue();
+      console.log("➡️ Moving from step 3 to step 4");
+      setStep(4); // Move to service + notification preference selection
+    } else if (step === 4 && selectedService && notificationPreference) {
+      console.log(
+        "➡️ Moving from step 4 to step 5 with preference:",
+        notificationPreference
+      );
+      setStep(5); // Move to queue join + notification setup
+    } else if (step === 5) {
+      console.log("🚀 Step 5: Calling handleQueueJoinWithNotifications");
+      try {
+        await handleQueueJoinWithNotifications(); // New function to handle both
+      } catch (error) {
+        console.error("❌ Step 5 error:", error);
+        logger.error("Step 5 error:", error);
+        setNotificationSetupStatus("failed");
+        setLoading(false);
+      }
+    } else {
+      console.log(
+        "⚠️ handleContinue: No matching condition. Step:",
+        step,
+        "Conditions:",
+        {
+          step2: step === 2 && selectedBranch,
+          step3: step === 3 && selectedDepartment,
+          step4: step === 4 && selectedService && notificationPreference,
+          step5: step === 5,
+        }
+      );
     }
   };
 
@@ -1087,8 +1811,13 @@ function CustomerAppContent() {
                     services.map((service) => (
                       <button
                         key={service.id}
-                        onClick={() => {
+                        onClick={async () => {
                           setSelectedService(service.id);
+                          // Calculate expected ticket number
+                          const expectedNumber = await getExpectedTicketNumber(
+                            service.id
+                          );
+                          setExpectedTicketNumber(expectedNumber);
                         }}
                         className={`w-full p-4 border rounded-xl text-left transition-colors ${
                           selectedService === service.id
@@ -1154,19 +1883,204 @@ function CustomerAppContent() {
                   </div>
                 )}
 
+                {/* Notification Preference Selection */}
+                {selectedService && (
+                  <div className="mt-6 p-4 bg-blue-50 rounded-xl">
+                    <h5 className="font-medium text-gray-900 mb-3">
+                      How would you like to receive updates?
+                    </h5>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setNotificationPreference("push")}
+                        className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                          notificationPreference === "push"
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-gray-200 hover:border-primary-500"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-lg">🔔</div>
+                          <div>
+                            <div className="font-medium">
+                              Browser Notifications
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Get notified directly in your browser
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setNotificationPreference("whatsapp")}
+                        className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                          notificationPreference === "whatsapp"
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-gray-200 hover:border-primary-500"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-lg">💬</div>
+                          <div>
+                            <div className="font-medium">
+                              WhatsApp Notifications
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Get updates on WhatsApp
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setNotificationPreference("both")}
+                        className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                          notificationPreference === "both"
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-gray-200 hover:border-primary-500"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-lg">🔔💬</div>
+                          <div>
+                            <div className="font-medium">
+                              Both Notifications
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Get updates via browser and WhatsApp
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={handleContinue}
-                  disabled={!selectedService || loading}
+                  disabled={
+                    !selectedService || !notificationPreference || loading
+                  }
                   className="w-full dynamic-button text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50"
                 >
-                  {loading ? "Joining Queue..." : "Join Queue"}
+                  {loading
+                    ? "Joining Queue..."
+                    : "Join Queue & Setup Notifications"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 5: Confirmation */}
-          {step === 5 && (
+          {/* Step 5: Queue Join + Notification Setup */}
+          {step === 5 && selectedService && (
+            <div className="card p-6 text-center">
+              <div className="space-y-6">
+                <div>
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    {notificationSetupStatus === "setting_up" ? (
+                      <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+                    ) : notificationSetupStatus === "success" ? (
+                      <div className="w-8 h-8 text-green-600">✅</div>
+                    ) : notificationSetupStatus === "failed" ? (
+                      <div className="w-8 h-8 text-red-600">❌</div>
+                    ) : (
+                      <Phone className="w-8 h-8 text-blue-600" />
+                    )}
+                  </div>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    {notificationSetupStatus === "setting_up"
+                      ? "Joining Queue..."
+                      : notificationSetupStatus === "success"
+                      ? "Successfully Joined!"
+                      : notificationSetupStatus === "failed"
+                      ? "Setup Failed"
+                      : "Ready to Join Queue"}
+                  </h3>
+
+                  {notificationSetupStatus === "setting_up" && (
+                    <div className="space-y-3">
+                      <p className="text-gray-600">Creating your ticket...</p>
+
+                      {(notificationPreference === "whatsapp" ||
+                        notificationPreference === "both") && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <p className="text-sm text-yellow-800 font-medium">
+                            🔄 WhatsApp Setup in Progress
+                          </p>
+                          <p className="text-sm text-yellow-700 mt-1">
+                            A WhatsApp chat has opened. Please send the "Hello"
+                            message to complete setup.
+                            {whatsappRetryCount > 0 && (
+                              <span className="block mt-1">
+                                Checking for message... ({whatsappRetryCount}/3)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {notificationSetupStatus === "success" && (
+                    <div className="space-y-3">
+                      <p className="text-gray-600">
+                        Your ticket{" "}
+                        <span className="font-bold">{ticketNumber}</span> has
+                        been created!
+                      </p>
+                      {(notificationPreference === "whatsapp" ||
+                        notificationPreference === "both") &&
+                        whatsappOptIn && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <p className="text-sm text-green-800">
+                              ✅ WhatsApp notifications enabled
+                            </p>
+                          </div>
+                        )}
+                      {(notificationPreference === "push" ||
+                        notificationPreference === "both") &&
+                        pushNotificationsEnabled && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <p className="text-sm text-green-800">
+                              ✅ Browser notifications enabled
+                            </p>
+                          </div>
+                        )}
+                    </div>
+                  )}
+
+                  {notificationSetupStatus === "failed" && (
+                    <div className="space-y-3">
+                      <p className="text-gray-600">
+                        Your ticket was created but notification setup
+                        encountered issues.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setNotificationSetupStatus("pending");
+                          setStep(4); // Go back to service selection
+                        }}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto-continue when successful */}
+                {notificationSetupStatus === "success" && (
+                  <div className="text-sm text-gray-500">
+                    Redirecting to your queue status...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Confirmation */}
+          {step === 6 && (
             <div className="card p-6 text-center">
               <div className="space-y-6">
                 <div>
@@ -1187,7 +2101,20 @@ function CustomerAppContent() {
                     {ticketNumber}
                   </div>
                   <p className="text-gray-600">
-                    We've sent you a WhatsApp message with your ticket details
+                    {notificationPreference === "whatsapp" && whatsappOptIn
+                      ? "We'll send you WhatsApp updates about your queue status"
+                      : notificationPreference === "push" &&
+                        pushNotificationsEnabled
+                      ? "We'll send you push notifications about your queue status"
+                      : notificationPreference === "both" &&
+                        (whatsappOptIn || pushNotificationsEnabled)
+                      ? "We'll send you updates via " +
+                        (whatsappOptIn && pushNotificationsEnabled
+                          ? "both WhatsApp and browser notifications"
+                          : whatsappOptIn
+                          ? "WhatsApp"
+                          : "browser notifications")
+                      : "Keep this page open to monitor your queue status"}
                   </p>
                 </div>
 

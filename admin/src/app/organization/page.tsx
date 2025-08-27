@@ -20,6 +20,7 @@ import { QRManagement } from "./features/qr-management/QRManagement";
 import { MemberManagement } from "./features/member-management/MemberManagement";
 import { InvitationManagement } from "./features/invitation-management/InvitationManagement";
 import { MemberAnalytics } from "./features/member-analytics/MemberAnalytics";
+import { MessageTemplateManagement } from "./features/message-templates/MessageTemplateManagement";
 import { logger } from "@/lib/logger";
 
 // Force dynamic rendering for client-side features
@@ -34,7 +35,13 @@ export default function OrganizationPage() {
 
   // Tab state - use stable default, update later with useEffect
   const [activeTab, setActiveTab] = useState<
-    "details" | "qr" | "members" | "plan" | "invitations" | "analytics"
+    | "details"
+    | "qr"
+    | "members"
+    | "plan"
+    | "invitations"
+    | "analytics"
+    | "messages"
   >("qr");
 
   // Member invitation state
@@ -440,6 +447,18 @@ export default function OrganizationPage() {
                       Analytics
                     </button>
                   )}
+                  {allowedTabs.includes("messages") && (
+                    <button
+                      onClick={() => setActiveTab("messages")}
+                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === "messages"
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      Messages
+                    </button>
+                  )}
                 </>
               );
             })()}
@@ -582,6 +601,13 @@ export default function OrganizationPage() {
             <MemberAnalytics
               organizationId={organization.id}
               currentUserRole={userRole}
+            />
+          )}
+
+          {activeTab === "messages" && organization && userRole && (
+            <MessageTemplateManagement
+              organizationId={organization.id}
+              organizationName={organization.name}
             />
           )}
         </div>

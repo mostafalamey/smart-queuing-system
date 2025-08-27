@@ -1,5 +1,107 @@
 # Smart Queue System - Changelog
 
+## Version 2.10.0 - WhatsApp Integration & Enhanced Message Templates (August 27, 2025)
+
+### 🚀 **WhatsApp Inbound-First Integration**
+
+#### Complete WhatsApp Business Compliance System
+
+- **Inbound-First Architecture**: Full WhatsApp-compliant messaging to prevent account bans
+- **Customer-Initiated Flow**: Customers must message business first (24-hour messaging windows)
+- **UltraMessage Webhook**: Complete webhook handler at `/api/webhooks/ultramsg/inbound`
+- **Session Management**: Automatic creation and tracking of 24-hour communication windows
+- **Phone-Based Sessions**: Persistent WhatsApp sessions linked to customer phone numbers
+
+#### WhatsApp Session Database Schema
+
+- **whatsapp_sessions Table**: Complete session lifecycle management
+- **whatsapp_inbound_messages Table**: Incoming message logging and processing
+- **Organization Scoping**: Sessions tied to specific organizations
+- **Automatic Expiration**: 24-hour session windows with renewal capability
+
+#### Customer Session API
+
+- **Dual Endpoint Support**: `/api/whatsapp/create-session` (GET/POST)
+- **Session Creation/Extension**: Creates or extends existing WhatsApp sessions
+- **Phone Validation**: Robust phone number cleaning and validation
+- **Legacy Compatibility**: Backwards compatible with existing systems
+
+### 🎉 **Enhanced Message Template System**
+
+#### Rich Message Templates
+
+- **Enhanced Content**: Messages now include organization name, bold ticket numbers, department/service info
+- **Queue Statistics**: Real-time position, total customers, estimated wait times, currently serving info
+- **Dual Channel Support**: WhatsApp (markdown formatting) and Push notifications
+- **Variable Substitution**: Dynamic content using `{{variableName}}` syntax
+
+#### Admin Management Interface
+
+- **Location**: Organization → Messages tab
+- **Live Preview**: Real-time preview of templates with sample data
+- **Three Message Types**: "Ticket Created", "You Are Next", "Your Turn"
+- **Template Editing**: Separate customization for WhatsApp and Push notifications
+- **Role-Based Access**: Admin and Manager can edit, Employee can view
+- **Variable Documentation**: Built-in guide with available variables
+
+#### Database Integration
+
+- **New Table**: `message_templates` with JSONB storage for flexible template structure
+- **Row Level Security**: Organization-scoped templates with proper role-based permissions
+- **Public Read Access**: Customer app can read templates without authentication
+- **Audit Features**: Automatic timestamps and update triggers
+
+#### Customer App Enhancement
+
+- **Template Loading**: Automatically fetches organization's custom templates
+- **Fallback System**: Uses default templates if custom ones aren't available
+- **Enhanced Notifications**: Both WhatsApp and push use rich, customized messages
+- **Queue Analytics**: Real-time statistics integrated into all notifications
+
+### 🔧 **Technical Improvements & Issue Resolution**
+
+#### WhatsApp Integration Issues Resolved
+
+- **Webhook Processing**: Complete inbound message handling and session creation
+- **Session Persistence**: Reliable 24-hour communication windows
+- **Phone Number Validation**: Robust cleaning and validation across all endpoints
+- **Cross-App Communication**: Seamless integration between admin and customer apps
+
+#### Message Template Issues Resolved
+
+- **Template Persistence**: Fixed PostgreSQL upsert conflicts with proper conflict resolution
+- **Ticket Number Display**: Corrected WhatsApp "N/A" issue by using database ticket numbers
+- **Custom Template Usage**: Added template loading to replace hardcoded defaults
+- **Database Access**: Implemented public read policies for customer app access
+
+#### Code Organization & Architecture
+
+- **Shared Module**: `shared/message-templates.ts` with core template system
+- **WhatsApp Services**: Complete session management and webhook processing
+- **Admin Interface**: Full template management UI with live preview
+- **Customer Integration**: Enhanced message generation and session handling
+
+### 📊 **Available Template Variables**
+
+- `{{organizationName}}` - Organization display name
+- `{{ticketNumber}}` - Bold-formatted ticket number
+- `{{serviceName}}` - Selected service name
+- `{{departmentName}}` - Department name
+- `{{estimatedWaitTime}}` - Calculated wait time
+- `{{queuePosition}}` - Current position in queue
+- `{{totalInQueue}}` - Total customers waiting
+- `{{currentlyServing}}` - Currently serving ticket number
+
+### 🎯 **Business Impact**
+
+- **WhatsApp Compliance**: Prevents account bans with policy-compliant messaging
+- **Enhanced UX**: Rich, informative notifications with organization branding
+- **Admin Control**: Complete customization of all customer communications
+- **Professional Communication**: Queue analytics and branded messaging
+- **Scalable Architecture**: Multi-tenant template and session management
+
+---
+
 ## Version 2.9.0 - Queue Management UX Enhancement & Workflow Control (August 25, 2025)
 
 ### 🎯 Enhanced Queue Management Workflow
