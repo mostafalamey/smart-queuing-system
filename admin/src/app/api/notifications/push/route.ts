@@ -499,7 +499,7 @@ export async function POST(request: NextRequest) {
               break;
 
             case "your_turn":
-              // DIRECT IMPLEMENTATION - Bypass notification service entirely for reliability
+              // DIRECT IMPLEMENTATION - Use the fixed WhatsApp API for reliability
               console.log("🎯 Sending your_turn WhatsApp message directly...");
               try {
                 const directMessage = `🔔 It's your turn!
@@ -515,8 +515,9 @@ Thank you for choosing ${organizationName}! 🙏`;
                   organizationId: organizationId,
                 });
 
+                // Use the fixed WhatsApp endpoint with bypassed session check for debugging
                 const directResponse = await fetch(
-                  "/api/notifications/whatsapp",
+                  "/api/notifications/whatsapp-fixed",
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -526,6 +527,7 @@ Thank you for choosing ${organizationName}! 🙏`;
                       organizationId: organizationId,
                       ticketId: ticketId,
                       notificationType: "your_turn",
+                      bypassSessionCheck: true, // TEMPORARY: For production debugging
                     }),
                   }
                 );
@@ -533,7 +535,7 @@ Thank you for choosing ${organizationName}! 🙏`;
                 const directResult = await directResponse.json();
                 whatsappSuccess = directResponse.ok && directResult.success;
 
-                console.log("� Direct WhatsApp result:", {
+                console.log("📱 Direct WhatsApp result:", {
                   httpOk: directResponse.ok,
                   status: directResponse.status,
                   resultSuccess: directResult.success,
