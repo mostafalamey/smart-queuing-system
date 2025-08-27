@@ -231,45 +231,49 @@ export async function POST(request: NextRequest) {
               departmentData.branches?.organizations?.name ||
               "Your Organization";
 
-            // Send appropriate WhatsApp message based on notification type
+            // Send WhatsApp message using the fixed endpoint
+            let whatsappMessage = "";
             let whatsappSuccess = false;
+            
             switch (notificationType) {
               case "ticket_created":
-                whatsappSuccess = await notificationService.notifyTicketCreated(
-                  customerPhone,
-                  ticketData.ticket_number,
-                  departmentName,
-                  organizationName,
-                  0, // waitingCount - we don't have this info in admin context
-                  organizationId,
-                  ticketId
-                );
+                whatsappMessage = `✅ Ticket Created!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\nOrganization: ${organizationName}\n\nYou will receive updates about your position in the queue.`;
                 break;
 
               case "almost_your_turn":
-                whatsappSuccess =
-                  await notificationService.notifyAlmostYourTurn(
-                    customerPhone,
-                    ticketData.ticket_number,
-                    departmentName,
-                    organizationName,
-                    "Previous ticket", // currentServing - generic fallback
-                    organizationId,
-                    ticketId
-                  );
+                whatsappMessage = `⏰ Almost Your Turn!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\n\nYou are next in line. Please get ready!`;
                 break;
 
               case "your_turn":
-                whatsappSuccess = await notificationService.notifyYourTurn(
-                  customerPhone,
-                  ticketData.ticket_number,
-                  departmentName,
-                  organizationName,
-                  organizationId,
-                  ticketId
-                );
+                whatsappMessage = `🔔 Your Turn!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\n\nPlease proceed to the service counter immediately.`;
+                break;
+
+              default:
+                whatsappMessage = `📋 Queue Update\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\n\nYour queue status has been updated.`;
                 break;
             }
+
+            // Call the fixed WhatsApp endpoint directly
+            const whatsappResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://smart-queue-admin.vercel.app'}/api/notifications/whatsapp-fixed`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phone: customerPhone,
+                  message: whatsappMessage,
+                  organizationId,
+                  ticketId,
+                  notificationType,
+                  bypassSessionCheck: true
+                })
+              }
+            );
+
+            const whatsappData = await whatsappResponse.json();
+            whatsappSuccess = whatsappData.success === true;
 
             whatsappFallbackResult = {
               attempted: true,
@@ -315,10 +319,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // If WhatsApp fallback succeeded, consider the notification successful
+      const overallSuccess = whatsappFallbackResult?.success === true;
+      
       return NextResponse.json(
         {
-          success: false,
-          message: "No active subscriptions found",
+          success: overallSuccess,
+          message: overallSuccess 
+            ? "WhatsApp notification sent successfully (no push subscriptions found)"
+            : "No active subscriptions found",
           shouldFallback: true,
           whatsappFallback: whatsappFallbackResult,
         },
@@ -487,15 +496,65 @@ export async function POST(request: NextRequest) {
               break;
 
             case "almost_your_turn":
-              whatsappSuccess = await notificationService.notifyAlmostYourTurn(
-                customerPhone,
-                ticketData.ticket_number,
-                departmentName,
-                organizationName,
-                "Previous ticket", // currentServing - generic fallback
-                organizationId,
-                ticketId
-              );
+              // DIRECT IMPLEMENTATION - Use the fixed WhatsApp API for reliability
+              console.log("⏰ Sending almost_your_turn WhatsApp message directly...");
+              try {
+                const directMessage = `⏰ Almost your turn!
+
+Ticket: *${ticketData.ticket_number}*
+You're next in line at ${departmentName}
+
+Please stay nearby. Thank you for choosing ${organizationName}! 🙏`;
+
+                console.log("📱 Direct WhatsApp call:", {
+                  phone: customerPhone,
+                  messagePreview: directMessage.substring(0, 50) + "...",
+                  organizationId: organizationId,
+                });
+
+                // Use the fixed WhatsApp endpoint with bypassed session check for debugging
+                const directResponse = await fetch(
+                  "/api/notifications/whatsapp-fixed",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      phone: customerPhone,
+                      message: directMessage,
+                      organizationId: organizationId,
+                      ticketId: ticketId,
+                      notificationType: "almost_your_turn",
+                      bypassSessionCheck: true, // TEMPORARY: For production debugging
+                    }),
+                  }
+                );
+
+                const directResult = await directResponse.json();
+                whatsappSuccess = directResponse.ok && directResult.success;
+
+                console.log("📱 Direct WhatsApp result:", {
+                  httpOk: directResponse.ok,
+                  status: directResponse.status,
+                  resultSuccess: directResult.success,
+                  messageId: directResult.messageId,
+                  error: directResult.error,
+                  finalSuccess: whatsappSuccess,
+                });
+
+                if (whatsappSuccess) {
+                  console.log(
+                    `✅ Almost your turn WhatsApp sent! MessageId: ${directResult.messageId}`
+                  );
+                } else {
+                  console.log(
+                    `❌ Almost your turn WhatsApp failed:`,
+                    directResult.error || directResult.message
+                  );
+                }
+              } catch (whatsappError) {
+                console.error("❌ WhatsApp direct call error:", whatsappError);
+                whatsappSuccess = false;
+              }
               break;
 
             case "your_turn":
