@@ -499,57 +499,59 @@ export async function POST(request: NextRequest) {
               break;
 
             case "your_turn":
-              // Try notification service first
-              whatsappSuccess = await notificationService.notifyYourTurn(
-                customerPhone,
-                ticketData.ticket_number,
-                departmentName,
-                organizationName,
-                organizationId,
-                ticketId
-              );
-
-              // If notification service fails, try direct API call as backup
-              if (!whatsappSuccess) {
-                console.log(
-                  "⚠️ Notification service failed, trying direct WhatsApp API..."
-                );
-                try {
-                  const directMessage = `🔔 It's your turn!
+              // DIRECT IMPLEMENTATION - Bypass notification service entirely for reliability
+              console.log("🎯 Sending your_turn WhatsApp message directly...");
+              try {
+                const directMessage = `🔔 It's your turn!
 
 Ticket: *${ticketData.ticket_number}*
 Please proceed to: ${departmentName}
 
 Thank you for choosing ${organizationName}! 🙏`;
 
-                  const directResponse = await fetch(
-                    "/api/notifications/whatsapp",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        phone: customerPhone,
-                        message: directMessage,
-                        organizationId: organizationId,
-                        ticketId: ticketId,
-                        notificationType: "your_turn",
-                      }),
-                    }
-                  );
+                console.log("📱 Direct WhatsApp call:", {
+                  phone: customerPhone,
+                  messagePreview: directMessage.substring(0, 50) + "...",
+                  organizationId: organizationId,
+                });
 
-                  const directResult = await directResponse.json();
-                  whatsappSuccess = directResponse.ok && directResult.success;
+                const directResponse = await fetch(
+                  "/api/notifications/whatsapp",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      phone: customerPhone,
+                      message: directMessage,
+                      organizationId: organizationId,
+                      ticketId: ticketId,
+                      notificationType: "your_turn",
+                    }),
+                  }
+                );
 
-                  console.log("🔍 Direct WhatsApp API result:", {
-                    success: whatsappSuccess,
-                    response: directResult,
-                  });
-                } catch (directError) {
-                  console.error(
-                    "❌ Direct WhatsApp API also failed:",
-                    directError
+                const directResult = await directResponse.json();
+                whatsappSuccess = directResponse.ok && directResult.success;
+
+                console.log("� Direct WhatsApp result:", {
+                  httpOk: directResponse.ok,
+                  status: directResponse.status,
+                  resultSuccess: directResult.success,
+                  messageId: directResult.messageId,
+                  error: directResult.error,
+                  finalSuccess: whatsappSuccess,
+                });
+
+                if (whatsappSuccess) {
+                  console.log(
+                    `✅ Your turn WhatsApp sent! MessageId: ${directResult.messageId}`
                   );
+                } else {
+                  console.error("❌ Your turn WhatsApp failed:", directResult);
                 }
+              } catch (directError) {
+                console.error("❌ Direct WhatsApp API exception:", directError);
+                whatsappSuccess = false;
               }
               break;
           }
