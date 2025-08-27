@@ -6,7 +6,7 @@ Write-Host "🔧 Configuring UltraMessage Webhook..." -ForegroundColor Cyan
 
 $instanceId = "instance140392"
 $token = "dqM0P4rnIsKAs8x"
-$webhookUrl = "https://01c6cb417abe.ngrok-free.app/api/webhooks/ultramsg/inbound"
+$webhookUrl = "https://smart-queue-admin.vercel.app/api/webhooks/ultramsg/inbound"
 $webhookToken = "secure_webhook_secret_token_2025"
 
 # Complete webhook URL with token parameter

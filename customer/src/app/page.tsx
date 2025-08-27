@@ -1575,7 +1575,7 @@ function CustomerAppContent() {
                 />
               ) : (
                 <img
-                  src="/logo.svg"
+                  src="/Logo.svg"
                   alt="Smart Queue Logo"
                   className="w-full h-full object-contain"
                 />
