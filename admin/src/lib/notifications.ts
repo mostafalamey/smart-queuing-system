@@ -35,9 +35,10 @@ class NotificationService {
       );
 
       // 1. Check if customer has active WhatsApp session
+      // Temporarily remove organization ID matching for production stability
       const hasActiveSession = await whatsappSessionService.hasActiveSession(
-        data.phone,
-        data.organizationId // Pass organization ID for proper filtering
+        data.phone
+        // data.organizationId // Temporarily removed for production
       );
 
       console.log(
