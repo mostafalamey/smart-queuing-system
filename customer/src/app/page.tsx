@@ -647,7 +647,7 @@ function CustomerAppContent() {
         setWhatsappRetryCount(attempt);
 
         const response = await fetch(
-          `http://localhost:3001/api/whatsapp/check-session`,
+          `${process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001"}/api/whatsapp/check-session`,
           {
             method: "POST",
             headers: {
