@@ -523,12 +523,14 @@ function CustomerAppContent() {
         .eq("status", "waiting");
 
       // Get currently serving ticket
-      const { data: servingTicket } = await supabase
+      const { data: servingTickets } = await supabase
         .from("tickets")
         .select("ticket_number")
         .eq("service_id", selectedService)
         .eq("status", "serving")
-        .single();
+        .limit(1);
+
+      const servingTicket = servingTickets?.[0] || null;
 
       const estimatedTime = serviceData?.estimated_time || 10; // Default 10 minutes
       setQueueStatus({
@@ -1161,19 +1163,11 @@ function CustomerAppContent() {
       // Then retry checking for session activation with timeout
       console.log("🔄 Starting session activation check with retry logic...");
 
-      // Add a race condition between session check and timeout (reduced for production)
-      const sessionCheckPromise = checkWhatsAppSessionWithRetry(phoneNumber, 2); // Reduced to 2 retries
-      const timeoutPromise = new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          console.log("⏰ WhatsApp session setup timed out after 15 seconds");
-          resolve(false);
-        }, 15000); // Reduced to 15 second timeout for production
-      });
-
-      const sessionActivated = await Promise.race([
-        sessionCheckPromise,
-        timeoutPromise,
-      ]);
+      // Check for session activation (simplified - no race condition needed)
+      const sessionActivated = await checkWhatsAppSessionWithRetry(
+        phoneNumber,
+        2
+      ); // Reduced to 2 retries
 
       if (sessionActivated) {
         setWhatsappOptIn(true);
