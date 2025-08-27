@@ -2,6 +2,7 @@
     "name": "smart-queue-admin",
     "version": "0.1.0",
     "private": true,
+    "_deployment_trigger": "2025-08-27T12:00:00Z",
     "scripts": {
         "dev": "next dev -p 3001",
         "dev:clean": "rimraf .next && next dev -p 3001",
