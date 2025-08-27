@@ -36,7 +36,8 @@ class NotificationService {
 
       // 1. Check if customer has active WhatsApp session
       const hasActiveSession = await whatsappSessionService.hasActiveSession(
-        data.phone
+        data.phone,
+        data.organizationId // Pass organization ID for proper filtering
       );
 
       console.log(

@@ -627,7 +627,7 @@ function CustomerAppContent() {
     }
   };
 
-  // WhatsApp session retry logic
+  // WhatsApp session retry logic with shorter timeouts for production
   const checkWhatsAppSessionWithRetry = async (
     phone: string,
     maxRetries: number = 3
@@ -646,8 +646,14 @@ function CustomerAppContent() {
         );
         setWhatsappRetryCount(attempt);
 
+        // Create AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001"}/api/whatsapp/check-session`,
+          `${
+            process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001"
+          }/api/whatsapp/check-session`,
           {
             method: "POST",
             headers: {
@@ -657,8 +663,11 @@ function CustomerAppContent() {
               phone: phone,
               organizationId: orgId,
             }),
+            signal: controller.signal, // Add timeout support
           }
         );
+
+        clearTimeout(timeoutId); // Clear timeout if request completes
         const data = await response.json();
 
         console.log(`📋 Session check result (attempt ${attempt}):`, data);
@@ -671,24 +680,35 @@ function CustomerAppContent() {
 
         // If not the last attempt, wait before retrying
         if (attempt < maxRetries) {
+          const waitTime = attempt === 1 ? 3000 : 5000; // Shorter wait for first retry
           console.log(
-            `⏰ Session not found, waiting 5 seconds before retry ${
-              attempt + 1
-            }...`
+            `⏰ Session not found, waiting ${
+              waitTime / 1000
+            } seconds before retry ${attempt + 1}...`
           );
           logger.info(
-            `WhatsApp session not found, retrying in 5 seconds... (${attempt}/${maxRetries})`
+            `WhatsApp session not found, retrying in ${
+              waitTime / 1000
+            } seconds... (${attempt}/${maxRetries})`
           );
-          await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Session check attempt ${attempt} failed:`, error);
-        logger.error(
-          `WhatsApp session check attempt ${attempt} failed:`,
-          error
-        );
+
+        // Check if it's a timeout error
+        if (error.name === "AbortError") {
+          console.log(`⏰ Timeout on attempt ${attempt}`);
+          logger.warn(`WhatsApp session check timed out on attempt ${attempt}`);
+        } else {
+          logger.error(
+            `WhatsApp session check attempt ${attempt} failed:`,
+            error
+          );
+        }
+
         if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          await new Promise((resolve) => setTimeout(resolve, 2000)); // Shorter retry delay
         }
       }
     }
@@ -835,7 +855,16 @@ function CustomerAppContent() {
     } catch (error) {
       console.error("❌ Error in queue join with notifications:", error);
       logger.error("Error in queue join with notifications:", error);
-      setNotificationSetupStatus("failed");
+
+      // Don't fail completely - still show success if ticket was created
+      if (ticketNumber && ticketId) {
+        console.log(
+          "✅ Ticket was created successfully, marking as success despite notification issues"
+        );
+        setNotificationSetupStatus("success");
+      } else {
+        setNotificationSetupStatus("failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -1129,26 +1158,43 @@ function CustomerAppContent() {
       console.log("⏳ Waiting 3 seconds for user to send WhatsApp message...");
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Then retry checking for session activation
+      // Then retry checking for session activation with timeout
       console.log("🔄 Starting session activation check with retry logic...");
-      const sessionActivated = await checkWhatsAppSessionWithRetry(
-        phoneNumber,
-        3
-      );
+
+      // Add a race condition between session check and timeout (reduced for production)
+      const sessionCheckPromise = checkWhatsAppSessionWithRetry(phoneNumber, 2); // Reduced to 2 retries
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          console.log("⏰ WhatsApp session setup timed out after 15 seconds");
+          resolve(false);
+        }, 15000); // Reduced to 15 second timeout for production
+      });
+
+      const sessionActivated = await Promise.race([
+        sessionCheckPromise,
+        timeoutPromise,
+      ]);
 
       if (sessionActivated) {
         setWhatsappOptIn(true);
         console.log("✅ WhatsApp session activated successfully");
         logger.info("WhatsApp session activated successfully");
       } else {
-        console.log("❌ WhatsApp session not activated after retries");
-        logger.warn("WhatsApp session not activated after retries");
-        throw new Error("WhatsApp session setup failed");
+        console.log(
+          "⚠️ WhatsApp session not activated - continuing with fallback"
+        );
+        logger.warn(
+          "WhatsApp session setup failed or timed out - using fallback"
+        );
+        // Don't throw error - allow user to continue without WhatsApp
+        setWhatsappOptIn(false);
       }
     } catch (error) {
       console.error("❌ WhatsApp setup failed:", error);
       logger.error("WhatsApp setup failed:", error);
-      throw error;
+      // Don't throw error - allow user to continue
+      console.log("⚠️ WhatsApp setup failed, but allowing user to continue");
+      setWhatsappOptIn(false);
     }
   };
 

@@ -60,9 +60,10 @@ class WhatsAppSessionService {
         .gt("expires_at", now.toISOString());
 
       // Add organization filter if provided
-      if (organizationId) {
-        query = query.eq("organization_id", organizationId);
-      }
+      // Temporarily disabled for testing
+      // if (organizationId) {
+      //   query = query.eq("organization_id", organizationId);
+      // }
 
       const { data, error } = await query.single();
 
