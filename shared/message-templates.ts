@@ -132,9 +132,9 @@ export async function getQueueStatistics(
 
     const totalInQueue = allTickets?.length || 0;
     const waitingTickets =
-      allTickets?.filter((t) => t.status === "waiting") || [];
+      allTickets?.filter((t: any) => t.status === "waiting") || [];
     const servingTickets =
-      allTickets?.filter((t) => t.status === "serving") || [];
+      allTickets?.filter((t: any) => t.status === "serving") || [];
 
     const queuePosition = waitingTickets.length;
     const currentlyServing =
