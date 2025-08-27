@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean customer phone number consistently (remove +, -, spaces)
-    const cleanCustomerPhone = customerPhone?.replace(/[\+\-\s]/g, "") || "";
+        // Clean customer phone by removing ALL non-digits (to match whatsapp-sessions service cleaning)
+    const cleanCustomerPhone = customerPhone?.replace(/[^\d]/g, "") || "";
 
     // Try to find subscriptions by phone number first (new approach)
     // If customerPhone is provided, use phone-based lookup
@@ -439,11 +440,20 @@ export async function POST(request: NextRequest) {
     // Send WhatsApp notification if:
     // 1. Push failed completely (original fallback logic), OR
     // 2. User has an active WhatsApp session (dual notification) - BUT NOT for ticket_created
+    // 3. TEMPORARY: Always send WhatsApp for testing (hasActiveWhatsAppSession || true)
     // Note: ticket_created WhatsApp messages are sent when session is created, so skip here to avoid duplicates
     const shouldSendWhatsApp =
-      (successCount === 0 || hasActiveWhatsAppSession) &&
+      (successCount === 0 || hasActiveWhatsAppSession || true) && // TEMPORARY: || true for testing
       customerPhone &&
       notificationType !== "ticket_created";
+
+    console.log(`🔍 WhatsApp decision logic:`, {
+      successCount,
+      hasActiveWhatsAppSession,
+      customerPhone: !!customerPhone,
+      notificationType,
+      shouldSendWhatsApp,
+    });
 
     if (shouldSendWhatsApp) {
       const whatsappReason =
@@ -517,21 +527,24 @@ Please stay nearby. Thank you for choosing ${organizationName}! 🙏`;
                   organizationId: organizationId,
                 });
 
-                // Use the fixed WhatsApp endpoint with bypassed session check for debugging
-                const directResponse = await fetch(
-                  "/api/notifications/whatsapp-fixed",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      phone: customerPhone,
-                      message: directMessage,
-                      organizationId: organizationId,
-                      ticketId: ticketId,
-                      notificationType: "almost_your_turn",
-                    }),
-                  }
-                );
+                // Use the fixed WhatsApp endpoint with absolute URL (Vercel serverless fix)
+                const baseUrl = process.env.VERCEL_URL
+                  ? `https://${process.env.VERCEL_URL}`
+                  : process.env.NEXT_PUBLIC_ADMIN_URL ||
+                    "https://smart-queue-admin.vercel.app";
+                const whatsappUrl = `${baseUrl}/api/notifications/whatsapp-fixed`;
+
+                const directResponse = await fetch(whatsappUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    phone: customerPhone,
+                    message: directMessage,
+                    organizationId: organizationId,
+                    ticketId: ticketId,
+                    notificationType: "almost_your_turn",
+                  }),
+                });
 
                 const directResult = await directResponse.json();
                 whatsappSuccess = directResponse.ok && directResult.success;
@@ -578,21 +591,24 @@ Thank you for choosing ${organizationName}! 🙏`;
                   organizationId: organizationId,
                 });
 
-                // Use the fixed WhatsApp endpoint with bypassed session check for debugging
-                const directResponse = await fetch(
-                  "/api/notifications/whatsapp-fixed",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      phone: customerPhone,
-                      message: directMessage,
-                      organizationId: organizationId,
-                      ticketId: ticketId,
-                      notificationType: "your_turn",
-                    }),
-                  }
-                );
+                // Use the fixed WhatsApp endpoint with absolute URL (Vercel serverless fix)
+                const baseUrl = process.env.VERCEL_URL
+                  ? `https://${process.env.VERCEL_URL}`
+                  : process.env.NEXT_PUBLIC_ADMIN_URL ||
+                    "https://smart-queue-admin.vercel.app";
+                const whatsappUrl = `${baseUrl}/api/notifications/whatsapp-fixed`;
+
+                const directResponse = await fetch(whatsappUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    phone: customerPhone,
+                    message: directMessage,
+                    organizationId: organizationId,
+                    ticketId: ticketId,
+                    notificationType: "your_turn",
+                  }),
+                });
 
                 const directResult = await directResponse.json();
                 whatsappSuccess = directResponse.ok && directResult.success;
