@@ -86,8 +86,13 @@ class NotificationService {
         ticketNumber: data.ticketNumber,
       });
 
-      // Use relative URL for API calls within the same app (admin -> admin)
-      const apiUrl = "/api/notifications/whatsapp";
+      // Use absolute URL for API calls in production (Vercel serverless environment)
+      // Relative URLs don't work reliably between serverless functions
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_ADMIN_URL ||
+          "https://smart-queue-admin.vercel.app";
+      const apiUrl = `${baseUrl}/api/notifications/whatsapp`;
 
       console.log("🔍 NotificationService: Calling WhatsApp API at:", apiUrl);
       console.log("🔍 NotificationService: Request payload:", {
