@@ -112,3 +112,44 @@ After configuring the environment variables:
 - ✅ WhatsApp session checks will work properly
 - ✅ Notification messages will be delivered
 - ✅ Complete queue flow will work in production
+
+---
+
+## 🎯 Latest Fixes (August 27, 2025)
+
+### ✅ WhatsApp Session Race Condition Fixed (Commit 1d38d70)
+
+- **Issue**: Session setup timing out despite finding active sessions
+- **Root Cause**: Promise.race between session check and 15-second timeout caused false timeouts
+- **Solution**: Removed unnecessary race condition - checkWhatsAppSessionWithRetry has proper timeouts
+- **Result**: Session activation now works when session is found
+
+### ✅ Supabase 406 Errors Fixed
+
+- **Issue**: `GET /rest/v1/tickets?...status=eq.serving 406 (Not Acceptable)`
+- **Root Cause**: Using `.single()` on query that might return 0 or multiple results
+- **Solution**: Changed to `.limit(1)` and handle array result properly
+- **Result**: No more 406 errors when checking currently serving tickets
+
+### 🧪 Production Test Results
+
+From logs at `https://smart-queue-customer.vercel.app/?org=def924ee-c304-4772-8129-de97818e6ee9`:
+
+- ✅ Customer app no longer freezes
+- ✅ Ticket creation works (BRE-065 created successfully)
+- ✅ WhatsApp session found on first attempt
+- ✅ WhatsApp notification sent successfully
+- ✅ Push notification setup works
+- ⚠️ Minor: Push permission warning (browser security, not critical)
+
+**Status: Production deployment fully functional!** 🎉
+
+### ✅ WhatsApp "Your Turn" Notification Fix (Commit 7519a87)
+
+- **Issue**: WhatsApp "your turn" messages not sent when admin advances queue
+- **Root Cause**: Notification service was checking organization ID matching while session service had it disabled
+- **Solution**: Removed organization ID parameter from notification service session validation
+- **Test Results**: Direct WhatsApp API works (messageId 113), push API WhatsApp fallback should now work
+- **Status**: Fix deployed, awaiting verification
+
+**Next Step: Test admin queue advancement to verify WhatsApp "your turn" messages work!** 📱

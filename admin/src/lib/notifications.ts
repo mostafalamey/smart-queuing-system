@@ -86,14 +86,17 @@ class NotificationService {
         ticketNumber: data.ticketNumber,
       });
 
-      // Use absolute URL for server-side calls, relative for client-side
-      const isServerSide = typeof window === "undefined";
-      const baseUrl = isServerSide
-        ? process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001"
-        : "";
-      const apiUrl = `${baseUrl}/api/notifications/whatsapp`;
+      // Use relative URL for API calls within the same app (admin -> admin)
+      const apiUrl = "/api/notifications/whatsapp";
 
       console.log("🔍 NotificationService: Calling WhatsApp API at:", apiUrl);
+      console.log("🔍 NotificationService: Request payload:", {
+        phone: data.phone,
+        messageLength: message.length,
+        organizationId: data.organizationId || "unknown",
+        ticketId: data.ticketId,
+        notificationType: data.type,
+      });
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -111,7 +114,16 @@ class NotificationService {
 
       const result = await response.json();
 
+      console.log("🔍 NotificationService: WhatsApp API response:", {
+        ok: response.ok,
+        status: response.status,
+        success: result.success,
+        message: result.message,
+        error: result.error,
+      });
+
       if (!response.ok || !result.success) {
+        console.error("❌ NotificationService: WhatsApp API error:", result);
         logger.error("WhatsApp API error:", result);
         return false;
       }
