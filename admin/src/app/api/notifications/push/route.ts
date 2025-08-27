@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
             // Send WhatsApp message using the fixed endpoint
             let whatsappMessage = "";
             let whatsappSuccess = false;
-            
+
             switch (notificationType) {
               case "ticket_created":
                 whatsappMessage = `✅ Ticket Created!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\nOrganization: ${organizationName}\n\nYou will receive updates about your position in the queue.`;
@@ -255,11 +255,14 @@ export async function POST(request: NextRequest) {
 
             // Call the fixed WhatsApp endpoint directly
             const whatsappResponse = await fetch(
-              `${process.env.NEXT_PUBLIC_ADMIN_URL || 'https://smart-queue-admin.vercel.app'}/api/notifications/whatsapp-fixed`,
+              `${
+                process.env.NEXT_PUBLIC_ADMIN_URL ||
+                "https://smart-queue-admin.vercel.app"
+              }/api/notifications/whatsapp-fixed`,
               {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                  'Content-Type': 'application/json',
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   phone: customerPhone,
@@ -267,8 +270,7 @@ export async function POST(request: NextRequest) {
                   organizationId,
                   ticketId,
                   notificationType,
-                  bypassSessionCheck: true
-                })
+                }),
               }
             );
 
@@ -321,11 +323,11 @@ export async function POST(request: NextRequest) {
 
       // If WhatsApp fallback succeeded, consider the notification successful
       const overallSuccess = whatsappFallbackResult?.success === true;
-      
+
       return NextResponse.json(
         {
           success: overallSuccess,
-          message: overallSuccess 
+          message: overallSuccess
             ? "WhatsApp notification sent successfully (no push subscriptions found)"
             : "No active subscriptions found",
           shouldFallback: true,
@@ -410,26 +412,27 @@ export async function POST(request: NextRequest) {
     // 3. Use WhatsApp as fallback if push completely fails
     let whatsappFallbackResult = null;
 
-    // Check if user has an active WhatsApp session
+    // Check if user has an active WhatsApp session using the same logic that works
     let hasActiveWhatsAppSession = false;
     if (cleanCustomerPhone) {
       try {
-        const { data: session } = await supabase
-          .from("whatsapp_sessions")
-          .select("id, expires_at")
-          .eq("phone_number", cleanCustomerPhone)
-          .eq("is_active", true)
-          .gte("expires_at", new Date().toISOString())
-          .single();
+        // Import and use the exact same session service that works for ticket creation
+        const { whatsappSessionService } = await import(
+          "@/lib/whatsapp-sessions"
+        );
+        hasActiveWhatsAppSession =
+          await whatsappSessionService.hasActiveSession(
+            cleanCustomerPhone
+            // Note: organizationId parameter removed to match working notification service logic
+          );
 
-        hasActiveWhatsAppSession = !!session;
         console.log(`WhatsApp session check for ${cleanCustomerPhone}:`, {
           hasSession: hasActiveWhatsAppSession,
-          sessionId: session?.id,
-          expiresAt: session?.expires_at,
+          method: "whatsappSessionService.hasActiveSession",
         });
       } catch (sessionError) {
         console.log("No active WhatsApp session found for:", customerPhone);
+        hasActiveWhatsAppSession = false;
       }
     }
 
@@ -497,7 +500,9 @@ export async function POST(request: NextRequest) {
 
             case "almost_your_turn":
               // DIRECT IMPLEMENTATION - Use the fixed WhatsApp API for reliability
-              console.log("⏰ Sending almost_your_turn WhatsApp message directly...");
+              console.log(
+                "⏰ Sending almost_your_turn WhatsApp message directly..."
+              );
               try {
                 const directMessage = `⏰ Almost your turn!
 
@@ -524,7 +529,6 @@ Please stay nearby. Thank you for choosing ${organizationName}! 🙏`;
                       organizationId: organizationId,
                       ticketId: ticketId,
                       notificationType: "almost_your_turn",
-                      bypassSessionCheck: true, // TEMPORARY: For production debugging
                     }),
                   }
                 );
@@ -586,7 +590,6 @@ Thank you for choosing ${organizationName}! 🙏`;
                       organizationId: organizationId,
                       ticketId: ticketId,
                       notificationType: "your_turn",
-                      bypassSessionCheck: true, // TEMPORARY: For production debugging
                     }),
                   }
                 );
