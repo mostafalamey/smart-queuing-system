@@ -511,7 +511,9 @@ export async function POST(request: NextRequest) {
 
               // If notification service fails, try direct API call as backup
               if (!whatsappSuccess) {
-                console.log("⚠️ Notification service failed, trying direct WhatsApp API...");
+                console.log(
+                  "⚠️ Notification service failed, trying direct WhatsApp API..."
+                );
                 try {
                   const directMessage = `🔔 It's your turn!
 
@@ -520,27 +522,33 @@ Please proceed to: ${departmentName}
 
 Thank you for choosing ${organizationName}! 🙏`;
 
-                  const directResponse = await fetch("/api/notifications/whatsapp", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      phone: customerPhone,
-                      message: directMessage,
-                      organizationId: organizationId,
-                      ticketId: ticketId,
-                      notificationType: "your_turn",
-                    }),
-                  });
+                  const directResponse = await fetch(
+                    "/api/notifications/whatsapp",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        phone: customerPhone,
+                        message: directMessage,
+                        organizationId: organizationId,
+                        ticketId: ticketId,
+                        notificationType: "your_turn",
+                      }),
+                    }
+                  );
 
                   const directResult = await directResponse.json();
                   whatsappSuccess = directResponse.ok && directResult.success;
-                  
+
                   console.log("🔍 Direct WhatsApp API result:", {
                     success: whatsappSuccess,
                     response: directResult,
                   });
                 } catch (directError) {
-                  console.error("❌ Direct WhatsApp API also failed:", directError);
+                  console.error(
+                    "❌ Direct WhatsApp API also failed:",
+                    directError
+                  );
                 }
               }
               break;
