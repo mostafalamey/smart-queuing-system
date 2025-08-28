@@ -229,9 +229,7 @@ export async function POST(request: NextRequest) {
           });
 
           if (ticketData && ticketData.departments) {
-            console.log(
-              "✅ Using real ticket data for WhatsApp message"
-            );
+            console.log("✅ Using real ticket data for WhatsApp message");
             // Import the notification service
             const { notificationService } = await import("@/lib/notifications");
 
@@ -328,10 +326,7 @@ export async function POST(request: NextRequest) {
 
             try {
               // Direct UltraMsg API call as fallback
-              console.log(
-                "📱 Sending fallback WhatsApp to:",
-                customerPhone
-              );
+              console.log("📱 Sending fallback WhatsApp to:", customerPhone);
 
               const ultraMsgResponse = await fetch(
                 `https://api.ultramsg.com/${process.env.ULTRAMSG_INSTANCE_ID}/messages/chat`,
@@ -349,10 +344,7 @@ export async function POST(request: NextRequest) {
               );
 
               const ultraMsgResult = await ultraMsgResponse.json();
-              console.log(
-                "📱 Fallback WhatsApp result:",
-                ultraMsgResult
-              );
+              console.log("📱 Fallback WhatsApp result:", ultraMsgResult);
 
               const whatsappSuccess = ultraMsgResult.sent === true;
 
@@ -375,10 +367,7 @@ export async function POST(request: NextRequest) {
                 );
               }
             } catch (whatsappError) {
-              console.error(
-                "❌ Fallback WhatsApp error:",
-                whatsappError
-              );
+              console.error("❌ Fallback WhatsApp error:", whatsappError);
               whatsappFallbackResult = {
                 attempted: true,
                 success: false,
@@ -618,9 +607,7 @@ export async function POST(request: NextRequest) {
         shouldSendWhatsApp = true;
         whatsappReason =
           "Push notifications failed, attempting WhatsApp fallback:";
-        console.log(
-          "✅ WhatsApp enabled because push failed for push user"
-        );
+        console.log("✅ WhatsApp enabled because push failed for push user");
       } else if (!notificationPrefs) {
         // Legacy behavior for tickets without preferences (fallback when push fails)
         shouldSendWhatsApp = successCount === 0;
@@ -1017,5 +1004,3 @@ async function logNotificationAttempt(
     console.error("Failed to log notification attempt:", error);
   }
 }
-
-
