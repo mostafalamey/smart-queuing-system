@@ -83,6 +83,6 @@ Write-Host "  The fix should now:"
 Write-Host "  1. ✅ Read notification preferences from database by ticket_id"
 Write-Host "  2. ✅ Check whatsapp_fallback and push_enabled columns"  
 Write-Host "  3. ✅ Send WhatsApp when user chose 'both' AND has active session"
-Write-Host "  4. ✅ Handle phone cleaning (+201015544028 → 201015544028)"
+Write-Host "  4. Handle phone cleaning (removes + sign and other non-digits)"
 Write-Host ""
 Write-Host "🎯 Next Step: Test with real queue progression using your test commands!" -ForegroundColor Yellow

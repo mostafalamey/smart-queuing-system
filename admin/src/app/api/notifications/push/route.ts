@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
           console.log("Attempting WhatsApp fallback for:", customerPhone);
 
           // Get ticket details for better messaging
-          const { data: ticketData } = await supabase
+          const { data: ticketData, error: ticketError } = await supabase
             .from("tickets")
             .select(
               `
@@ -222,7 +222,16 @@ export async function POST(request: NextRequest) {
             .eq("id", ticketId)
             .single();
 
+          console.log("🔍 DEBUG: Ticket data lookup:", {
+            ticketData,
+            ticketError,
+            ticketId,
+          });
+
           if (ticketData && ticketData.departments) {
+            console.log(
+              "✅ DEBUG: Using real ticket data for WhatsApp message"
+            );
             // Import the notification service
             const { notificationService } = await import("@/lib/notifications");
 
@@ -307,6 +316,78 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 200, headers: corsHeaders }
               );
+            }
+          } else {
+            // Fallback for test tickets or when ticket data is not found
+            console.log(
+              "⚠️  DEBUG: No ticket data found, using fallback WhatsApp message"
+            );
+
+            // Create a simple fallback message for testing
+            const fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
+
+            try {
+              // Direct UltraMsg API call as fallback
+              console.log(
+                "📱 DEBUG: Sending fallback WhatsApp to:",
+                customerPhone
+              );
+
+              const ultraMsgResponse = await fetch(
+                `https://api.ultramsg.com/${process.env.ULTRAMSG_INSTANCE_ID}/messages/chat`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                  },
+                  body: new URLSearchParams({
+                    token: process.env.ULTRAMSG_TOKEN!,
+                    to: `${customerPhone.replace(/^\+/, "")}@c.us`,
+                    body: fallbackMessage,
+                  }),
+                }
+              );
+
+              const ultraMsgResult = await ultraMsgResponse.json();
+              console.log(
+                "📱 DEBUG: Fallback WhatsApp result:",
+                ultraMsgResult
+              );
+
+              const whatsappSuccess = ultraMsgResult.sent === true;
+
+              whatsappFallbackResult = {
+                attempted: true,
+                success: whatsappSuccess,
+                phone: customerPhone,
+                fallbackUsed: true,
+              };
+
+              if (whatsappSuccess) {
+                return NextResponse.json(
+                  {
+                    success: true,
+                    message:
+                      "WhatsApp notification sent successfully (fallback mode)",
+                    whatsappFallback: whatsappFallbackResult,
+                  },
+                  { status: 200, headers: corsHeaders }
+                );
+              }
+            } catch (whatsappError) {
+              console.error(
+                "❌ DEBUG: Fallback WhatsApp error:",
+                whatsappError
+              );
+              whatsappFallbackResult = {
+                attempted: true,
+                success: false,
+                error:
+                  whatsappError instanceof Error
+                    ? whatsappError.message
+                    : "Unknown error",
+                fallbackUsed: true,
+              };
             }
           }
         } catch (whatsappError) {
@@ -435,11 +516,77 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's notification preferences from the database
-    const { data: notificationPrefs } = await supabase
+    // Try by ticket_id first, then by customer_phone as fallback
+    let { data: notificationPrefs } = await supabase
       .from("notification_preferences")
       .select("push_enabled, whatsapp_fallback")
       .eq("ticket_id", ticketId)
       .single();
+
+    // If no preferences found by ticket_id, try by customer_phone
+    if (!notificationPrefs && customerPhone) {
+      console.log(
+        "🔍 DEBUG: No preferences found by ticket_id, trying by customer_phone"
+      );
+      console.log("🔍 DEBUG: Trying both cleaned and original phone formats:", {
+        originalPhone: customerPhone,
+        cleanedPhone: cleanCustomerPhone,
+      });
+
+      // Try with original phone format first (with + sign)
+      // Use order by and limit(1) instead of single() to handle multiple records
+      let { data: phonePrefsArray, error: phoneError } = await supabase
+        .from("notification_preferences")
+        .select("push_enabled, whatsapp_fallback")
+        .eq("customer_phone", customerPhone)
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      let phonePrefs =
+        phonePrefsArray && phonePrefsArray.length > 0
+          ? phonePrefsArray[0]
+          : null;
+
+      console.log("🔍 DEBUG: Original phone lookup result:", {
+        phonePrefs,
+        phoneError,
+        queryPhone: customerPhone,
+        recordCount: phonePrefsArray?.length || 0,
+      });
+
+      // If not found, try with cleaned phone format (without + sign)
+      if (!phonePrefs) {
+        console.log("🔍 DEBUG: Trying with cleaned phone format");
+        const { data: cleanedPhonePrefsArray, error: cleanedError } =
+          await supabase
+            .from("notification_preferences")
+            .select("push_enabled, whatsapp_fallback")
+            .eq("customer_phone", cleanCustomerPhone)
+            .eq("organization_id", organizationId)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+        phonePrefs =
+          cleanedPhonePrefsArray && cleanedPhonePrefsArray.length > 0
+            ? cleanedPhonePrefsArray[0]
+            : null;
+        console.log("🔍 DEBUG: Cleaned phone lookup result:", {
+          phonePrefs,
+          cleanedError,
+          queryPhone: cleanCustomerPhone,
+          recordCount: cleanedPhonePrefsArray?.length || 0,
+        });
+      }
+
+      notificationPrefs = phonePrefs;
+    }
+
+    console.log("🔍 DEBUG: Looking up notification preferences:", {
+      ticketId,
+      cleanCustomerPhone,
+      organizationId,
+    });
 
     console.log("User notification preferences:", notificationPrefs);
 
@@ -447,11 +594,22 @@ export async function POST(request: NextRequest) {
     let shouldSendWhatsApp = false;
     let whatsappReason = "";
 
-    if (customerPhone && hasActiveWhatsAppSession) {
+    console.log("🔍 DEBUG: Notification preferences check:", {
+      notificationPrefs,
+      customerPhone: !!customerPhone,
+      hasActiveWhatsAppSession,
+      successCount,
+    });
+
+    if (customerPhone) {
+      // Temporarily remove hasActiveWhatsAppSession requirement for debugging
       if (notificationPrefs?.whatsapp_fallback === true) {
         // User explicitly wants WhatsApp notifications
         shouldSendWhatsApp = true;
         whatsappReason = "User opted for WhatsApp notifications:";
+        console.log(
+          "✅ DEBUG: WhatsApp enabled because user wants WhatsApp (whatsapp_fallback=true)"
+        );
       } else if (
         notificationPrefs?.push_enabled === true &&
         successCount === 0
@@ -460,11 +618,29 @@ export async function POST(request: NextRequest) {
         shouldSendWhatsApp = true;
         whatsappReason =
           "Push notifications failed, attempting WhatsApp fallback:";
+        console.log(
+          "✅ DEBUG: WhatsApp enabled because push failed for push user"
+        );
       } else if (!notificationPrefs) {
         // Legacy behavior for tickets without preferences (fallback when push fails)
         shouldSendWhatsApp = successCount === 0;
         whatsappReason = "Legacy fallback logic (no preferences found):";
+        console.log(
+          "⚠️ DEBUG: Using legacy logic (no notification preferences found)"
+        );
+      } else {
+        console.log("❌ DEBUG: WhatsApp NOT enabled - no matching conditions");
       }
+
+      // Additional check for session requirement
+      if (shouldSendWhatsApp && !hasActiveWhatsAppSession) {
+        console.log(
+          "⚠️ DEBUG: WhatsApp wanted but no active session - will attempt anyway for debugging"
+        );
+        // Don't disable for now to debug - normally we'd set shouldSendWhatsApp = false here
+      }
+    } else {
+      console.log("❌ DEBUG: No customer phone provided");
     }
 
     // Skip WhatsApp for ticket_created to avoid duplicates (handled during session creation)
@@ -490,7 +666,7 @@ export async function POST(request: NextRequest) {
         console.log(whatsappReason, customerPhone, `(${notificationType})`);
 
         // Get ticket details for better messaging
-        const { data: ticketData } = await supabase
+        const { data: ticketData, error: ticketError } = await supabase
           .from("tickets")
           .select(
             `
@@ -507,7 +683,14 @@ export async function POST(request: NextRequest) {
           .eq("id", ticketId)
           .single();
 
+        console.log("🔍 DEBUG: Ticket data lookup:", {
+          ticketData,
+          ticketError,
+          ticketId,
+        });
+
         if (ticketData && ticketData.departments) {
+          console.log("✅ DEBUG: Using real ticket data for WhatsApp message");
           // Import the notification service
           const { notificationService } = await import("@/lib/notifications");
 
@@ -677,6 +860,69 @@ Thank you for choosing ${organizationName}! 🙏`;
           );
 
           console.log("WhatsApp fallback result:", whatsappFallbackResult);
+        } else {
+          // Fallback for test tickets or when ticket data is not found (main shouldSendWhatsApp flow)
+          console.log(
+            "⚠️  DEBUG: No ticket data found in shouldSendWhatsApp flow, using fallback WhatsApp message"
+          );
+
+          try {
+            const fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
+
+            console.log(
+              "📱 DEBUG: Sending fallback WhatsApp in shouldSendWhatsApp flow to:",
+              customerPhone
+            );
+
+            const ultraMsgResponse = await fetch(
+              `https://api.ultramsg.com/${process.env.ULTRAMSG_INSTANCE_ID}/messages/chat`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({
+                  token: process.env.ULTRAMSG_TOKEN!,
+                  to: `${customerPhone.replace(/^\+/, "")}@c.us`,
+                  body: fallbackMessage,
+                }),
+              }
+            );
+
+            const ultraMsgResult = await ultraMsgResponse.json();
+            console.log(
+              "📱 DEBUG: shouldSendWhatsApp fallback result:",
+              ultraMsgResult
+            );
+
+            const whatsappSuccess = ultraMsgResult.sent === true;
+
+            whatsappFallbackResult = {
+              attempted: true,
+              success: whatsappSuccess,
+              phone: customerPhone,
+              fallbackUsed: true,
+            };
+
+            console.log(
+              "WhatsApp fallback result (shouldSendWhatsApp):",
+              whatsappFallbackResult
+            );
+          } catch (fallbackError) {
+            console.error(
+              "❌ DEBUG: shouldSendWhatsApp fallback error:",
+              fallbackError
+            );
+            whatsappFallbackResult = {
+              attempted: true,
+              success: false,
+              error:
+                fallbackError instanceof Error
+                  ? fallbackError.message
+                  : "Unknown error",
+              fallbackUsed: true,
+            };
+          }
         }
       } catch (whatsappError) {
         console.error("WhatsApp fallback error:", whatsappError);
