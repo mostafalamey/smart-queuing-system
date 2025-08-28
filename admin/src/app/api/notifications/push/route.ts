@@ -345,11 +345,45 @@ export async function POST(request: NextRequest) {
           } else {
             // Fallback for test tickets or when ticket data is not found
             console.log(
-              "⚠️  No ticket data found, using fallback WhatsApp message"
+              "⚠️  No ticket data found, using template-based fallback WhatsApp message"
             );
 
-            // Create a simple fallback message for testing
-            const fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
+            // Use template-based fallback messages for better consistency
+            let fallbackMessage = "";
+            const genericTemplateData: MessageTemplateData = {
+              organizationName: "Your Organization",
+              ticketNumber: "N/A",
+              serviceName: "Service",
+              departmentName: "Department",
+              queuePosition: 1,
+              totalInQueue: 1,
+              estimatedWaitTime: "N/A",
+              currentlyServing: "N/A",
+            };
+
+            switch (notificationType) {
+              case "almost_your_turn":
+                fallbackMessage = processMessageTemplate(
+                  defaultMessageTemplates.youAreNext.whatsapp,
+                  genericTemplateData
+                );
+                break;
+              case "your_turn":
+                fallbackMessage = processMessageTemplate(
+                  defaultMessageTemplates.yourTurn.whatsapp,
+                  genericTemplateData
+                );
+                break;
+              case "ticket_created":
+                fallbackMessage = processMessageTemplate(
+                  defaultMessageTemplates.ticketCreated.whatsapp,
+                  genericTemplateData
+                );
+                break;
+              default:
+                fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
+                break;
+            }
 
             try {
               // Direct UltraMsg API call as fallback
