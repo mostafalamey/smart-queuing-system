@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
             .eq("id", ticketId)
             .single();
 
-          console.log("🔍 DEBUG: Ticket data lookup:", {
+          console.log("🔍 Ticket data lookup:", {
             ticketData,
             ticketError,
             ticketId,
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
 
           if (ticketData && ticketData.departments) {
             console.log(
-              "✅ DEBUG: Using real ticket data for WhatsApp message"
+              "✅ Using real ticket data for WhatsApp message"
             );
             // Import the notification service
             const { notificationService } = await import("@/lib/notifications");
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
           } else {
             // Fallback for test tickets or when ticket data is not found
             console.log(
-              "⚠️  DEBUG: No ticket data found, using fallback WhatsApp message"
+              "⚠️  No ticket data found, using fallback WhatsApp message"
             );
 
             // Create a simple fallback message for testing
@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
             try {
               // Direct UltraMsg API call as fallback
               console.log(
-                "📱 DEBUG: Sending fallback WhatsApp to:",
+                "📱 Sending fallback WhatsApp to:",
                 customerPhone
               );
 
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
 
               const ultraMsgResult = await ultraMsgResponse.json();
               console.log(
-                "📱 DEBUG: Fallback WhatsApp result:",
+                "📱 Fallback WhatsApp result:",
                 ultraMsgResult
               );
 
@@ -376,7 +376,7 @@ export async function POST(request: NextRequest) {
               }
             } catch (whatsappError) {
               console.error(
-                "❌ DEBUG: Fallback WhatsApp error:",
+                "❌ Fallback WhatsApp error:",
                 whatsappError
               );
               whatsappFallbackResult = {
@@ -526,9 +526,9 @@ export async function POST(request: NextRequest) {
     // If no preferences found by ticket_id, try by customer_phone
     if (!notificationPrefs && customerPhone) {
       console.log(
-        "🔍 DEBUG: No preferences found by ticket_id, trying by customer_phone"
+        "🔍 No preferences found by ticket_id, trying by customer_phone"
       );
-      console.log("🔍 DEBUG: Trying both cleaned and original phone formats:", {
+      console.log("🔍 Trying both cleaned and original phone formats:", {
         originalPhone: customerPhone,
         cleanedPhone: cleanCustomerPhone,
       });
@@ -548,7 +548,7 @@ export async function POST(request: NextRequest) {
           ? phonePrefsArray[0]
           : null;
 
-      console.log("🔍 DEBUG: Original phone lookup result:", {
+      console.log("🔍 Original phone lookup result:", {
         phonePrefs,
         phoneError,
         queryPhone: customerPhone,
@@ -557,7 +557,7 @@ export async function POST(request: NextRequest) {
 
       // If not found, try with cleaned phone format (without + sign)
       if (!phonePrefs) {
-        console.log("🔍 DEBUG: Trying with cleaned phone format");
+        console.log("🔍 Trying with cleaned phone format");
         const { data: cleanedPhonePrefsArray, error: cleanedError } =
           await supabase
             .from("notification_preferences")
@@ -571,7 +571,7 @@ export async function POST(request: NextRequest) {
           cleanedPhonePrefsArray && cleanedPhonePrefsArray.length > 0
             ? cleanedPhonePrefsArray[0]
             : null;
-        console.log("🔍 DEBUG: Cleaned phone lookup result:", {
+        console.log("🔍 Cleaned phone lookup result:", {
           phonePrefs,
           cleanedError,
           queryPhone: cleanCustomerPhone,
@@ -582,7 +582,7 @@ export async function POST(request: NextRequest) {
       notificationPrefs = phonePrefs;
     }
 
-    console.log("🔍 DEBUG: Looking up notification preferences:", {
+    console.log("🔍 Looking up notification preferences:", {
       ticketId,
       cleanCustomerPhone,
       organizationId,
@@ -594,7 +594,7 @@ export async function POST(request: NextRequest) {
     let shouldSendWhatsApp = false;
     let whatsappReason = "";
 
-    console.log("🔍 DEBUG: Notification preferences check:", {
+    console.log("🔍 Notification preferences check:", {
       notificationPrefs,
       customerPhone: !!customerPhone,
       hasActiveWhatsAppSession,
@@ -608,7 +608,7 @@ export async function POST(request: NextRequest) {
         shouldSendWhatsApp = true;
         whatsappReason = "User opted for WhatsApp notifications:";
         console.log(
-          "✅ DEBUG: WhatsApp enabled because user wants WhatsApp (whatsapp_fallback=true)"
+          "✅ WhatsApp enabled because user wants WhatsApp (whatsapp_fallback=true)"
         );
       } else if (
         notificationPrefs?.push_enabled === true &&
@@ -619,28 +619,28 @@ export async function POST(request: NextRequest) {
         whatsappReason =
           "Push notifications failed, attempting WhatsApp fallback:";
         console.log(
-          "✅ DEBUG: WhatsApp enabled because push failed for push user"
+          "✅ WhatsApp enabled because push failed for push user"
         );
       } else if (!notificationPrefs) {
         // Legacy behavior for tickets without preferences (fallback when push fails)
         shouldSendWhatsApp = successCount === 0;
         whatsappReason = "Legacy fallback logic (no preferences found):";
         console.log(
-          "⚠️ DEBUG: Using legacy logic (no notification preferences found)"
+          "⚠️ Using legacy logic (no notification preferences found)"
         );
       } else {
-        console.log("❌ DEBUG: WhatsApp NOT enabled - no matching conditions");
+        console.log("❌ WhatsApp NOT enabled - no matching conditions");
       }
 
       // Additional check for session requirement
       if (shouldSendWhatsApp && !hasActiveWhatsAppSession) {
         console.log(
-          "⚠️ DEBUG: WhatsApp wanted but no active session - will attempt anyway for debugging"
+          "⚠️ WhatsApp wanted but no active session - will attempt anyway for debugging"
         );
         // Don't disable for now to debug - normally we'd set shouldSendWhatsApp = false here
       }
     } else {
-      console.log("❌ DEBUG: No customer phone provided");
+      console.log("❌ No customer phone provided");
     }
 
     // Skip WhatsApp for ticket_created to avoid duplicates (handled during session creation)
@@ -683,14 +683,14 @@ export async function POST(request: NextRequest) {
           .eq("id", ticketId)
           .single();
 
-        console.log("🔍 DEBUG: Ticket data lookup:", {
+        console.log("🔍 Ticket data lookup:", {
           ticketData,
           ticketError,
           ticketId,
         });
 
         if (ticketData && ticketData.departments) {
-          console.log("✅ DEBUG: Using real ticket data for WhatsApp message");
+          console.log("✅ Using real ticket data for WhatsApp message");
           // Import the notification service
           const { notificationService } = await import("@/lib/notifications");
 
@@ -863,14 +863,14 @@ Thank you for choosing ${organizationName}! 🙏`;
         } else {
           // Fallback for test tickets or when ticket data is not found (main shouldSendWhatsApp flow)
           console.log(
-            "⚠️  DEBUG: No ticket data found in shouldSendWhatsApp flow, using fallback WhatsApp message"
+            "⚠️  No ticket data found in shouldSendWhatsApp flow, using fallback WhatsApp message"
           );
 
           try {
             const fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
 
             console.log(
-              "📱 DEBUG: Sending fallback WhatsApp in shouldSendWhatsApp flow to:",
+              "📱 Sending fallback WhatsApp in shouldSendWhatsApp flow to:",
               customerPhone
             );
 
@@ -891,7 +891,7 @@ Thank you for choosing ${organizationName}! 🙏`;
 
             const ultraMsgResult = await ultraMsgResponse.json();
             console.log(
-              "📱 DEBUG: shouldSendWhatsApp fallback result:",
+              "📱 shouldSendWhatsApp fallback result:",
               ultraMsgResult
             );
 
@@ -910,7 +910,7 @@ Thank you for choosing ${organizationName}! 🙏`;
             );
           } catch (fallbackError) {
             console.error(
-              "❌ DEBUG: shouldSendWhatsApp fallback error:",
+              "❌ shouldSendWhatsApp fallback error:",
               fallbackError
             );
             whatsappFallbackResult = {
@@ -1017,3 +1017,5 @@ async function logNotificationAttempt(
     console.error("Failed to log notification attempt:", error);
   }
 }
+
+
