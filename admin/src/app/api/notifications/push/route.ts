@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
+import {
+  defaultMessageTemplates,
+  processMessageTemplate,
+  MessageTemplateData,
+} from "../../../../../../shared/message-templates";
 
 // Initialize Supabase client with service role key for server-side operations
 const supabase = createClient(
@@ -239,24 +244,46 @@ export async function POST(request: NextRequest) {
               departmentData.branches?.organizations?.name ||
               "Your Organization";
 
-            // Send WhatsApp message using the fixed endpoint
+            // Prepare message template data
+            const templateData: MessageTemplateData = {
+              organizationName,
+              ticketNumber: ticketData.ticket_number,
+              serviceName: departmentName, // Using department as service for now
+              departmentName,
+              queuePosition: 1, // Default values - could be enhanced with real queue data
+              totalInQueue: 1,
+              estimatedWaitTime: "N/A",
+              currentlyServing: "N/A",
+            };
+
+            // Generate WhatsApp message using templates
             let whatsappMessage = "";
             let whatsappSuccess = false;
 
             switch (notificationType) {
               case "ticket_created":
-                whatsappMessage = `✅ Ticket Created!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\nOrganization: ${organizationName}\n\nYou will receive updates about your position in the queue.`;
+                whatsappMessage = processMessageTemplate(
+                  defaultMessageTemplates.ticketCreated.whatsapp,
+                  templateData
+                );
                 break;
 
               case "almost_your_turn":
-                whatsappMessage = `⏰ Almost Your Turn!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\n\nYou are next in line. Please get ready!`;
+                whatsappMessage = processMessageTemplate(
+                  defaultMessageTemplates.youAreNext.whatsapp,
+                  templateData
+                );
                 break;
 
               case "your_turn":
-                whatsappMessage = `🔔 Your Turn!\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\n\nPlease proceed to the service counter immediately.`;
+                whatsappMessage = processMessageTemplate(
+                  defaultMessageTemplates.yourTurn.whatsapp,
+                  templateData
+                );
                 break;
 
               default:
+                // Fallback for other notification types
                 whatsappMessage = `📋 Queue Update\n\nTicket: ${ticketData.ticket_number}\nDepartment: ${departmentName}\n\nYour queue status has been updated.`;
                 break;
             }
@@ -591,23 +618,26 @@ export async function POST(request: NextRequest) {
     });
 
     if (customerPhone) {
-      // Temporarily remove hasActiveWhatsAppSession requirement for debugging
       if (notificationPrefs?.whatsapp_fallback === true) {
-        // User explicitly wants WhatsApp notifications
+        // User explicitly wants WhatsApp notifications (either "whatsapp" only or "both")
+        // This should ALWAYS send WhatsApp regardless of push success
         shouldSendWhatsApp = true;
-        whatsappReason = "User opted for WhatsApp notifications:";
+        whatsappReason =
+          "User opted for WhatsApp notifications (whatsapp_fallback=true):";
         console.log(
           "✅ WhatsApp enabled because user wants WhatsApp (whatsapp_fallback=true)"
         );
       } else if (
         notificationPrefs?.push_enabled === true &&
+        notificationPrefs?.whatsapp_fallback === false &&
         successCount === 0
       ) {
-        // User wants push notifications but push failed - use WhatsApp as fallback
+        // User wants ONLY push notifications but push failed - use WhatsApp as emergency fallback
         shouldSendWhatsApp = true;
-        whatsappReason =
-          "Push notifications failed, attempting WhatsApp fallback:";
-        console.log("✅ WhatsApp enabled because push failed for push user");
+        whatsappReason = "Emergency fallback: Push-only user but push failed:";
+        console.log(
+          "✅ WhatsApp enabled as emergency fallback (push-only user but push failed)"
+        );
       } else if (!notificationPrefs) {
         // Legacy behavior for tickets without preferences (fallback when push fails)
         shouldSendWhatsApp = successCount === 0;
@@ -616,7 +646,9 @@ export async function POST(request: NextRequest) {
           "⚠️ Using legacy logic (no notification preferences found)"
         );
       } else {
-        console.log("❌ WhatsApp NOT enabled - no matching conditions");
+        console.log(
+          "❌ WhatsApp NOT enabled - user only wants push notifications"
+        );
       }
 
       // Additional check for session requirement
@@ -702,17 +734,27 @@ export async function POST(request: NextRequest) {
               break;
 
             case "almost_your_turn":
-              // DIRECT IMPLEMENTATION - Use the fixed WhatsApp API for reliability
+              // Use message template for consistency
               console.log(
                 "⏰ Sending almost_your_turn WhatsApp message directly..."
               );
               try {
-                const directMessage = `⏰ Almost your turn!
+                // Prepare template data for this message
+                const templateData: MessageTemplateData = {
+                  organizationName: organizationName,
+                  ticketNumber: ticketData.ticket_number,
+                  serviceName: departmentName,
+                  departmentName: departmentName,
+                  queuePosition: 1,
+                  totalInQueue: 1,
+                  estimatedWaitTime: "Soon",
+                  currentlyServing: "N/A",
+                };
 
-Ticket: *${ticketData.ticket_number}*
-You're next in line at ${departmentName}
-
-Please stay nearby. Thank you for choosing ${organizationName}! 🙏`;
+                const directMessage = processMessageTemplate(
+                  defaultMessageTemplates.youAreNext.whatsapp,
+                  templateData
+                );
 
                 console.log("📱 Direct WhatsApp call:", {
                   phone: customerPhone,
@@ -768,15 +810,25 @@ Please stay nearby. Thank you for choosing ${organizationName}! 🙏`;
               break;
 
             case "your_turn":
-              // DIRECT IMPLEMENTATION - Use the fixed WhatsApp API for reliability
+              // Use message template for consistency
               console.log("🎯 Sending your_turn WhatsApp message directly...");
               try {
-                const directMessage = `🔔 It's your turn!
+                // Prepare template data for this message
+                const templateData: MessageTemplateData = {
+                  organizationName: organizationName,
+                  ticketNumber: ticketData.ticket_number,
+                  serviceName: departmentName,
+                  departmentName: departmentName,
+                  queuePosition: 1,
+                  totalInQueue: 1,
+                  estimatedWaitTime: "Now",
+                  currentlyServing: ticketData.ticket_number,
+                };
 
-Ticket: *${ticketData.ticket_number}*
-Please proceed to: ${departmentName}
-
-Thank you for choosing ${organizationName}! 🙏`;
+                const directMessage = processMessageTemplate(
+                  defaultMessageTemplates.yourTurn.whatsapp,
+                  templateData
+                );
 
                 console.log("📱 Direct WhatsApp call:", {
                   phone: customerPhone,
@@ -854,7 +906,36 @@ Thank you for choosing ${organizationName}! 🙏`;
           );
 
           try {
-            const fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
+            // Use a generic template-style message for better consistency
+            let fallbackMessage = "";
+            const genericTemplateData: MessageTemplateData = {
+              organizationName: "Your Organization",
+              ticketNumber: "N/A",
+              serviceName: "Service",
+              departmentName: "Department",
+              queuePosition: 1,
+              totalInQueue: 1,
+              estimatedWaitTime: "N/A",
+              currentlyServing: "N/A",
+            };
+
+            switch (notificationType) {
+              case "almost_your_turn":
+                fallbackMessage = processMessageTemplate(
+                  defaultMessageTemplates.youAreNext.whatsapp,
+                  genericTemplateData
+                );
+                break;
+              case "your_turn":
+                fallbackMessage = processMessageTemplate(
+                  defaultMessageTemplates.yourTurn.whatsapp,
+                  genericTemplateData
+                );
+                break;
+              default:
+                fallbackMessage = `🎫 Queue Update - Your ticket has been updated. Status: ${notificationType}. Please check your queue position.`;
+                break;
+            }
 
             console.log(
               "📱 Sending fallback WhatsApp in shouldSendWhatsApp flow to:",
