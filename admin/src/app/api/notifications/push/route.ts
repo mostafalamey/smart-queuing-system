@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean customer phone number consistently (remove +, -, spaces)
-        // Clean customer phone by removing ALL non-digits (to match whatsapp-sessions service cleaning)
+    // Clean customer phone by removing ALL non-digits (to match whatsapp-sessions service cleaning)
     const cleanCustomerPhone = customerPhone?.replace(/[^\d]/g, "") || "";
 
     // Try to find subscriptions by phone number first (new approach)
@@ -407,25 +407,22 @@ export async function POST(request: NextRequest) {
         : undefined
     );
 
-    // Enhanced notification logic:
+    // Enhanced notification logic based on user's actual preferences:
     // 1. Always attempt push notifications
-    // 2. ALSO send WhatsApp if user has an active session (for reliable delivery)
-    // 3. Use WhatsApp as fallback if push completely fails
+    // 2. Check user's notification preferences from the database
+    // 3. Send WhatsApp if user opted for WhatsApp or both AND has active session
+    // 4. Use WhatsApp as fallback if push completely fails (for users who want push but push failed)
     let whatsappFallbackResult = null;
 
-    // Check if user has an active WhatsApp session using the same logic that works
+    // Check if user has an active WhatsApp session
     let hasActiveWhatsAppSession = false;
     if (cleanCustomerPhone) {
       try {
-        // Import and use the exact same session service that works for ticket creation
         const { whatsappSessionService } = await import(
           "@/lib/whatsapp-sessions"
         );
         hasActiveWhatsAppSession =
-          await whatsappSessionService.hasActiveSession(
-            cleanCustomerPhone
-            // Note: organizationId parameter removed to match working notification service logic
-          );
+          await whatsappSessionService.hasActiveSession(cleanCustomerPhone);
 
         console.log(`WhatsApp session check for ${cleanCustomerPhone}:`, {
           hasSession: hasActiveWhatsAppSession,
@@ -437,32 +434,58 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send WhatsApp notification if:
-    // 1. Push failed completely (original fallback logic), OR
-    // 2. User has an active WhatsApp session (dual notification) - BUT NOT for ticket_created
-    // 3. TEMPORARY: Always send WhatsApp for testing (hasActiveWhatsAppSession || true)
-    // Note: ticket_created WhatsApp messages are sent when session is created, so skip here to avoid duplicates
-    const shouldSendWhatsApp =
-      (successCount === 0 || hasActiveWhatsAppSession || true) && // TEMPORARY: || true for testing
-      customerPhone &&
-      notificationType !== "ticket_created";
+    // Get user's notification preferences from the database
+    const { data: notificationPrefs } = await supabase
+      .from("notification_preferences")
+      .select("push_enabled, whatsapp_fallback")
+      .eq("ticket_id", ticketId)
+      .single();
+
+    console.log("User notification preferences:", notificationPrefs);
+
+    // Determine if we should send WhatsApp based on user's actual preferences
+    let shouldSendWhatsApp = false;
+    let whatsappReason = "";
+
+    if (customerPhone && hasActiveWhatsAppSession) {
+      if (notificationPrefs?.whatsapp_fallback === true) {
+        // User explicitly wants WhatsApp notifications
+        shouldSendWhatsApp = true;
+        whatsappReason = "User opted for WhatsApp notifications:";
+      } else if (
+        notificationPrefs?.push_enabled === true &&
+        successCount === 0
+      ) {
+        // User wants push notifications but push failed - use WhatsApp as fallback
+        shouldSendWhatsApp = true;
+        whatsappReason =
+          "Push notifications failed, attempting WhatsApp fallback:";
+      } else if (!notificationPrefs) {
+        // Legacy behavior for tickets without preferences (fallback when push fails)
+        shouldSendWhatsApp = successCount === 0;
+        whatsappReason = "Legacy fallback logic (no preferences found):";
+      }
+    }
+
+    // Skip WhatsApp for ticket_created to avoid duplicates (handled during session creation)
+    if (notificationType === "ticket_created") {
+      shouldSendWhatsApp = false;
+      whatsappReason =
+        "Skipping ticket_created WhatsApp (handled during session setup)";
+    }
 
     console.log(`🔍 WhatsApp decision logic:`, {
       successCount,
       hasActiveWhatsAppSession,
       customerPhone: !!customerPhone,
       notificationType,
+      userWantsWhatsApp: notificationPrefs?.whatsapp_fallback,
+      userWantsPush: notificationPrefs?.push_enabled,
       shouldSendWhatsApp,
+      reason: whatsappReason,
     });
 
     if (shouldSendWhatsApp) {
-      const whatsappReason =
-        successCount === 0
-          ? "Push notifications failed, attempting WhatsApp fallback for:"
-          : hasActiveWhatsAppSession
-          ? "User has active WhatsApp session, sending dual notification for:"
-          : "Sending WhatsApp backup for critical notification:";
-
       try {
         console.log(whatsappReason, customerPhone, `(${notificationType})`);
 
