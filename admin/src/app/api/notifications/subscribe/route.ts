@@ -37,14 +37,21 @@ export async function OPTIONS() {
  *       auth: string
  *     }
  *   },
- *   userAgent?: string
+ *   userAgent?: string,
+ *   notificationPreference?: "push" | "whatsapp" | "both"
  * }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { organizationId, customerPhone, subscription, userAgent } = body;
+    const {
+      organizationId,
+      customerPhone,
+      subscription,
+      userAgent,
+      notificationPreference = "push", // Default to push only if not specified
+    } = body;
 
     // Clean phone number consistently (remove +, -, spaces)
     const cleanCustomerPhone = customerPhone?.replace(/[\+\-\s]/g, "") || "";
@@ -73,11 +80,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(
-      "Creating/updating subscription for phone:",
-      cleanCustomerPhone
-    );
-
     // Check if subscription already exists for this phone number and organization
     const { data: existingSubscription, error: selectError } = await supabase
       .from("push_subscriptions")
@@ -96,11 +98,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingSubscription) {
-      console.log(
-        "Found existing subscription, updating:",
-        existingSubscription.id
-      );
-
       // Update existing subscription to active
       const { error: updateError } = await supabase
         .from("push_subscriptions")
@@ -124,6 +121,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Update notification preferences based on user's actual choice
+      await upsertNotificationPreferences(
+        organizationId,
+        null, // No specific ticket ID
+        customerPhone,
+        true, // push enabled (they're subscribing)
+        false, // push not denied
+        notificationPreference // Pass the user's notification preference
+      );
+
       return NextResponse.json(
         {
           success: true,
@@ -133,56 +140,55 @@ export async function POST(request: NextRequest) {
         },
         { headers: corsHeaders }
       );
-    }
+    } else {
+      // Create new subscription
 
-    console.log("Creating new subscription for phone:", cleanCustomerPhone);
+      // Create new subscription (no ticket_id, just phone-based)
+      const { data: newSubscription, error: insertError } = await supabase
+        .from("push_subscriptions")
+        .insert({
+          organization_id: organizationId,
+          customer_phone: cleanCustomerPhone,
+          endpoint: subscription.endpoint,
+          p256dh_key: subscription.keys.p256dh,
+          auth_key: subscription.keys.auth,
+          user_agent: userAgent || null,
+          is_active: true,
+        })
+        .select("id")
+        .single();
 
-    // Create new subscription (no ticket_id, just phone-based)
-    const { data: newSubscription, error: insertError } = await supabase
-      .from("push_subscriptions")
-      .insert({
-        organization_id: organizationId,
-        customer_phone: cleanCustomerPhone,
-        endpoint: subscription.endpoint,
-        p256dh_key: subscription.keys.p256dh,
-        auth_key: subscription.keys.auth,
-        user_agent: userAgent || null,
-        is_active: true,
-      })
-      .select("id")
-      .single();
+      if (insertError) {
+        console.error("Error creating subscription:", insertError);
+        return NextResponse.json(
+          {
+            error: "Failed to create subscription",
+            details: insertError.message,
+          },
+          { status: 500, headers: corsHeaders }
+        );
+      }
 
-    if (insertError) {
-      console.error("Error creating subscription:", insertError);
+      // Update notification preferences based on user's actual choice
+      await upsertNotificationPreferences(
+        organizationId,
+        null, // No specific ticket ID
+        customerPhone,
+        true, // push enabled (they're subscribing)
+        false, // push not denied
+        notificationPreference // Pass the user's notification preference
+      );
+
       return NextResponse.json(
         {
-          error: "Failed to create subscription",
-          details: insertError.message,
+          success: true,
+          message: "Subscription created successfully",
+          subscriptionId: newSubscription.id,
+          customerPhone: customerPhone,
         },
-        { status: 500, headers: corsHeaders }
+        { headers: corsHeaders }
       );
     }
-
-    console.log("Successfully created subscription:", newSubscription.id);
-
-    // Update notification preferences for this phone number
-    await upsertNotificationPreferences(
-      organizationId,
-      null, // No specific ticket ID
-      customerPhone,
-      true, // push enabled
-      false // push not denied
-    );
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Subscription created successfully",
-        subscriptionId: newSubscription.id,
-        customerPhone: customerPhone,
-      },
-      { headers: corsHeaders }
-    );
   } catch (error) {
     console.error("Subscribe API error:", error);
     return NextResponse.json(
@@ -203,12 +209,18 @@ export async function POST(request: NextRequest) {
  * {
  *   organizationId: string,
  *   customerPhone: string,
- *   pushDenied: boolean
+ *   pushDenied: boolean,
+ *   notificationPreference?: "push" | "whatsapp" | "both"
  * }
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { organizationId, customerPhone, pushDenied } = await request.json();
+    const {
+      organizationId,
+      customerPhone,
+      pushDenied,
+      notificationPreference = "push",
+    } = await request.json();
 
     // Validate required fields
     if (!organizationId || !customerPhone || typeof pushDenied !== "boolean") {
@@ -225,23 +237,33 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.log("Updating notification preferences for phone:", customerPhone);
+    console.log(
+      "Updating notification preferences for phone:",
+      customerPhone,
+      "with preference:",
+      notificationPreference
+    );
 
-    // Update notification preferences for this phone number
+    // Update notification preferences for this phone number with user's choice
     await upsertNotificationPreferences(
       organizationId,
       null, // No specific ticket ID for phone-based subscriptions
       customerPhone,
       !pushDenied,
-      pushDenied
+      pushDenied,
+      notificationPreference
     );
 
     return NextResponse.json({
       success: true,
       customerPhone: customerPhone,
       message: pushDenied
-        ? "Push notifications disabled, WhatsApp fallback enabled"
-        : "Push notifications enabled",
+        ? `Push notifications disabled, using ${
+            notificationPreference === "whatsapp"
+              ? "WhatsApp only"
+              : "WhatsApp fallback"
+          }`
+        : `Push notifications enabled with ${notificationPreference} preference`,
     });
   } catch (error) {
     console.error("Update preferences API error:", error);
@@ -319,30 +341,83 @@ async function upsertNotificationPreferences(
   ticketId: string | null,
   customerPhone: string | null,
   pushEnabled: boolean,
-  pushDenied: boolean
+  pushDenied: boolean,
+  notificationPreference: "push" | "whatsapp" | "both" = "push"
 ) {
   if (!customerPhone) {
-    console.log("No customer phone provided, skipping preferences update");
     return;
   }
 
-  const { error } = await supabase.from("notification_preferences").upsert(
-    {
+  // Map notification preference to database fields
+  let whatsappFallback: boolean;
+  let pushEnabledFinal: boolean;
+
+  switch (notificationPreference) {
+    case "push":
+      // Push only: enable push, disable WhatsApp fallback
+      pushEnabledFinal = pushEnabled;
+      whatsappFallback = false;
+      break;
+    case "whatsapp":
+      // WhatsApp only: disable push, enable WhatsApp fallback
+      pushEnabledFinal = false;
+      whatsappFallback = true;
+      break;
+    case "both":
+      // Both: enable push and WhatsApp fallback
+      pushEnabledFinal = pushEnabled;
+      whatsappFallback = true;
+      break;
+    default:
+      // Fallback to push only
+      pushEnabledFinal = pushEnabled;
+      whatsappFallback = false;
+  }
+
+  // First, try to find existing preference for this phone number in this organization
+  const { data: existingPreference } = await supabase
+    .from("notification_preferences")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("customer_phone", customerPhone)
+    .single();
+
+  if (existingPreference) {
+    // Update existing preference
+    const { error } = await supabase
+      .from("notification_preferences")
+      .update({
+        push_enabled: pushEnabledFinal,
+        push_denied: pushDenied,
+        push_denied_at: pushDenied ? new Date().toISOString() : null,
+        whatsapp_fallback: whatsappFallback,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingPreference.id);
+
+    if (error) {
+      console.error("Error updating notification preferences:", error);
+    }
+  } else {
+    // Create new preference
+    const { error } = await supabase.from("notification_preferences").insert({
       organization_id: organizationId,
       ticket_id: ticketId, // Can be null for phone-based subscriptions
       customer_phone: customerPhone,
-      push_enabled: pushEnabled,
+      push_enabled: pushEnabledFinal,
       push_denied: pushDenied,
       push_denied_at: pushDenied ? new Date().toISOString() : null,
-      whatsapp_fallback: true, // Always enable WhatsApp as fallback
+      whatsapp_fallback: whatsappFallback,
       updated_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "ticket_id", // ticket_id is unique
-    }
-  );
+    });
 
-  if (error) {
-    console.error("Error upserting notification preferences:", error);
+    if (error) {
+      console.error("Error creating notification preferences:", error);
+    } else {
+      console.log(
+        "Successfully created notification preferences for",
+        customerPhone
+      );
+    }
   }
 }

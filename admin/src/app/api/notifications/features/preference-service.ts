@@ -23,7 +23,7 @@ export class PreferenceService {
       const { data: phonePrefs, error } = await supabase
         .from("notification_preferences")
         .select("*")
-        .eq("phone", phoneFormat)
+        .eq("customer_phone", phoneFormat) // Use customer_phone column, not phone
         .limit(1)
         .order("created_at", { ascending: false });
 
@@ -37,6 +37,7 @@ export class PreferenceService {
 
   /**
    * Check if WhatsApp should be sent based on user preferences and push results
+   * Handles three notification preferences: push, whatsapp, both
    */
   static shouldSendWhatsApp(
     preferences: NotificationPreferences | null,
@@ -60,31 +61,46 @@ export class PreferenceService {
       };
     }
 
-    if (preferences.whatsapp_fallback === true) {
-      // User explicitly wants WhatsApp notifications (either "whatsapp" only or "both")
-      // This should ALWAYS send WhatsApp regardless of push success
+    // NEW LOGIC: Handle three cases - push, whatsapp, both
+    // Customer chose "both" notifications
+    if (
+      preferences.push_enabled === true &&
+      preferences.whatsapp_fallback === true
+    ) {
       return {
         should: true,
         reason:
-          "User opted for WhatsApp notifications (whatsapp_fallback=true)",
+          "User selected 'both' - send WhatsApp regardless of push success",
       };
     }
 
+    // Customer chose "whatsapp only"
+    if (
+      preferences.push_enabled === false &&
+      preferences.whatsapp_fallback === true
+    ) {
+      return {
+        should: true,
+        reason: "User selected 'WhatsApp only' notifications",
+      };
+    }
+
+    // Customer chose "push only" but push failed - emergency fallback
     if (
       preferences.push_enabled === true &&
       preferences.whatsapp_fallback === false &&
       pushSuccessCount === 0
     ) {
-      // User wants ONLY push notifications but push failed - use WhatsApp as emergency fallback
       return {
         should: true,
-        reason: "Emergency fallback: Push-only user but push failed",
+        reason: "Push-only user but push failed - emergency WhatsApp fallback",
       };
     }
 
+    // Customer chose "push only" and push succeeded - no WhatsApp
     return {
       should: false,
-      reason: "User only wants push notifications",
+      reason: "User selected 'push only' notifications",
     };
   }
 
@@ -97,12 +113,14 @@ export class PreferenceService {
     if (!customerPhone) return false;
 
     const cleanPhone = customerPhone.replace(/^\+/, "");
+    const now = new Date();
 
     const { data: sessions, error } = await supabase
       .from("whatsapp_sessions")
       .select("*")
-      .eq("phone", cleanPhone)
+      .eq("phone_number", cleanPhone) // Use phone_number column
       .eq("is_active", true)
+      .gt("expires_at", now.toISOString())
       .limit(1);
 
     if (error) {

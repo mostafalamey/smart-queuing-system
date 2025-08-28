@@ -38,15 +38,11 @@ export async function POST(
     }
 
     const notificationRequest = validation.data!;
-    console.log(
-      `📬 Processing ${notificationRequest.notificationType} notification for ${notificationRequest.customerPhone}`
-    );
 
     // 2. Get user notification preferences
     const preferences = await PreferenceService.getNotificationPreferences(
       notificationRequest.customerPhone!
     );
-    console.log("User notification preferences:", preferences);
 
     // 3. Send push notifications
     const { subscriptions, error: subscriptionError } =
@@ -67,11 +63,6 @@ export async function POST(
         subscriptions,
         notificationRequest
       );
-      console.log(
-        `📱 Push notifications: ${pushResults.successCount}/${subscriptions.length} successful`
-      );
-    } else {
-      console.log("📱 No push subscriptions found");
     }
 
     // 4. Determine if WhatsApp should be sent
@@ -81,29 +72,41 @@ export async function POST(
       notificationRequest.notificationType
     );
 
-    console.log(
-      `🔍 WhatsApp decision: ${whatsappDecision.should} - ${whatsappDecision.reason}`
-    );
-
-    // 5. Send WhatsApp if needed
+    // 5. Send WhatsApp if needed (with session verification)
     let whatsappResult = null;
     if (whatsappDecision.should && notificationRequest.customerPhone) {
-      console.log(
-        `📲 Sending WhatsApp to ${notificationRequest.customerPhone}`
+      // Check if customer has an active WhatsApp session
+      const hasActiveSession = await PreferenceService.hasActiveWhatsAppSession(
+        notificationRequest.customerPhone
       );
 
-      whatsappResult = await WhatsAppService.sendWhatsAppNotification(
-        notificationRequest.customerPhone,
-        notificationRequest.notificationType,
-        notificationRequest.organizationId,
-        notificationRequest.ticketId
-      );
+      if (hasActiveSession) {
+        whatsappResult = await WhatsAppService.sendWhatsAppNotification(
+          notificationRequest.customerPhone,
+          notificationRequest.notificationType,
+          notificationRequest.organizationId,
+          notificationRequest.ticketId
+        );
 
-      console.log(
-        `📲 WhatsApp result: ${
-          whatsappResult.success ? "✅ Success" : "❌ Failed"
-        }`
-      );
+        if (!whatsappResult.success) {
+          console.error("📲 WhatsApp failure details:", {
+            error: whatsappResult.error,
+            attempted: whatsappResult.attempted,
+            phone: whatsappResult.phone,
+            messageId: whatsappResult.messageId,
+            fallbackUsed: whatsappResult.fallbackUsed,
+            fullResult: whatsappResult,
+          });
+        }
+      } else {
+        whatsappResult = {
+          success: false,
+          attempted: false,
+          reason: "no_active_session",
+          message:
+            "Customer needs to send WhatsApp message first to enable notifications",
+        };
+      }
     }
 
     // 6. Return appropriate response

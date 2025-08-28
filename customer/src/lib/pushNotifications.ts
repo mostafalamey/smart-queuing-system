@@ -418,7 +418,8 @@ class PushNotificationService {
    */
   async subscribeWithPhone(
     organizationId: string,
-    customerPhone: string
+    customerPhone: string,
+    notificationPreference: "push" | "whatsapp" | "both" = "push"
   ): Promise<boolean> {
     try {
       logger.debug("Starting phone-based push notification subscription...");
@@ -479,7 +480,8 @@ class PushNotificationService {
       const success = await this.sendPhoneSubscriptionToServer(
         organizationId,
         customerPhone,
-        subscription
+        subscription,
+        notificationPreference
       );
 
       logger.log(
@@ -502,7 +504,8 @@ class PushNotificationService {
       await this.updateNotificationPreferencesForPhone(
         organizationId,
         customerPhone,
-        true
+        true,
+        notificationPreference // Pass the notification preference from the current call
       );
       return false;
     }
@@ -515,6 +518,7 @@ class PushNotificationService {
     organizationId: string,
     customerPhone: string,
     subscription: PushSubscription,
+    notificationPreference: "push" | "whatsapp" | "both" = "push",
     retryCount = 0
   ): Promise<boolean> {
     try {
@@ -544,6 +548,7 @@ class PushNotificationService {
         customerPhone, // Use phone number instead of ticket ID
         subscription: subscriptionData,
         userAgent: navigator.userAgent,
+        notificationPreference, // Pass the user's notification preference
       };
 
       const url = `${this.adminUrl}/api/notifications/subscribe`;
@@ -592,6 +597,7 @@ class PushNotificationService {
           organizationId,
           customerPhone,
           subscription,
+          notificationPreference,
           retryCount + 1
         );
       }
@@ -607,7 +613,8 @@ class PushNotificationService {
   private async updateNotificationPreferencesForPhone(
     organizationId: string,
     customerPhone: string,
-    pushDenied: boolean
+    pushDenied: boolean,
+    notificationPreference: "push" | "whatsapp" | "both" = "push"
   ): Promise<void> {
     try {
       const response = await fetch(
@@ -621,6 +628,7 @@ class PushNotificationService {
             organizationId,
             customerPhone,
             pushDenied,
+            notificationPreference, // Pass the notification preference
           }),
         }
       );

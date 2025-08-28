@@ -742,7 +742,14 @@ function CustomerAppContent() {
       // Wait a moment for state to update
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Step 2: Handle notifications based on preference
+      // Step 2: Always update notification preferences first
+      console.log(
+        "⚙️ Updating notification preferences to:",
+        notificationPreference
+      );
+      await updateNotificationPreferences(notificationPreference);
+
+      // Step 3: Handle notifications based on preference
       if (
         notificationPreference === "whatsapp" ||
         notificationPreference === "both"
@@ -1192,6 +1199,52 @@ function CustomerAppContent() {
     }
   };
 
+  // Update notification preferences in database
+  const updateNotificationPreferences = async (
+    preference: "push" | "whatsapp" | "both"
+  ) => {
+    if (!phoneNumber || !orgId) {
+      console.log("⚠️ Cannot update preferences - missing phone or orgId");
+      return;
+    }
+
+    try {
+      console.log(
+        "📝 Updating notification preferences in database:",
+        preference
+      );
+
+      // Call the subscribe API to update preferences (even for WhatsApp-only)
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_ADMIN_URL}/api/notifications/subscribe`,
+        {
+          method: "PUT", // Use PUT method to update preferences
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organizationId: orgId,
+            customerPhone: phoneNumber,
+            pushDenied: preference === "whatsapp", // Push is denied only for WhatsApp-only
+            notificationPreference: preference,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        console.log("✅ Notification preferences updated successfully");
+      } else {
+        console.log(
+          "⚠️ Failed to update notification preferences:",
+          await response.text()
+        );
+      }
+    } catch (error) {
+      console.error("❌ Error updating notification preferences:", error);
+      // Don't throw - preference update failure shouldn't block queue join
+    }
+  };
+
   // Handle push notification setup
   const handlePushNotificationSetup = async (overrideTicketId?: string) => {
     const currentTicketId = overrideTicketId || ticketId;
@@ -1236,7 +1289,8 @@ function CustomerAppContent() {
         console.log("📱 Creating subscription with phone:", phoneNumber);
         const subscription = await pushNotificationService.subscribeWithPhone(
           orgId,
-          phoneNumber!
+          phoneNumber!,
+          notificationPreference // Pass the user's notification preference
         );
         console.log("📋 Subscription creation result:", !!subscription);
 
