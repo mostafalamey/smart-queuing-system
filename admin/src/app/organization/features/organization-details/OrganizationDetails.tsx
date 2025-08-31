@@ -8,7 +8,6 @@ import {
   Phone,
   Mail,
   MapPin,
-  MessageSquare,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { ColorPreview } from "@/components/ColorPreview";
@@ -325,39 +324,6 @@ export const OrganizationDetails = ({
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Customer Experience Card - Full width */}
-      <div className="analytics-card p-6 mb-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              Customer Experience
-            </h2>
-            <p className="text-sm text-gray-500">
-              Welcome message and customer-facing settings
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Welcome Message
-          </label>
-          <p className="text-sm text-gray-500 mb-3">
-            This message will be displayed to customers when they first access
-            the queue system
-          </p>
-          <textarea
-            value={orgForm.welcome_message}
-            {...getInputProps("welcome_message")}
-            rows={3}
-            placeholder="Welcome to our smart queue system. Please take your number and wait for your turn."
-          />
         </div>
       </div>
 

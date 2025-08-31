@@ -71,21 +71,23 @@ export const HistoricalTrendsSection: React.FC<
 
   // Get data for selected metric
   const getMetricData = (): MetricDataPoint[] => {
+    if (!trendData || trendData.length === 0) return [];
+
     switch (selectedMetric) {
       case "waitTime":
         return trendData.map((d: any) => ({
           date: d.date,
-          value: d.avgWaitTime,
+          value: isFinite(d.avgWaitTime) ? d.avgWaitTime : 0,
         }));
       case "volume":
         return trendData.map((d: any) => ({
           date: d.date,
-          value: d.ticketVolume,
+          value: isFinite(d.ticketVolume) ? d.ticketVolume : 0,
         }));
       case "completion":
         return trendData.map((d: any) => ({
           date: d.date,
-          value: d.completionRate,
+          value: isFinite(d.completionRate) ? d.completionRate : 0,
         }));
       default:
         return [];
@@ -93,8 +95,14 @@ export const HistoricalTrendsSection: React.FC<
   };
 
   const metricData = getMetricData();
-  const maxValue = Math.max(...metricData.map((d: MetricDataPoint) => d.value));
-  const minValue = Math.min(...metricData.map((d: MetricDataPoint) => d.value));
+
+  // Safe min/max calculation with fallbacks
+  const validValues = metricData
+    .map((d) => d.value)
+    .filter((v) => typeof v === "number" && isFinite(v));
+
+  const maxValue = validValues.length > 0 ? Math.max(...validValues) : 100;
+  const minValue = validValues.length > 0 ? Math.min(...validValues) : 0;
 
   // Get comparison data for selected metric
   const getComparisonData = (): ComparisonData | null => {
@@ -264,11 +272,19 @@ export const HistoricalTrendsSection: React.FC<
               <path
                 d={`M ${metricData
                   .map((d: MetricDataPoint, i: number) => {
-                    const x = (i / (metricData.length - 1)) * 750 + 25;
+                    const x =
+                      metricData.length > 1
+                        ? (i / (metricData.length - 1)) * 750 + 25
+                        : 400;
+                    const valueRange = maxValue - minValue;
+                    const normalizedValue =
+                      valueRange > 0 ? (d.value - minValue) / valueRange : 0.5;
                     const y =
                       180 -
-                      ((d.value - minValue) / (maxValue - minValue || 1)) * 160;
-                    return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+                      (isFinite(normalizedValue) ? normalizedValue : 0.5) * 160;
+                    return `${i === 0 ? "M" : "L"} ${isFinite(x) ? x : 400} ${
+                      isFinite(y) ? y : 90
+                    }`;
                   })
                   .join(" ")}`}
                 fill="none"
@@ -286,15 +302,24 @@ export const HistoricalTrendsSection: React.FC<
 
             {/* Data points */}
             {metricData.map((d: MetricDataPoint, i: number) => {
-              const x = (i / (metricData.length - 1)) * 750 + 25;
+              const x =
+                metricData.length > 1
+                  ? (i / (metricData.length - 1)) * 750 + 25
+                  : 400;
+              const valueRange = maxValue - minValue;
+              const normalizedValue =
+                valueRange > 0 ? (d.value - minValue) / valueRange : 0.5;
               const y =
-                180 - ((d.value - minValue) / (maxValue - minValue || 1)) * 160;
+                180 - (isFinite(normalizedValue) ? normalizedValue : 0.5) * 160;
+
+              const safeX = isFinite(x) ? x : 400;
+              const safeY = isFinite(y) ? y : 90;
 
               return (
                 <g key={i}>
                   <circle
-                    cx={x}
-                    cy={y}
+                    cx={safeX}
+                    cy={safeY}
                     r="4"
                     fill={`rgb(${
                       metricInfo.color === "blue"
@@ -305,20 +330,20 @@ export const HistoricalTrendsSection: React.FC<
                     })`}
                     className="hover:r-6 transition-all cursor-pointer"
                   />
-                  <title>{`${formatDate(d.date)}: ${d.value}${
-                    metricInfo.unit
-                  }`}</title>
+                  <title>{`${formatDate(d.date)}: ${
+                    isFinite(d.value) ? d.value : 0
+                  }${metricInfo.unit}`}</title>
                 </g>
               );
             })}
 
             {/* Y-axis labels */}
             <text x="10" y="20" className="text-xs fill-gray-500">
-              {Math.round(maxValue * 10) / 10}
+              {isFinite(maxValue) ? Math.round(maxValue * 10) / 10 : 0}
               {metricInfo.unit}
             </text>
             <text x="10" y="180" className="text-xs fill-gray-500">
-              {Math.round(minValue * 10) / 10}
+              {isFinite(minValue) ? Math.round(minValue * 10) / 10 : 0}
               {metricInfo.unit}
             </text>
           </svg>

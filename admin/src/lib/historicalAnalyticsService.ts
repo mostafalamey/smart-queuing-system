@@ -15,13 +15,21 @@ export interface DailyAnalytics {
   branch_id: string;
   department_id: string;
   service_id: string | null;
-  total_tickets: number;
-  completed_tickets: number;
-  cancelled_tickets: number;
-  no_show_tickets: number;
+  tickets_issued: number; // Updated to match database
+  tickets_served: number; // Updated to match database
+  tickets_cancelled: number; // Updated to match database
+  tickets_no_show: number; // Updated to match database
   avg_wait_time: number;
+  min_wait_time?: number; // Added missing fields from database
+  max_wait_time?: number; // Added missing fields from database
+  median_wait_time?: number; // Added missing fields from database
   avg_service_time: number;
+  min_service_time?: number; // Added missing fields from database
+  max_service_time?: number; // Added missing fields from database
+  median_service_time?: number; // Added missing fields from database
   hourly_ticket_distribution: any[];
+  hourly_wait_times?: any[]; // Added missing fields from database
+  hourly_service_times?: any[]; // Added missing fields from database
   completion_rate: number;
   no_show_rate: number;
   peak_wait_time_hour: number;
@@ -296,7 +304,7 @@ export class HistoricalAnalyticsService {
       date: record.date,
       avgWaitTime: record.avg_wait_time,
       avgServiceTime: record.avg_service_time,
-      ticketVolume: record.total_tickets,
+      ticketVolume: record.tickets_issued, // Updated field name
       completionRate: record.completion_rate,
       noShowRate: record.no_show_rate,
     }));
@@ -417,7 +425,7 @@ export class HistoricalAnalyticsService {
       if (!hourlyVolume[peakHour]) {
         hourlyVolume[peakHour] = { total: 0, count: 0 };
       }
-      hourlyVolume[peakHour].total += record.total_tickets;
+      hourlyVolume[peakHour].total += record.tickets_issued; // Updated field name
       hourlyVolume[peakHour].count += 1;
     });
 
@@ -449,10 +457,10 @@ export class HistoricalAnalyticsService {
     const previousWeek = dailyData.slice(-14, -7);
 
     const recentAvg =
-      recentWeek.reduce((sum, r) => sum + r.total_tickets, 0) / 7;
+      recentWeek.reduce((sum, r) => sum + r.tickets_issued, 0) / 7; // Updated field name
     const previousAvg =
       previousWeek.length > 0
-        ? previousWeek.reduce((sum, r) => sum + r.total_tickets, 0) /
+        ? previousWeek.reduce((sum, r) => sum + r.tickets_issued, 0) / // Updated field name
           previousWeek.length
         : recentAvg;
 
@@ -495,7 +503,7 @@ export class HistoricalAnalyticsService {
       const hourlyTickets =
         dailyData
           .filter((record) => record.peak_wait_time_hour === hour)
-          .reduce((sum, record) => sum + record.total_tickets, 0) /
+          .reduce((sum, record) => sum + record.tickets_issued, 0) / // Updated field name
         Math.max(dailyData.length, 1);
 
       const avgServiceTime =

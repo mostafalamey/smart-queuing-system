@@ -116,6 +116,7 @@ serve(async (req) => {
       try {
         cleanupConfig = await req.json();
       } catch (error) {
+        console.error("JSON parsing error:", error);
         return new Response(
           JSON.stringify({ error: "Invalid JSON in request body" }),
           {

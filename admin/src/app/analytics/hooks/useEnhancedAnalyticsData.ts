@@ -161,7 +161,7 @@ export const useEnhancedAnalyticsData = () => {
       setHistoricalData(historicalData);
 
       // Get current queue data for real-time metrics
-      const { data: currentTickets } = await supabase
+      let ticketsQuery = supabase
         .from("tickets")
         .select(
           `
@@ -178,9 +178,15 @@ export const useEnhancedAnalyticsData = () => {
         `
         )
         .eq("departments.branch_id", selectedBranch)
-        .eq("department_id", selectedDepartment || undefined)
         .gte("created_at", startDate)
         .lte("created_at", endDate);
+
+      // Only add department filter if a specific department is selected
+      if (selectedDepartment && selectedDepartment !== "") {
+        ticketsQuery = ticketsQuery.eq("department_id", selectedDepartment);
+      }
+
+      const { data: currentTickets } = await ticketsQuery;
 
       // Generate predictive insights
       const currentQueueCount =
@@ -223,28 +229,31 @@ export const useEnhancedAnalyticsData = () => {
     const serviceAnalytics = historicalData.service_analytics;
     const notificationAnalytics = historicalData.notification_analytics;
 
-    // Calculate current period metrics
+    // Calculate current period metrics with null safety
     const totalTickets = dailyAnalytics.reduce(
-      (sum, d) => sum + d.total_tickets,
+      (sum, d) => sum + (d.tickets_issued || 0),
       0
     );
     const totalCompleted = dailyAnalytics.reduce(
-      (sum, d) => sum + d.completed_tickets,
+      (sum, d) => sum + (d.tickets_served || 0),
       0
     );
+
     const avgWaitTime =
-      dailyAnalytics.length > 0
+      dailyAnalytics.length > 0 && totalTickets > 0
         ? dailyAnalytics.reduce(
-            (sum, d) => sum + d.avg_wait_time * d.total_tickets,
+            (sum, d) => sum + (d.avg_wait_time || 0) * (d.tickets_issued || 0),
             0
-          ) / Math.max(totalTickets, 1)
+          ) / totalTickets
         : 0;
+
     const avgServiceTime =
-      dailyAnalytics.length > 0
+      dailyAnalytics.length > 0 && totalCompleted > 0
         ? dailyAnalytics.reduce(
-            (sum, d) => sum + d.avg_service_time * d.completed_tickets,
+            (sum, d) =>
+              sum + (d.avg_service_time || 0) * (d.tickets_served || 0),
             0
-          ) / Math.max(totalCompleted, 1)
+          ) / totalCompleted
         : 0;
 
     // Generate historical trends
@@ -306,60 +315,70 @@ export const useEnhancedAnalyticsData = () => {
     };
   };
 
-  // Calculate period comparison
+  // Calculate period comparison with null safety
   const calculatePeriodComparison = (dailyAnalytics: any[]) => {
-    if (dailyAnalytics.length < 14) return null;
+    if (!dailyAnalytics || dailyAnalytics.length < 14) return null;
 
     const midPoint = Math.floor(dailyAnalytics.length / 2);
     const currentPeriod = dailyAnalytics.slice(midPoint);
     const previousPeriod = dailyAnalytics.slice(0, midPoint);
 
     const currentWaitTime =
-      currentPeriod.reduce((sum, d) => sum + d.avg_wait_time, 0) /
-      currentPeriod.length;
+      currentPeriod.length > 0
+        ? currentPeriod.reduce((sum, d) => sum + (d.avg_wait_time || 0), 0) /
+          currentPeriod.length
+        : 0;
     const previousWaitTime =
-      previousPeriod.reduce((sum, d) => sum + d.avg_wait_time, 0) /
-      previousPeriod.length;
+      previousPeriod.length > 0
+        ? previousPeriod.reduce((sum, d) => sum + (d.avg_wait_time || 0), 0) /
+          previousPeriod.length
+        : 0;
 
     const currentVolume = currentPeriod.reduce(
-      (sum, d) => sum + d.total_tickets,
+      (sum, d) => sum + (d.tickets_issued || 0),
       0
     );
     const previousVolume = previousPeriod.reduce(
-      (sum, d) => sum + d.total_tickets,
+      (sum, d) => sum + (d.tickets_issued || 0),
       0
     );
 
     const currentCompletion =
-      currentPeriod.reduce((sum, d) => sum + d.completion_rate, 0) /
-      currentPeriod.length;
+      currentPeriod.length > 0
+        ? currentPeriod.reduce((sum, d) => sum + (d.completion_rate || 0), 0) /
+          currentPeriod.length
+        : 0;
     const previousCompletion =
-      previousPeriod.reduce((sum, d) => sum + d.completion_rate, 0) /
-      previousPeriod.length;
+      previousPeriod.length > 0
+        ? previousPeriod.reduce((sum, d) => sum + (d.completion_rate || 0), 0) /
+          previousPeriod.length
+        : 0;
+
+    // Safe percentage calculation
+    const calculatePercentageChange = (current: number, previous: number) => {
+      if (!isFinite(current) || !isFinite(previous)) return 0;
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
 
     return {
       waitTime: {
-        current: currentWaitTime,
-        previous: previousWaitTime,
-        change:
-          ((currentWaitTime - previousWaitTime) /
-            Math.max(previousWaitTime, 1)) *
-          100,
+        current: isFinite(currentWaitTime) ? currentWaitTime : 0,
+        previous: isFinite(previousWaitTime) ? previousWaitTime : 0,
+        change: calculatePercentageChange(currentWaitTime, previousWaitTime),
       },
       volume: {
         current: currentVolume,
         previous: previousVolume,
-        change:
-          ((currentVolume - previousVolume) / Math.max(previousVolume, 1)) *
-          100,
+        change: calculatePercentageChange(currentVolume, previousVolume),
       },
       completion: {
-        current: currentCompletion,
-        previous: previousCompletion,
-        change:
-          ((currentCompletion - previousCompletion) /
-            Math.max(previousCompletion, 1)) *
-          100,
+        current: isFinite(currentCompletion) ? currentCompletion : 0,
+        previous: isFinite(previousCompletion) ? previousCompletion : 0,
+        change: calculatePercentageChange(
+          currentCompletion,
+          previousCompletion
+        ),
       },
     };
   };
@@ -382,32 +401,38 @@ export const useEnhancedAnalyticsData = () => {
       if (!hourlyData[hour]) {
         hourlyData[hour] = { volume: 0, waitTime: 0, count: 0 };
       }
-      hourlyData[hour].volume += record.total_tickets;
-      hourlyData[hour].waitTime += record.avg_wait_time;
+      hourlyData[hour].volume += record.tickets_issued || 0;
+      hourlyData[hour].waitTime += record.avg_wait_time || 0;
       hourlyData[hour].count += 1;
 
       // Daily patterns
       if (!dailyData[day]) {
         dailyData[day] = { volume: 0, waitTime: 0, count: 0 };
       }
-      dailyData[day].volume += record.total_tickets;
-      dailyData[day].waitTime += record.avg_wait_time;
+      dailyData[day].volume += record.tickets_issued || 0;
+      dailyData[day].waitTime += record.avg_wait_time || 0;
       dailyData[day].count += 1;
     });
 
     const hourly = Object.entries(hourlyData)
       .map(([hour, data]) => ({
         hour: parseInt(hour),
-        avgVolume: Math.round(data.volume / data.count),
-        avgWaitTime: Math.round((data.waitTime / data.count) * 10) / 10,
+        avgVolume: data.count > 0 ? Math.round(data.volume / data.count) : 0,
+        avgWaitTime:
+          data.count > 0
+            ? Math.round((data.waitTime / data.count) * 10) / 10
+            : 0,
       }))
       .sort((a, b) => a.hour - b.hour);
 
     const daily = Object.entries(dailyData)
       .map(([day, data]) => ({
         day: parseInt(day),
-        avgVolume: Math.round(data.volume / data.count),
-        avgWaitTime: Math.round((data.waitTime / data.count) * 10) / 10,
+        avgVolume: data.count > 0 ? Math.round(data.volume / data.count) : 0,
+        avgWaitTime:
+          data.count > 0
+            ? Math.round((data.waitTime / data.count) * 10) / 10
+            : 0,
       }))
       .sort((a, b) => a.day - b.day);
 
@@ -436,11 +461,12 @@ export const useEnhancedAnalyticsData = () => {
       }
 
       const dept = deptData[record.department_id];
-      dept.totalTickets += record.total_tickets;
-      dept.totalServed += record.completed_tickets;
-      dept.totalWaitTime += record.avg_wait_time * record.total_tickets;
+      dept.totalTickets += record.tickets_issued || 0;
+      dept.totalServed += record.tickets_served || 0;
+      dept.totalWaitTime +=
+        (record.avg_wait_time || 0) * (record.tickets_issued || 0);
       dept.totalServiceTime +=
-        record.avg_service_time * record.completed_tickets;
+        (record.avg_service_time || 0) * (record.tickets_served || 0);
       dept.recordCount += 1;
     });
 
@@ -467,9 +493,9 @@ export const useEnhancedAnalyticsData = () => {
 
     serviceAnalytics.forEach((record) => {
       const serviceName = record.services?.name || "General Service";
-      serviceData[serviceName] =
-        (serviceData[serviceName] || 0) + record.tickets_issued;
-      totalTickets += record.tickets_issued;
+      const ticketCount = record.tickets_issued || 0;
+      serviceData[serviceName] = (serviceData[serviceName] || 0) + ticketCount;
+      totalTickets += ticketCount;
     });
 
     return Object.entries(serviceData).map(([serviceName, ticketCount]) => ({
@@ -486,9 +512,9 @@ export const useEnhancedAnalyticsData = () => {
   const calculateNotificationStats = (notificationAnalytics: any[]) => {
     const totals = notificationAnalytics.reduce(
       (acc, record) => ({
-        sent: acc.sent + record.total_notifications,
-        successful: acc.successful + record.successful_notifications,
-        failed: acc.failed + record.failed_notifications,
+        sent: acc.sent + (record.total_notifications || 0),
+        successful: acc.successful + (record.successful_notifications || 0),
+        failed: acc.failed + (record.failed_notifications || 0),
       }),
       { sent: 0, successful: 0, failed: 0 }
     );

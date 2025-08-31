@@ -1,5 +1,51 @@
 # Smart Queue System - Changelog
 
+## Version 2.11.0 - Analytics NaN Fix & Enhanced Analytics Restoration (August 31, 2025)
+
+### 🔧 **Critical Analytics System Fixes**
+
+#### GitHub Action Authentication Resolution
+
+- **Fixed Cleanup Function**: Resolved HTTP 401 authentication failures in GitHub Actions
+- **Environment Variables**: Properly configured `CLEANUP_ADMIN_KEY` for automated cleanup
+- **Database Maintenance**: Automated cleanup function now runs successfully daily
+
+#### Enhanced Analytics Data Display Restoration
+
+- **Schema Alignment**: Fixed critical mismatch between database columns and TypeScript interfaces
+- **Database Schema**: `tickets_issued`, `tickets_served` (actual columns)
+- **TypeScript Interfaces**: Updated from `total_tickets`, `completed_tickets` to match database
+- **Data Display**: Enhanced Analytics now shows actual data instead of 0/N/A values
+
+#### Console Error Elimination
+
+- **Query Parameter Fix**: Resolved `department_id=eq.undefined` causing 400 Bad Request errors
+- **Conditional Logic**: Department filter only applied when department is actually selected
+- **Error-Free Experience**: Clean console output without query errors
+
+#### Chart Rendering NaN Error Resolution
+
+- **SVG Coordinate Safety**: Comprehensive null safety for all chart coordinate calculations
+- **Components Fixed**: `HistoricalTrendsSection.tsx`, `QueuePerformanceSection.tsx`
+- **Data Validation**: Added `isFinite()` checks for all numeric values
+- **Fallback Values**: Safe coordinate fallbacks prevent NaN SVG rendering errors
+
+#### Comprehensive Analytics Safety Implementation
+
+- **Null Safety**: Added null checks throughout analytics calculation pipeline
+- **Division by Zero Protection**: Safe percentage and average calculations
+- **Data Filtering**: Invalid data points filtered before chart rendering
+- **Chart Components**: Both `SimpleLineChart` and `SimpleBarChart` components secured
+
+### 🧪 **Testing & Validation**
+
+- **Database Verification**: Confirmed analytics data exists and is processed correctly
+- **Frontend Validation**: Charts render properly with existing August 25, 2025 data
+- **Console Clean**: Zero NaN errors or console warnings
+- **GitHub Action Status**: Cleanup function running successfully with proper authentication
+
+---
+
 ## Version 2.10.0 - WhatsApp Integration & Enhanced Message Templates (August 27, 2025)
 
 ### 🚀 **WhatsApp Inbound-First Integration**

@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { getAllowedOrganizationTabs } from "@/lib/roleUtils";
-import { RoleRestrictedAccess } from "@/components/RoleRestrictedAccess";
 import { useAppToast } from "@/hooks/useAppToast";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PlanLimitsDashboard } from "@/components/PlanLimitsDashboard";
 import { supabase } from "@/lib/supabase";
-import { QRCodeData } from "./features/shared/types";
 import { useOrganizationData } from "./features/shared/useOrganizationData";
 import { useOrganizationOperations } from "./features/shared/useOrganizationOperations";
 import { useMemberOperations } from "./features/shared/useMemberOperations";
@@ -18,10 +16,8 @@ import { OrganizationHeader } from "./features/organization-header/OrganizationH
 import { OrganizationDetails } from "./features/organization-details/OrganizationDetails";
 import { QRManagement } from "./features/qr-management/QRManagement";
 import { MemberManagement } from "./features/member-management/MemberManagement";
-import { InvitationManagement } from "./features/invitation-management/InvitationManagement";
 import { MemberAnalytics } from "./features/member-analytics/MemberAnalytics";
 import { MessageTemplateManagement } from "./features/message-templates/MessageTemplateManagement";
-import { logger } from "@/lib/logger";
 
 // Force dynamic rendering for client-side features
 export const dynamic = "force-dynamic";
@@ -35,13 +31,7 @@ export default function OrganizationPage() {
 
   // Tab state - use stable default, update later with useEffect
   const [activeTab, setActiveTab] = useState<
-    | "details"
-    | "qr"
-    | "members"
-    | "plan"
-    | "invitations"
-    | "analytics"
-    | "messages"
+    "details" | "qr" | "members" | "plan" | "analytics" | "messages"
   >("qr");
 
   // Member invitation state
@@ -367,102 +357,186 @@ export default function OrganizationPage() {
 
         {/* Tab Navigation */}
         <div className="border-b border-gray-200 mt-4 mb-6">
-          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-            {(() => {
-              const allowedTabs = userRole
-                ? getAllowedOrganizationTabs(userRole)
-                : ["qr"]; // Default to QR if role not loaded
+          {/* Mobile: Scrollable horizontal tabs */}
+          <div className="sm:hidden">
+            <nav
+              className="-mb-px flex overflow-x-auto scrollbar-hide"
+              aria-label="Tabs"
+            >
+              <div className="flex space-x-1 px-1">
+                {(() => {
+                  const allowedTabs = userRole
+                    ? getAllowedOrganizationTabs(userRole)
+                    : ["qr"]; // Default to QR if role not loaded
 
-              return (
-                <>
-                  {allowedTabs.includes("details") && (
-                    <button
-                      onClick={() => setActiveTab("details")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "details"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      Organization Details
-                    </button>
-                  )}
-                  {allowedTabs.includes("plan") && (
-                    <button
-                      onClick={() => setActiveTab("plan")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "plan"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      Plan & Billing
-                    </button>
-                  )}
-                  {allowedTabs.includes("qr") && (
-                    <button
-                      onClick={() => setActiveTab("qr")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "qr"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      QR Code Management
-                    </button>
-                  )}
-                  {allowedTabs.includes("members") && (
-                    <button
-                      onClick={() => setActiveTab("members")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "members"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      Member Management
-                    </button>
-                  )}
-                  {allowedTabs.includes("invitations") && (
-                    <button
-                      onClick={() => setActiveTab("invitations")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "invitations"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      Invitations
-                    </button>
-                  )}
-                  {allowedTabs.includes("analytics") && (
-                    <button
-                      onClick={() => setActiveTab("analytics")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "analytics"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      Analytics
-                    </button>
-                  )}
-                  {allowedTabs.includes("messages") && (
-                    <button
-                      onClick={() => setActiveTab("messages")}
-                      className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "messages"
-                          ? "border-blue-500 text-blue-600"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      Messages
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-          </nav>
+                  return (
+                    <>
+                      {allowedTabs.includes("details") && (
+                        <button
+                          onClick={() => setActiveTab("details")}
+                          className={`flex-shrink-0 whitespace-nowrap py-2 px-3 border-b-2 font-medium text-xs ${
+                            activeTab === "details"
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          Details
+                        </button>
+                      )}
+                      {allowedTabs.includes("plan") && (
+                        <button
+                          onClick={() => setActiveTab("plan")}
+                          className={`flex-shrink-0 whitespace-nowrap py-2 px-3 border-b-2 font-medium text-xs ${
+                            activeTab === "plan"
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          Plan
+                        </button>
+                      )}
+                      {allowedTabs.includes("qr") && (
+                        <button
+                          onClick={() => setActiveTab("qr")}
+                          className={`flex-shrink-0 whitespace-nowrap py-2 px-3 border-b-2 font-medium text-xs ${
+                            activeTab === "qr"
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          QR Codes
+                        </button>
+                      )}
+                      {allowedTabs.includes("members") && (
+                        <button
+                          onClick={() => setActiveTab("members")}
+                          className={`flex-shrink-0 whitespace-nowrap py-2 px-3 border-b-2 font-medium text-xs ${
+                            activeTab === "members"
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          Members
+                        </button>
+                      )}
+                      {allowedTabs.includes("analytics") && (
+                        <button
+                          onClick={() => setActiveTab("analytics")}
+                          className={`flex-shrink-0 whitespace-nowrap py-2 px-3 border-b-2 font-medium text-xs ${
+                            activeTab === "analytics"
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          Analytics
+                        </button>
+                      )}
+                      {allowedTabs.includes("messages") && (
+                        <button
+                          onClick={() => setActiveTab("messages")}
+                          className={`flex-shrink-0 whitespace-nowrap py-2 px-3 border-b-2 font-medium text-xs ${
+                            activeTab === "messages"
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          Experience
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </nav>
+          </div>
+
+          {/* Desktop: Standard horizontal tabs */}
+          <div className="hidden sm:block">
+            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+              {(() => {
+                const allowedTabs = userRole
+                  ? getAllowedOrganizationTabs(userRole)
+                  : ["qr"]; // Default to QR if role not loaded
+
+                return (
+                  <>
+                    {allowedTabs.includes("details") && (
+                      <button
+                        onClick={() => setActiveTab("details")}
+                        className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                          activeTab === "details"
+                            ? "border-blue-500 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        Organization Details
+                      </button>
+                    )}
+                    {allowedTabs.includes("plan") && (
+                      <button
+                        onClick={() => setActiveTab("plan")}
+                        className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                          activeTab === "plan"
+                            ? "border-blue-500 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        Plan & Billing
+                      </button>
+                    )}
+                    {allowedTabs.includes("qr") && (
+                      <button
+                        onClick={() => setActiveTab("qr")}
+                        className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                          activeTab === "qr"
+                            ? "border-blue-500 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        QR Code Management
+                      </button>
+                    )}
+                    {allowedTabs.includes("members") && (
+                      <button
+                        onClick={() => setActiveTab("members")}
+                        className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                          activeTab === "members"
+                            ? "border-blue-500 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        Member Management
+                      </button>
+                    )}
+                    {allowedTabs.includes("analytics") && (
+                      <button
+                        onClick={() => setActiveTab("analytics")}
+                        className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                          activeTab === "analytics"
+                            ? "border-blue-500 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        Analytics
+                      </button>
+                    )}
+                    {allowedTabs.includes("messages") && (
+                      <button
+                        onClick={() => setActiveTab("messages")}
+                        className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                          activeTab === "messages"
+                            ? "border-blue-500 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        Customer Experience
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+            </nav>
+          </div>
         </div>
 
         {/* Tab Content */}
@@ -583,14 +657,9 @@ export default function OrganizationPage() {
               userAssignedBranchId={rolePermissions.assignedBranchId}
               userAssignedDepartmentIds={rolePermissions.assignedDepartmentIds}
               showWarning={showWarning}
-            />
-          )}
-
-          {activeTab === "invitations" && organization && userRole && (
-            <InvitationManagement
+              // Invitation management props
               organizationId={organization.id}
               organizationName={organization.name}
-              currentUserRole={userRole}
               showSuccess={showSuccess}
               showError={showError}
               showInfo={showInfo}
@@ -608,6 +677,22 @@ export default function OrganizationPage() {
             <MessageTemplateManagement
               organizationId={organization.id}
               organizationName={organization.name}
+              welcomeMessage={orgForm.welcome_message}
+              onUpdateWelcomeMessage={async (message: string) => {
+                const updatedForm = { ...orgForm, welcome_message: message };
+                setOrgForm(updatedForm);
+                // Save the welcome message immediately
+                await updateOrganization(
+                  { preventDefault: () => {} } as React.FormEvent,
+                  userProfile,
+                  updatedForm,
+                  fetchOrganization,
+                  setLoading,
+                  showSuccess,
+                  showError
+                );
+              }}
+              canEditWelcomeMessage={rolePermissions.canEditOrganization}
             />
           )}
         </div>

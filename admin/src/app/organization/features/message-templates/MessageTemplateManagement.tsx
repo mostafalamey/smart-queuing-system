@@ -12,11 +12,17 @@ import { MessageSquare, Save, RotateCcw, Eye, Copy } from "lucide-react";
 interface MessageTemplateManagementProps {
   organizationId: string;
   organizationName: string;
+  welcomeMessage: string;
+  onUpdateWelcomeMessage: (message: string) => Promise<void>;
+  canEditWelcomeMessage: boolean;
 }
 
 export function MessageTemplateManagement({
   organizationId,
   organizationName,
+  welcomeMessage,
+  onUpdateWelcomeMessage,
+  canEditWelcomeMessage,
 }: MessageTemplateManagementProps) {
   const { showSuccess, showError, showInfo } = useAppToast();
   const [templates, setTemplates] = useState<MessageTemplates>(
@@ -31,6 +37,12 @@ export function MessageTemplateManagement({
     "whatsapp" | "push"
   >("whatsapp");
   const [showPreview, setShowPreview] = useState(false);
+
+  // Local welcome message state with debounced updates
+  const [localWelcomeMessage, setLocalWelcomeMessage] =
+    useState(welcomeMessage);
+  const [welcomeMessageTimeout, setWelcomeMessageTimeout] =
+    useState<NodeJS.Timeout | null>(null);
 
   // Sample data for preview
   const sampleData: MessageTemplateData = {
@@ -48,6 +60,20 @@ export function MessageTemplateManagement({
   useEffect(() => {
     loadTemplates();
   }, [organizationId]);
+
+  // Sync local welcome message with prop
+  useEffect(() => {
+    setLocalWelcomeMessage(welcomeMessage);
+  }, [welcomeMessage]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (welcomeMessageTimeout) {
+        clearTimeout(welcomeMessageTimeout);
+      }
+    };
+  }, [welcomeMessageTimeout]);
 
   const loadTemplates = async () => {
     try {
@@ -113,6 +139,22 @@ export function MessageTemplateManagement({
     showInfo("Templates reset to defaults. Remember to save your changes.");
   };
 
+  const handleWelcomeMessageChange = (message: string) => {
+    setLocalWelcomeMessage(message);
+
+    // Clear existing timeout
+    if (welcomeMessageTimeout) {
+      clearTimeout(welcomeMessageTimeout);
+    }
+
+    // Set new timeout for debounced update
+    const newTimeout = setTimeout(() => {
+      onUpdateWelcomeMessage(message);
+    }, 1000); // 1 second delay
+
+    setWelcomeMessageTimeout(newTimeout);
+  };
+
   const updateTemplate = (
     templateType: keyof MessageTemplates,
     messageType: "whatsapp" | "push",
@@ -170,12 +212,62 @@ export function MessageTemplateManagement({
 
   return (
     <div className="space-y-6">
+      {/* Welcome Message Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              Customer Welcome Experience
+            </h2>
+            <p className="text-sm text-gray-500">
+              Welcome message displayed when customers first access your queue
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Welcome Message
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            This message will be displayed to customers when they first access
+            the queue system
+          </p>
+          <textarea
+            value={localWelcomeMessage}
+            onChange={(e) => {
+              if (canEditWelcomeMessage) {
+                handleWelcomeMessageChange(e.target.value);
+              }
+            }}
+            disabled={!canEditWelcomeMessage}
+            rows={3}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 resize-none ${
+              !canEditWelcomeMessage
+                ? "bg-gray-50 cursor-not-allowed text-gray-700"
+                : ""
+            }`}
+            placeholder="Welcome to our smart queue system. Please take your number and wait for your turn."
+          />
+          {!canEditWelcomeMessage && (
+            <p className="text-xs text-gray-500 mt-2">
+              You don't have permission to edit the welcome message. Contact
+              your administrator.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Message Templates Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
             <MessageSquare className="h-6 w-6 text-blue-600" />
             <h2 className="text-xl font-semibold text-gray-900">
-              Message Templates
+              Notification Message Templates
             </h2>
           </div>
           <div className="flex space-x-3">

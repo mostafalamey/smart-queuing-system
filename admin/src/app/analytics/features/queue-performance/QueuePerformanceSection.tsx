@@ -39,20 +39,49 @@ const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
     );
   }
 
-  const maxWaitTime = Math.max(...data.map((d) => d.avgWaitTime));
-  const minWaitTime = Math.min(...data.map((d) => d.avgWaitTime));
+  // Filter out invalid data and ensure we have valid numbers
+  const validData = data.filter(
+    (d) =>
+      d &&
+      typeof d.avgWaitTime === "number" &&
+      isFinite(d.avgWaitTime) &&
+      typeof d.ticketCount === "number" &&
+      isFinite(d.ticketCount)
+  );
+
+  if (validData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-48 text-gray-500">
+        <div className="text-center">
+          <BarChart3 className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p>No valid data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const maxWaitTime = Math.max(...validData.map((d) => d.avgWaitTime));
+  const minWaitTime = Math.min(...validData.map((d) => d.avgWaitTime));
   const range = maxWaitTime - minWaitTime || 1;
 
   const padding = 40;
   const chartWidth = width - padding * 2;
   const chartHeight = height - padding * 2;
 
-  const points = data
+  const points = validData
     .map((point, index) => {
-      const x = padding + (index / (data.length - 1)) * chartWidth;
+      const x =
+        validData.length > 1
+          ? padding + (index / (validData.length - 1)) * chartWidth
+          : padding + chartWidth / 2;
       const y =
         padding + ((maxWaitTime - point.avgWaitTime) / range) * chartHeight;
-      return `${x},${y}`;
+
+      // Ensure coordinates are finite
+      const safeX = isFinite(x) ? x : padding + chartWidth / 2;
+      const safeY = isFinite(y) ? y : padding + chartHeight / 2;
+
+      return `${safeX},${safeY}`;
     })
     .join(" ");
 
@@ -100,14 +129,28 @@ const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
         <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" />
 
         {/* Points */}
-        {data.map((point, index) => {
-          const x = padding + (index / (data.length - 1)) * chartWidth;
+        {validData.map((point, index) => {
+          const x =
+            validData.length > 1
+              ? padding + (index / (validData.length - 1)) * chartWidth
+              : padding + chartWidth / 2;
           const y =
             padding + ((maxWaitTime - point.avgWaitTime) / range) * chartHeight;
+
+          // Ensure coordinates are finite
+          const safeX = isFinite(x) ? x : padding + chartWidth / 2;
+          const safeY = isFinite(y) ? y : padding + chartHeight / 2;
+
           return (
             <g key={index}>
-              <circle cx={x} cy={y} r="4" fill="#3b82f6" />
-              <circle cx={x} cy={y} r="6" fill="#3b82f6" fillOpacity="0.2" />
+              <circle cx={safeX} cy={safeY} r="4" fill="#3b82f6" />
+              <circle
+                cx={safeX}
+                cy={safeY}
+                r="6"
+                fill="#3b82f6"
+                fillOpacity="0.2"
+              />
             </g>
           );
         })}
@@ -119,7 +162,7 @@ const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
           textAnchor="end"
           className="text-xs fill-gray-600"
         >
-          {Math.round(maxWaitTime)}m
+          {isFinite(maxWaitTime) ? Math.round(maxWaitTime) : 0}m
         </text>
         <text
           x={padding - 10}
@@ -127,7 +170,7 @@ const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
           textAnchor="end"
           className="text-xs fill-gray-600"
         >
-          {Math.round(minWaitTime)}m
+          {isFinite(minWaitTime) ? Math.round(minWaitTime) : 0}m
         </text>
       </svg>
 
@@ -163,7 +206,7 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({
   }
 
   const safeData = data.filter(
-    (d) => d && typeof d.avgWaitTime === "number" && !isNaN(d.avgWaitTime)
+    (d) => d && typeof d.avgWaitTime === "number" && isFinite(d.avgWaitTime)
   );
 
   if (safeData.length === 0) {
@@ -208,24 +251,30 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({
 
         {/* Bars */}
         {safeData.map((item, index) => {
-          const avgWaitTime = item.avgWaitTime || 0;
+          const avgWaitTime = isFinite(item.avgWaitTime) ? item.avgWaitTime : 0;
           const barHeight = Math.max(1, (avgWaitTime / maxValue) * chartHeight);
           const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
           const y = padding + chartHeight - barHeight;
 
+          // Ensure all coordinates are finite
+          const safeX = isFinite(x) ? x : padding;
+          const safeY = isFinite(y) ? y : padding + chartHeight - 1;
+          const safeBarHeight = isFinite(barHeight) ? barHeight : 1;
+          const safeBarWidth = isFinite(barWidth) ? barWidth : 10;
+
           return (
             <g key={index}>
               <rect
-                x={x}
-                y={y}
-                width={barWidth}
-                height={barHeight}
+                x={safeX}
+                y={safeY}
+                width={safeBarWidth}
+                height={safeBarHeight}
                 fill="#10b981"
                 className="hover:fill-green-600 transition-colors"
               />
               <text
-                x={x + barWidth / 2}
-                y={y - 5}
+                x={safeX + safeBarWidth / 2}
+                y={safeY - 5}
                 textAnchor="middle"
                 className="text-xs fill-gray-700 font-medium"
               >
