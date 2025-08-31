@@ -29,9 +29,12 @@ import {
   Users,
   Clock,
   Bell,
+  MessageCircle,
+  Smartphone,
   BellOff,
   AlertTriangle,
   Info,
+  ArrowLeft,
 } from "lucide-react";
 
 interface Organization {
@@ -1618,9 +1621,6 @@ function CustomerAppContent() {
     } else if (step === 2 && selectedBranch) {
       console.log("➡️ Moving from step 2 to step 3");
       setStep(3);
-    } else if (step === 3 && selectedDepartment) {
-      console.log("➡️ Moving from step 3 to step 4");
-      setStep(4); // Move to service + notification preference selection
     } else if (step === 4 && selectedService && notificationPreference) {
       console.log(
         "➡️ Moving from step 4 to step 5 with preference:",
@@ -1644,11 +1644,26 @@ function CustomerAppContent() {
         "Conditions:",
         {
           step2: step === 2 && selectedBranch,
-          step3: step === 3 && selectedDepartment,
           step4: step === 4 && selectedService && notificationPreference,
           step5: step === 5,
         }
       );
+    }
+  };
+
+  const handleGoBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+      // Clear selections when going back
+      if (step === 4) {
+        setSelectedService("");
+        setNotificationPreference("push");
+        setExpectedTicketNumber("");
+      } else if (step === 3) {
+        setSelectedDepartment("");
+      } else if (step === 2) {
+        setSelectedBranch("");
+      }
     }
   };
 
@@ -1784,9 +1799,18 @@ function CustomerAppContent() {
           {step === 2 && (
             <div className="card p-6">
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-900">
-                  Select Branch
-                </h4>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={handleGoBack}
+                    aria-label="Go back to previous step"
+                    className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-gray-600" />
+                  </button>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Select Branch
+                  </h4>
+                </div>
 
                 <div className="space-y-3">
                   {branches.map((branch) => (
@@ -1828,9 +1852,18 @@ function CustomerAppContent() {
           {step === 3 && (
             <div className="card p-6">
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-900">
-                  Select Department
-                </h4>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={handleGoBack}
+                    aria-label="Go back to previous step"
+                    className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-gray-600" />
+                  </button>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Select Department
+                  </h4>
+                </div>
 
                 <div className="space-y-3">
                   {departments.map((department) => (
@@ -1844,6 +1877,8 @@ function CustomerAppContent() {
                           selectedBranch,
                           department.id
                         );
+                        // Automatically proceed to service selection
+                        setStep(4);
                       }}
                       className={`w-full p-4 border rounded-xl text-left transition-colors ${
                         selectedDepartment === department.id
@@ -1874,16 +1909,6 @@ function CustomerAppContent() {
                     </button>
                   ))}
                 </div>
-
-                {selectedDepartment && (
-                  <button
-                    onClick={handleContinue}
-                    disabled={loading}
-                    className="w-full btn-primary mt-6"
-                  >
-                    {loading ? "Loading..." : "Continue to Services"}
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -1892,9 +1917,18 @@ function CustomerAppContent() {
           {step === 4 && (
             <div className="card p-6">
               <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-900">
-                  Select Service
-                </h4>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={handleGoBack}
+                    aria-label="Go back to previous step"
+                    className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-gray-600" />
+                  </button>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Select Service
+                  </h4>
+                </div>
 
                 <div className="space-y-3">
                   {services.length === 0 ? (
@@ -1993,9 +2027,11 @@ function CustomerAppContent() {
                         }`}
                       >
                         <div className="flex items-center space-x-3">
-                          <div className="text-lg">🔔</div>
+                          <div className="text-primary-600">
+                            <Bell className="h-6 w-6" />
+                          </div>
                           <div>
-                            <div className="font-medium">
+                            <div className="font-medium text-gray-900">
                               Browser Notifications
                             </div>
                             <div className="text-sm text-gray-600">
@@ -2014,9 +2050,11 @@ function CustomerAppContent() {
                         }`}
                       >
                         <div className="flex items-center space-x-3">
-                          <div className="text-lg">💬</div>
+                          <div className="text-green-600">
+                            <MessageCircle className="h-6 w-6" />
+                          </div>
                           <div>
-                            <div className="font-medium">
+                            <div className="font-medium text-gray-900">
                               WhatsApp Notifications
                             </div>
                             <div className="text-sm text-gray-600">
@@ -2035,9 +2073,12 @@ function CustomerAppContent() {
                         }`}
                       >
                         <div className="flex items-center space-x-3">
-                          <div className="text-lg">🔔💬</div>
+                          <div className="flex items-center space-x-1">
+                            <Bell className="h-6 w-6 text-primary-600" />
+                            <MessageCircle className="h-6 w-6 text-green-600" />
+                          </div>
                           <div>
-                            <div className="font-medium">
+                            <div className="font-medium text-gray-900">
                               Both Notifications
                             </div>
                             <div className="text-sm text-gray-600">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Phone } from "lucide-react";
+import { Phone, Smartphone } from "lucide-react";
 
 interface PhoneInputWithCountryProps {
   organizationId: string;
@@ -97,8 +97,9 @@ export const PhoneInputWithCountry: React.FC<PhoneInputWithCountryProps> = ({
       </label>
 
       {/* Country Code Display */}
-      <div className="text-xs text-gray-500 mb-1">
-        📱 {countryName} ({countryCode})
+      <div className="flex items-center text-xs text-gray-500 mb-1">
+        <Smartphone className="w-3 h-3 mr-1" />
+        {countryName} ({countryCode})
       </div>
 
       <input
