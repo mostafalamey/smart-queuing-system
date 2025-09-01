@@ -236,3 +236,4 @@ export const KPISection: React.FC<KPISectionProps> = ({ data, loading }) => {
     </div>
   );
 };
+

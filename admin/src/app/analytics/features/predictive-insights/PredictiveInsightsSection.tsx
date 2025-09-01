@@ -289,3 +289,4 @@ export const PredictiveInsightsSection: React.FC<
     </div>
   );
 };
+

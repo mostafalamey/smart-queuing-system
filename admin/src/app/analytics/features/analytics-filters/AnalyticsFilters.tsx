@@ -123,3 +123,4 @@ export const AnalyticsFilters: React.FC<AnalyticsFiltersProps> = ({
     </div>
   );
 };
+

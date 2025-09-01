@@ -398,3 +398,4 @@ export const HistoricalTrendsSection: React.FC<
     </div>
   );
 };
+

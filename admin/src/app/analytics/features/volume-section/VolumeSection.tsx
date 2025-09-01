@@ -387,3 +387,4 @@ export const VolumeSection: React.FC<VolumeSectionProps> = ({
     </div>
   );
 };
+

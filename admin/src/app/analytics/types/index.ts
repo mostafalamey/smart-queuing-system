@@ -73,3 +73,4 @@ export interface AnalyticsFilters {
   branchId?: string;
   departmentId?: string;
 }
+

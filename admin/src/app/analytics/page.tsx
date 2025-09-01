@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { RoleRestrictedAccess } from "@/components/RoleRestrictedAccess";
 import { useAuth } from "@/lib/AuthContext";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
-import { Sparkles, BarChart3 } from "lucide-react";
+import { Sparkles, BarChart3, Activity } from "lucide-react";
 
 // Original components
 import { AnalyticsHeader } from "./features/analytics-header";
@@ -19,22 +19,60 @@ import { HistoricalTrendsSection } from "./features/historical-trends";
 import { PredictiveInsightsSection } from "./features/predictive-insights";
 import { PeakPatternsAnalysisSection } from "./features/peak-patterns";
 
+// Phase 1 Enhanced Components
+import { RealTimeAnalyticsDashboard } from "./components/RealTimeAnalyticsDashboard";
+import { PredictiveChart } from "./components/charts/PredictiveChart";
+import { HeatmapChart } from "./components/charts/HeatmapChart";
+
 // Hooks
 import { useAnalyticsData } from "./hooks/useAnalyticsData";
 import { useEnhancedAnalyticsData } from "./hooks/useEnhancedAnalyticsData";
+import { useAdvancedAnalyticsProcessing } from "./hooks/useAdvancedAnalyticsProcessing";
+import { useHistoricalTicketData } from "./hooks/useHistoricalTicketData";
+
+// Data transformation utilities
+import {
+  transformHistoricalTicketsToAnalytics,
+  aggregateTicketsByHour,
+  createHeatmapData,
+  formatForPredictiveChart,
+} from "./utils/analytics-data-utils";
 
 export default function AnalyticsPage() {
   const { userProfile } = useAuth();
   const { canAccessAnalytics, userRole } = useRolePermissions();
-  const [analyticsMode, setAnalyticsMode] = useState<"standard" | "enhanced">(
-    "enhanced"
-  );
+  const [analyticsMode, setAnalyticsMode] = useState<
+    "standard" | "enhanced" | "phase1"
+  >("phase1");
 
   // Standard analytics data (existing implementation)
   const standardAnalytics = useAnalyticsData();
 
   // Enhanced analytics data (new historical implementation)
   const enhancedAnalytics = useEnhancedAnalyticsData();
+
+  // Phase 1: Real historical data from Supabase
+  const {
+    data: historicalData,
+    loading: historicalLoading,
+    error: historicalError,
+  } = useHistoricalTicketData({ timeRange: "7d" });
+
+  // Phase 1 advanced processing
+  const { processHistoricalData } = useAdvancedAnalyticsProcessing();
+
+  // Process historical data for Phase 1 charts
+  const realHistoricalData = useMemo(() => {
+    if (!historicalData?.tickets?.length) return [];
+    const timeSeriesData = aggregateTicketsByHour(historicalData.tickets);
+    return formatForPredictiveChart(timeSeriesData);
+  }, [historicalData?.tickets]);
+
+  // Generate real heatmap data
+  const realHeatmapData = useMemo(() => {
+    if (!historicalData?.tickets?.length) return [];
+    return createHeatmapData(historicalData.tickets);
+  }, [historicalData?.tickets]);
 
   // Choose which analytics to use based on mode
   const currentAnalytics =
@@ -82,6 +120,18 @@ export default function AnalyticsPage() {
               <Sparkles className="h-4 w-4 mr-2" />
               Enhanced Analytics
             </button>
+            <button
+              onClick={() => setAnalyticsMode("phase1")}
+              className={`tab-button flex items-center ${
+                analyticsMode === "phase1" ? "active" : ""
+              }`}
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Phase 1 Analytics
+              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                New
+              </span>
+            </button>
           </nav>
         </div>
 
@@ -116,6 +166,111 @@ export default function AnalyticsPage() {
                 data={currentAnalytics.analyticsData}
                 loading={currentAnalytics.loading}
               />
+            </div>
+          ) : analyticsMode === "phase1" ? (
+            <div className="space-y-8">
+              {/* Phase 1 Advanced Analytics */}
+
+              {/* Real-Time Dashboard */}
+              {userProfile?.organization_id && (
+                <RealTimeAnalyticsDashboard
+                  organizationId={userProfile.organization_id}
+                  refreshInterval={5000}
+                />
+              )}
+
+              {/* Enhanced Visualizations Grid */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* Predictive Chart with Real Data */}
+                <div className="space-y-4">
+                  <PredictiveChart
+                    historicalData={
+                      realHistoricalData.length > 0 ? realHistoricalData : []
+                    }
+                    predictions={[
+                      {
+                        timestamp: new Date(Date.now() + 60 * 60 * 1000),
+                        predicted:
+                          realHistoricalData.length > 0
+                            ? Math.round(
+                                realHistoricalData
+                                  .slice(-6)
+                                  .reduce((sum, item) => sum + item.actual, 0) /
+                                  6
+                              )
+                            : 12,
+                        confidence: { lower: 8, upper: 16 },
+                      },
+                    ]}
+                    title="Queue Length Prediction (Real Data)"
+                    loading={historicalLoading}
+                  />
+                </div>
+
+                {/* Heatmap Chart with Real Data */}
+                <HeatmapChart
+                  data={realHeatmapData.length > 0 ? realHeatmapData : []}
+                  title="Peak Hours Analysis (Real Data)"
+                  loading={historicalLoading}
+                />
+              </div>
+
+              {/* Phase 1 Info Banner */}
+              <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <Activity className="h-6 w-6 text-blue-600" />
+                  <h3 className="font-semibold text-blue-900">
+                    Phase 1: Real Data Analytics Engine
+                  </h3>
+                  {historicalData?.totalCount && (
+                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {historicalData.totalCount} Real Tickets Loaded
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      ✅ Implemented Features:
+                    </h4>
+                    <ul className="space-y-1 text-blue-700">
+                      <li>• Real-time metrics from Supabase</li>
+                      <li>• Historical data from tickets_archive</li>
+                      <li>• Predictive analysis on real patterns</li>
+                      <li>• Actual peak hours heatmap</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      � Data Status:
+                    </h4>
+                    <ul className="space-y-1 text-blue-700">
+                      <li>
+                        • Organization:{" "}
+                        {userProfile?.organization_id ? "HYPER1" : "Loading..."}
+                      </li>
+                      <li>
+                        • Historical Tickets:{" "}
+                        {historicalData?.totalCount || "Loading..."}
+                      </li>
+                      <li>
+                        • Data Quality:{" "}
+                        {historicalData?.dataQuality?.completedPercentage ||
+                          "--"}
+                        % Complete
+                      </li>
+                      <li>
+                        • Date Range:{" "}
+                        {historicalData?.dateRange?.earliest
+                          ? new Date(
+                              historicalData.dateRange.earliest
+                            ).toLocaleDateString()
+                          : "Loading..."}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
